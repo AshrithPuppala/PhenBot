@@ -7,28 +7,21 @@ app = Flask(__name__)
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
-HTML = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<title>PhenBOT Study Companion</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<style>
-body{font-family:sans-serif;background:#f9f9f9;margin:0;padding:24px;}
-#main{max-width:640px;background:#fff;margin:0 auto;padding:32px;border-radius:10px;box-shadow:0 0 10px #ddd;}
-#messages{height:320px;overflow-y:auto;border:1px solid #ccc;padding:1em;background:#fafafa;margin-bottom:1em;}
-.user-msg{text-align:right;color:#4e7be7;}
-.bot-msg{text-align:left;color:#333;background:#efefef;border-radius:8px;margin:6px 0;padding:8px;}
-#question{width:70%;padding:8px;}
-#sendBtn{padding:8px 16px;}
-</style>
-</head>
-<body>
-<div id="main">
-  <h2>PhenBOT Study Companion</h2>
-  <div id="messages"></div>
-  <input id="question" placeholder="Ask a study question..." autocomplete="off">
-  <button id="sendBtn" disabled>Send</button>
+HTML = """<!DOCTYPE html><html lang='en'><head>
+<title>PhenBOT</title>
+<meta name='viewport' content='width=device-width,initial-scale=1'/>
+<style>body{font-family:sans-serif;background:#f9f9f9;padding:24px;}
+#main{max-width:640px;background:#fff;margin:40px auto;padding:32px;border-radius:10px;box-shadow:0 0 10px #ddd;}
+#messages{height:320px;overflow-y:auto;border:1px solid #ccc;padding:1em; background:#fafafa;margin-bottom:1em;}
+.user-msg{text-align:right;color:#1a73e8;}
+.bot-msg{text-align:left;color:#333;background:#efefef;border-radius:8px;padding:8px;}
+#question{width:70%;padding:8px;} #sendBtn{padding:8px 16px;}
+</style></head><body>
+<div id='main'>
+<h2>PhenBOT Study Companion</h2>
+<div id='messages'></div>
+<input id='question' placeholder='Ask a study question...' autocomplete='off'/>
+<button id='sendBtn' disabled>Send</button>
 </div>
 <script>
 const q=document.getElementById('question');
@@ -52,9 +45,7 @@ async function send(){
   append('bot-msg','Server error.');
  }
 }
-</script>
-</body>
-</html>
+</script></body></html>
 """
 
 @app.route("/")
@@ -63,11 +54,13 @@ def home():
 
 @app.route("/api/ask", methods=["POST"])
 def ask():
-    if not groq_client: return jsonify({"error":"Misconfigured server (no API key)"}), 500
+    if not groq_client:
+        return jsonify({"error":"Misconfigured server (no API key)"}), 500
     data = request.get_json(silent=True) or {}
     q = data.get("question","").strip()
-    if not q: return jsonify({"error":"Please enter a question."})
-    prompt = f"You are PhenBOT, an academic assistant. Be concise yet clear.\nQuestion: {q}"
+    if not q:
+        return jsonify({"error":"Please enter a question."})
+    prompt = f"You are PhenBOT, an academic assistant. Answer clearly.\nQuestion: {q}"
     try:
         res = groq_client.chat.completions.create(
             messages=[{"role":"user","content":prompt}],
