@@ -283,7 +283,8 @@ if (answer.length > 100) score += 10;
 return Math.min(Math.max(score, 0), 100); 
 } 
 // Analyze Bloom's taxonomy level 
-function analyzeBloomsLevel(question) {
+function analyzeBloomsLevel(question) 
+{
   const lowerQ = String(question).toLowerCase();
   const createKeywords = ["create","design","compose","develop","plan","construct","produce","formulate","invent","synthesize"];
   const evaluateKeywords = ["evaluate","judge","critique","assess","recommend","justify","argue","support","value","appraise"];
@@ -517,6 +518,5 @@ process.exit(0);
 // Start server 
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000; 
 createServer(PORT);
-make sure the session is accessible globbaly and in the html make sure the path is relative(dont change or lose any feautures or ui)
-
 createServer(PORT);
+
