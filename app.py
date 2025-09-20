@@ -168,7 +168,7 @@ def ask():
                 {'role': 'system', 'content': 'You are PhenBOT, a helpful academic assistant.'},
                 {'role': 'user', 'content': question}
             ],
-            model='llama-3.1-8b-instant', temperature=0.7, max_tokens=500
+            model="llama-3.3-70b" , temperature=0.7, max_tokens=500
         )
         return jsonify({'answer': response.choices[0].message.content})
     except Exception as e:
@@ -178,4 +178,5 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     print(f"Starting local dev server on :{port} (GROQ_AVAILABLE={GROQ_AVAILABLE})")
     app.run(host='0.0.0.0', port=port, debug=False)
+
 
