@@ -1,67 +1,181 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>PhenBOT Study Companion</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #f9f9f9; margin: 0; padding: 24px; }
-    #main { max-width: 640px; background: #fff; margin: 40px auto; padding: 32px; border-radius: 10px; box-shadow: 0 0 10px #ddd; }
-    #messages { height: 320px; overflow-y: auto; border: 1px solid #ccc; padding: 1em; background: #fafafa; margin-bottom: 1em; }
-    .user-msg { text-align: right; color: #1a73e8; margin: 5px 0; }
-    .bot-msg { text-align: left; color: #333; background: #efefef; border-radius: 8px; padding: 8px; margin: 5px 0; display: inline-block; }
-    #question { width: 70%; padding: 8px; }
-    #sendBtn { padding: 8px 16px; }
+    /* Minimal reset + variables */
+    *{box-sizing:border-box}
+    :root{
+      --bg-1:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
+      --accent:#4facfe;
+      --card:#fff;
+      --muted:#64748b;
+      --shadow:0 10px 30px rgba(12, 23, 52, 0.08);
+      --radius:14px;
+      --glass: rgba(255,255,255,0.08);
+    }
+    html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;color:#0f172a;background:var(--bg-1);}
+    .wrap{max-width:1100px;margin:32px auto;padding:24px;display:grid;grid-template-columns:320px 1fr;gap:20px;align-items:start}
+    /* Sidebar */
+    .sidebar{background:var(--card);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);display:flex;flex-direction:column;height:80vh}
+    .brand{display:flex;align-items:center;gap:12px}
+    .brand .logo{font-size:20px}
+    .tag{color:var(--muted);font-size:13px}
+    .nav{margin-top:18px;display:flex;flex-direction:column;gap:6px}
+    .nav button{background:transparent;border:none;text-align:left;padding:12px;border-radius:10px;cursor:pointer;color:var(--muted)}
+    .nav button.active{background:var(--glass);color:var(--accent);border-left:3px solid var(--accent)}
+    .streak{margin-top:auto;background:linear-gradient(135deg,#fef3c7,#fbbf24);padding:12px;border-radius:10px;text-align:center;color:#92400e}
+    /* Main column */
+    .main{display:flex;flex-direction:column;gap:14px;height:80vh}
+    .topbar{display:flex;align-items:center;gap:12px;justify-content:space-between}
+    .card{background:var(--card);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow)}
+    /* Chat area */
+    .chat-wrap{display:flex;flex-direction:column;gap:10px;height:calc(100% - 80px)}
+    .messages{flex:1;padding:16px;overflow:auto;border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent)}
+    .msg{display:flex;gap:12px;margin-bottom:12px;align-items:flex-start}
+    .msg.bot{justify-content:flex-start}
+    .msg.user{justify-content:flex-end;flex-direction:row-reverse}
+    .avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700}
+    .bubble{max-width:78%;padding:12px 14px;border-radius:12px;line-height:1.5;white-space:pre-wrap}
+    .bot .avatar{background:linear-gradient(135deg,#4facfe,#00f2fe);color:white}
+    .bot .bubble{background:#f1f5f9;color:#0f172a;border-bottom-left-radius:6px}
+    .user .avatar{background:linear-gradient(135deg,#667eea,#764ba2);color:white}
+    .user .bubble{background:var(--accent);color:white;border-bottom-right-radius:6px}
+    .input-area{display:flex;gap:8px;padding:12px}
+    textarea{flex:1;resize:none;padding:12px;border-radius:12px;border:1px solid #e6eef9;min-height:56px;font-size:15px}
+    .send{background:linear-gradient(135deg,#4facfe,#667eea);border:none;color:white;padding:12px 18px;border-radius:10px;cursor:pointer}
+    .send:disabled{opacity:.6;cursor:not-allowed}
+    .sources{margin-top:10px;font-size:13px;color:var(--muted)}
+    .source-item{background:#f8fafc;padding:8px;border-radius:8px;margin-top:8px;border-left:4px solid var(--accent)}
+    /* small responsive */
+    @media (max-width:900px){.wrap{grid-template-columns:1fr; padding:12px} .sidebar{height:auto} .main{height:auto}}
   </style>
 </head>
 <body>
-  <div id="main">
-    <h2>PhenBOT Study Companion</h2>
-    <div id="messages"></div>
-    <input id="question" placeholder="Ask a study question..." autocomplete="off" />
-    <button id="sendBtn" disabled>Send</button>
+  <div class="wrap">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand"><div class="logo">🤖 <strong>PhenBOT</strong></div></div>
+      <div class="tag">Advanced Study Companion</div>
+
+      <nav class="nav" aria-label="Main navigation">
+        <button class="active" data-tab="chat">💬 Chat</button>
+        <button data-tab="tools">🛠️ Tools</button>
+        <button data-tab="bookmarks">🔖 Bookmarks</button>
+        <button data-tab="analytics">📈 Analytics</button>
+      </nav>
+
+      <div class="streak">
+        <div style="font-size:24px;font-weight:700" id="streak">7</div>
+        <div style="font-size:13px">Day Streak 🔥</div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+      <div class="topbar">
+        <div style="display:flex;gap:10px;align-items:center">
+          <div class="card" style="padding:10px 14px">Logged in as <strong>You</strong></div>
+          <div class="card" style="padding:10px 14px">Accuracy: <strong id="accuracy">92%</strong></div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="card" style="padding:8px 12px">🍅 Pomodoro 25:00</div>
+        </div>
+      </div>
+
+      <section class="card chat-wrap" id="chatPanel">
+        <div class="messages" id="messages" role="log" aria-live="polite">
+          <div class="msg bot">
+            <div class="avatar">🤖</div>
+            <div class="bubble">Hello! Ask me anything — I can search your Sanity (GROQ) dataset and return matching resources, or answer from the knowledge base.</div>
+          </div>
+        </div>
+
+        <div class="input-area">
+          <textarea id="question" placeholder="Ask a study question or topic... (Shift+Enter for newline)"></textarea>
+          <button id="sendBtn" class="send" disabled>Send</button>
+        </div>
+
+        <div id="responseSources" class="sources" aria-live="polite"></div>
+      </section>
+
+      <!-- placeholder cards -->
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">
+        <div class="card">Today's Progress <div style="margin-top:8px"><div style="height:8px;background:#eee;border-radius:8px;overflow:hidden"><div style="width:65%;height:100%;background:linear-gradient(90deg,#4facfe,#667eea)"></div></div></div></div>
+        <div class="card">Quick Tools: <button onclick="alert('Flashcards stub')">Flashcards</button> <button onclick="alert('Quiz stub')">Quick Quiz</button></div>
+      </div>
+    </main>
   </div>
-  <script>
-    const q = document.getElementById('question');
-    const b = document.getElementById('sendBtn');
-    const m = document.getElementById('messages');
 
-    q.oninput = () => b.disabled = !q.value.trim();
-    b.onclick = send;
-    q.onkeypress = e => { if (e.key === 'Enter' && !b.disabled) send(); };
+<script>
+  const qEl = document.getElementById('question');
+  const sendBtn = document.getElementById('sendBtn');
+  const messages = document.getElementById('messages');
+  const sourcesEl = document.getElementById('responseSources');
 
-    function append(type, text) {
-      let d = document.createElement('div');
-      d.className = type;
-      d.innerText = text;
-      m.appendChild(d);
-      m.scrollTop = m.scrollHeight;
-    }
+  qEl.addEventListener('input', () => sendBtn.disabled = !qEl.value.trim());
+  qEl.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!sendBtn.disabled) send(); } });
 
-    async function send() {
-      let text = q.value.trim();
-      if (!text) return;
-      append('user-msg', text);
-      q.value = '';
-      b.disabled = true;
-      append('bot-msg', 'Thinking...');
-      let nds = m.querySelector('.bot-msg:last-child');
-      try {
-       let r = await fetch('/api/ask', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ question: text })
-});
+  function appendMessage(type, text) {
+    const el = document.createElement('div');
+    el.className = 'msg ' + type;
+    const avatar = document.createElement('div'); avatar.className = 'avatar'; avatar.textContent = type === 'user' ? 'You' : '🤖';
+    const bubble = document.createElement('div'); bubble.className = 'bubble'; bubble.textContent = text;
+    el.appendChild(avatar); el.appendChild(bubble);
+    messages.appendChild(el);
+    messages.scrollTop = messages.scrollHeight;
+    return el;
+  }
 
-        let j = await r.json();
-        nds.remove();
-        append('bot-msg', j.answer || j.error || 'No response.');
-      } catch (e) {
-        nds.remove();
-        append('bot-msg', 'Server error.');
+  async function send() {
+    const question = qEl.value.trim();
+    if (!question) return;
+    appendMessage('user', question);
+    qEl.value = ''; sendBtn.disabled = true;
+    const thinking = appendMessage('bot', '🤔 Thinking...');
+    sourcesEl.innerHTML = '';
+
+    try {
+      const resp = await fetch('/api/ask', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json' },
+        body: JSON.stringify({ question })
+      });
+      const json = await resp.json().catch(()=>({}));
+      thinking.remove();
+
+      if (!resp.ok) {
+        appendMessage('bot', json.error || `Server returned ${resp.status}`);
+        return;
       }
-      b.disabled = false;
+
+      // show answer and sources
+      appendMessage('bot', json.answer || 'No response');
+
+      if (Array.isArray(json.sources) && json.sources.length) {
+        sourcesEl.innerHTML = '<strong>Sources found:</strong>';
+        json.sources.forEach(s=>{
+          const div = document.createElement('div');
+          div.className = 'source-item';
+          const title = s.title || (s._id || 'Untitled');
+          const body = (s.body && (typeof s.body === 'string' ? s.body : JSON.stringify(s.body))).slice(0,400);
+          div.innerHTML = `<div style="font-weight:600">${title}</div><div style="color:var(--muted);margin-top:6px">${body}...</div>`;
+          sourcesEl.appendChild(div);
+        })
+      } else if (json.sources && Object.keys(json.sources).length === 0) {
+        // nothing
+      }
+    } catch (err) {
+      thinking.remove();
+      appendMessage('bot', `Network error: ${err.message}`);
+    } finally {
+      sendBtn.disabled = false;
     }
-  </script>
+  }
+
+  sendBtn.addEventListener('click', send);
+</script>
 </body>
 </html>
