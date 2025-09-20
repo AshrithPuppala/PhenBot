@@ -11,6 +11,7 @@ GROQ_ERROR = None
 def initialize_groq():
     global groq_client, GROQ_AVAILABLE, GROQ_ERROR
     try:
+        # Import Groq here without proxies argument
         from groq import Groq
     except ImportError as e:
         GROQ_ERROR = "Groq library not installed"
@@ -22,6 +23,7 @@ def initialize_groq():
         print(GROQ_ERROR, file=sys.stderr)
         return
     try:
+        # Initialize without proxies= argument
         groq_client = Groq(api_key=api_key)
         GROQ_AVAILABLE = True
         print("Groq client initialized successfully")
@@ -32,8 +34,7 @@ def initialize_groq():
 initialize_groq()
 
 HTML_TEMPLATE = """<!DOCTYPE html>
-<html lang='en'>
-<head><meta charset='UTF-8'/><meta name='viewport' content='width=device-width,initial-scale=1'/>
+<html lang='en'><head><meta charset='UTF-8'/><meta name='viewport' content='width=device-width,initial-scale=1'/>
 <title>PhenBOT Study Companion</title>
 <style>
 body { font-family: Arial, sans-serif; background: #f9f9f9; margin: 0; padding: 24px; }
@@ -73,8 +74,7 @@ async function send(){
  }
 }
 </script>
-</body>
-</html>
+</body></html>
 """
 
 @app.route('/')
