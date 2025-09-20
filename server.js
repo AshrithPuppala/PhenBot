@@ -517,7 +517,7 @@ process.exit(0);
 // Start server 
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000; 
 createServer(PORT);
-make sure the session is accessible globbaly and in the html make sure the path is relative(dont change or lose any feautures or ui)
 </style> 
 </head> 
 <body> 
+
