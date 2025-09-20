@@ -14,6 +14,8 @@
     "cosine-similarity": "^1.0.1",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
-    "node-fetch": "^2.7.0"
+    "formidable": "^3.5.4",
+    "node-fetch": "^2.7.0",
+    "pdf-parse": "^1.1.1"
   }
 }
