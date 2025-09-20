@@ -11,9 +11,50 @@ GROQ_AVAILABLE = False
 GROQ_ERROR = None
 _init_lock = threading.Lock()
 
-HTML_TEMPLATE = """<!doctype html>
-<html> ... (your HTML here - keep the same as in your template) ...</html>
+HTML_TEMPLATE = """<!DOCTYPE html>
+<html lang='en'><head><meta charset='UTF-8'/><meta name='viewport' content='width=device-width,initial-scale=1'/>
+<title>PhenBOT Study Companion</title>
+<style>
+body { font-family: Arial, sans-serif; background: #f9f9f9; margin: 0; padding: 24px; }
+#main { max-width: 640px; background: #fff; margin: 40px auto; padding: 32px; border-radius: 10px; box-shadow: 0 0 10px #ddd; }
+#messages { height: 320px; overflow-y: auto; border: 1px solid #ccc; padding: 1em; background: #fafafa; margin-bottom: 1em; }
+.user-msg { text-align: right; color: #1a73e8; }
+.bot-msg { text-align: left; color: #333; background: #efefef; border-radius: 8px; padding: 8px; }
+#question { width: 70%; padding: 8px; } #sendBtn { padding: 8px 16px; }
+</style>
+</head><body>
+<div id='main'>
+<h2>PhenBOT Study Companion</h2>
+<div id='messages'></div>
+<input id='question' placeholder='Ask a study question...' autocomplete='off'/>
+<button id='sendBtn' disabled>Send</button>
+</div>
+<script>
+const q=document.getElementById('question');
+const b=document.getElementById('sendBtn');
+const m=document.getElementById('messages');
+q.oninput=()=>b.disabled=!q.value.trim();
+b.onclick=send;
+q.onkeypress=e=>{if(e.key==='Enter'&&!b.disabled)send();}
+function append(type,text){let d=document.createElement('div');d.className=type;d.innerText=text;m.appendChild(d);m.scrollTop=m.scrollHeight;}
+async function send(){
+ let text=q.value.trim(); if(!text)return;
+ append('user-msg',text); q.value=''; b.disabled=1; append('bot-msg','Thinking...');
+ let nds=m.querySelector('.bot-msg:last-child');
+ try{
+  let r=await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:text})});
+  let j=await r.json();
+  nds.remove();
+  append('bot-msg',j.answer||j.error||'No response.');
+ }catch(e){
+  nds.remove();
+  append('bot-msg','Server error.');
+ }
+}
+</script>
+</body></html>
 """
+
 # (For brevity in this snippet, paste your existing HTML_TEMPLATE here)
 
 def httpx_is_compatible():
@@ -137,3 +178,4 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     print(f"Starting local dev server on :{port} (GROQ_AVAILABLE={GROQ_AVAILABLE})")
     app.run(host='0.0.0.0', port=port, debug=False)
+
