@@ -1,11 +1,12 @@
+// server.js
 require("dotenv").config();
 const http = require('http');
 const url = require('url');
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
-const formidable = require('formidable'); // For file uploads
-const pdfParse = require('pdf-parse'); // For extracting PDF text
+const formidable = require('formidable');
+const pdfParse = require('pdf-parse');
 
 // --- Load dataset ---
 let dataset = {};
@@ -24,6 +25,9 @@ console.log(GROQ_API_KEY && GROQ_API_KEY !== "YOUR_GROQ_API_KEY"
   ? "✅ Groq API key loaded"
   : "⚠️ API key missing!");
 
+// --- Memory for uploaded PDF ---
+let pdfMemoryText = ""; // Stores text content of uploaded PDFs
+
 // --- Utility: simple similarity check ---
 function calculateSimilarity(str1, str2) {
   const words1 = str1.toLowerCase().split(/\s+/).filter(w => w.length > 2);
@@ -35,9 +39,13 @@ function calculateSimilarity(str1, str2) {
 }
 
 // --- Groq API query ---
-function queryGroq(prompt) {
+function queryGroq(question) {
   return new Promise((resolve, reject) => {
     if (!GROQ_API_KEY) return reject(new Error("Groq API key missing"));
+
+    const prompt = pdfMemoryText
+      ? `Use the following PDF content as reference:\n${pdfMemoryText}\n\nQuestion: ${question}`
+      : question;
 
     const payload = JSON.stringify({
       model: MODEL_NAME,
@@ -45,7 +53,7 @@ function queryGroq(prompt) {
         { role: "system", content: "You are PhenBOT, an AI study companion. Answer clearly and concisely." },
         { role: "user", content: prompt }
       ],
-      max_tokens: 500,
+      max_tokens: 300,
       temperature: 0.7
     });
 
@@ -129,7 +137,37 @@ function createServer(port) {
       return;
     }
 
-    // Handle question
+    // --- Handle PDF upload ---
+    if (method === 'POST' && pathName === '/upload-pdf') {
+      const form = new formidable.IncomingForm();
+      form.parse(req, async (err, fields, files) => {
+        if (err) {
+          res.writeHead(500, {'Content-Type': 'application/json'});
+          return res.end(JSON.stringify({ success: false, error: err.message }));
+        }
+
+        const pdfFile = files.pdf;
+        if (!pdfFile) {
+          res.writeHead(400, {'Content-Type': 'application/json'});
+          return res.end(JSON.stringify({ success: false, error: "No file uploaded" }));
+        }
+
+        try {
+          const dataBuffer = fs.readFileSync(pdfFile.filepath);
+          const pdfData = await pdfParse(dataBuffer);
+          pdfMemoryText = pdfData.text; // store PDF text in memory
+
+          res.writeHead(200, {'Content-Type': 'application/json'});
+          return res.end(JSON.stringify({ success: true }));
+        } catch (parseErr) {
+          res.writeHead(500, {'Content-Type': 'application/json'});
+          return res.end(JSON.stringify({ success: false, error: parseErr.message }));
+        }
+      });
+      return;
+    }
+
+    // --- Handle question ---
     if (method === 'POST' && pathName === '/ask') {
       let body = '';
       req.on('data', chunk => body += chunk);
@@ -142,13 +180,13 @@ function createServer(port) {
 
           const trimmedQuestion = question.trim();
 
-          // Dataset lookup
+          // First check dataset
           const datasetAns = findAnswerFromDataset(trimmedQuestion);
           if (datasetAns && datasetAns.confidence > 70) {
             return res.end(JSON.stringify({ ...datasetAns, source: "dataset" }));
           }
 
-          // Fallback to Groq API
+          // Otherwise fallback to Groq API
           try {
             const apiAnswer = await queryGroq(trimmedQuestion);
             res.end(JSON.stringify({
@@ -172,38 +210,11 @@ function createServer(port) {
       return;
     }
 
-    // --- PDF Upload Endpoint ---
-    if (method === 'POST' && pathName === '/upload-pdf') {
-      const form = new formidable.IncomingForm();
-      form.parse(req, async (err, fields, files) => {
-        if (err || !files.pdf) {
-          res.writeHead(400);
-          res.end(JSON.stringify({ error: "PDF file required" }));
-          return;
-        }
-
-        const filePath = files.pdf.filepath || files.pdf.path;
-        try {
-          const dataBuffer = fs.readFileSync(filePath);
-          const pdfData = await pdfParse(dataBuffer);
-          const text = pdfData.text || "";
-
-          // Query Groq API with extracted text
-          const apiAnswer = await queryGroq(text);
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ answer: apiAnswer, source: "PDF via Groq API" }));
-        } catch (error) {
-          res.writeHead(500);
-          res.end(JSON.stringify({ error: "Failed to process PDF" }));
-        }
-      });
-      return;
-    }
-
     res.writeHead(404);
     res.end("Not found");
   });
 
+  // Handle port conflicts
   server.on("error", err => {
     if (err.code === "EADDRINUSE") {
       console.warn(`⚠️ Port ${port} in use, trying ${port + 1}...`);
@@ -218,5 +229,6 @@ function createServer(port) {
   });
 }
 
+// Start server
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 createServer(PORT);
