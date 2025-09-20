@@ -40,8 +40,6 @@ def serve_index():
 
 @app.route("/api/ask", methods=["POST"])
 def ask():
-    @app.route("/api/ask", methods=["POST"])
-def ask():
     """Endpoint that frontend calls with { question }"""
     data = request.get_json(force=True)
     question = data.get("question", "").strip()
@@ -53,15 +51,15 @@ def ask():
         return jsonify({"error": GROQ_ERROR or "Groq not initialized"}), 500
 
     try:
-        # Example: use Groq LLM (adjust model name if needed)
+        # Call Groq LLM (adjust model if needed)
         chat_completion = groq_client.chat.completions.create(
-            model="mixtral-8x7b-32768",  # or llama3, gemma, etc.
+            model="mixtral-8x7b-32768",  # or "llama3-8b-8192", etc.
             messages=[{"role": "user", "content": question}],
             temperature=0.7,
             max_tokens=300,
         )
 
-        # ✅ FIX: access message correctly
+        # ✅ Correct way to access message
         answer = chat_completion.choices[0].message.content
 
         return jsonify({"answer": answer, "sources": []})
@@ -73,5 +71,3 @@ def ask():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 3000))
     app.run(host="0.0.0.0", port=port)
-
-
