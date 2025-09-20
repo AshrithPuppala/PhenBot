@@ -2,14 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>PhenBOT 🤖 Galaxy</title>
+<title>PhenBot ~ AI Study Companion</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
 <style>
   html, body {
     margin: 0;
     padding: 0;
     height: 100%;
     overflow: hidden;
-    font-family: 'Segoe UI', sans-serif;
+    font-family: 'Roboto', sans-serif;
     color: #fff;
     background: black;
   }
@@ -27,27 +28,30 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding-top: 50px;
+    padding-top: 60px;
+    width: 100%;
   }
 
   h1 {
+    font-family: 'Orbitron', sans-serif;
     font-size: 3rem;
-    text-shadow: 0 0 10px #ffffff, 0 0 20px #8a2be2;
-    margin-bottom: 20px;
+    letter-spacing: 2px;
+    text-shadow: 0 0 15px #ffffff, 0 0 25px #8a2be2;
+    margin-bottom: 30px;
   }
 
   .chat-container {
     width: 90%;
-    max-width: 800px;
+    max-width: 900px;
     height: 70vh;
-    background: rgba(0,0,0,0.4);
-    backdrop-filter: blur(12px);
-    border-radius: 20px;
-    padding: 20px;
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(15px);
+    border-radius: 25px;
+    padding: 25px;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    box-shadow: 0 0 30px rgba(138,43,226,0.5);
+    box-shadow: 0 0 40px rgba(138,43,226,0.6);
   }
 
   #chat {
@@ -58,54 +62,65 @@
 
   .message {
     margin: 12px 0;
-    padding: 12px 16px;
-    border-radius: 15px;
+    padding: 14px 18px;
+    border-radius: 18px;
     max-width: 75%;
-    line-height: 1.4;
+    line-height: 1.5;
     font-size: 15px;
     word-wrap: break-word;
     position: relative;
     animation: fadeIn 0.3s ease-in;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    background: rgba(255,255,255,0.05);
+    border-left: 4px solid transparent;
   }
 
   .message.user {
     background: rgba(37,117,252,0.9);
+    border-left: 4px solid #1e90ff;
     align-self: flex-end;
     text-align: right;
     color: #fff;
-    border-bottom-right-radius: 0px;
   }
 
   .message.bot {
     background: rgba(138,43,226,0.85);
+    border-left: 4px solid #ba55d3;
     align-self: flex-start;
     text-align: left;
     color: #f9f9f9;
-    border-bottom-left-radius: 0px;
   }
 
   .source {
     font-size: 12px;
-    opacity: 0.8;
+    opacity: 0.7;
     margin-top: 6px;
+    font-style: italic;
   }
 
   .input-bar {
-    margin-top: 15px;
+    margin-top: 20px;
     display: flex;
-    gap: 10px;
+    gap: 12px;
   }
 
   select, input, button {
-    font-size: 15px;
-    border-radius: 12px;
+    font-size: 16px;
+    border-radius: 14px;
     border: none;
-    padding: 12px;
+    padding: 14px;
     outline: none;
   }
 
   select, input {
     flex: 1;
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+    font-weight: 500;
+  }
+
+  select option {
+    color: #000;
   }
 
   button {
@@ -118,7 +133,7 @@
 
   button:hover {
     transform: scale(1.05);
-    box-shadow: 0px 5px 12px rgba(138,43,226,0.4);
+    box-shadow: 0 6px 15px rgba(138,43,226,0.5);
   }
 
   @keyframes fadeIn {
@@ -127,7 +142,7 @@
   }
 
   ::-webkit-scrollbar {
-    width: 6px;
+    width: 8px;
   }
   ::-webkit-scrollbar-thumb {
     background: rgba(255,255,255,0.4);
@@ -139,7 +154,7 @@
 <canvas id="galaxy"></canvas>
 
 <div class="container">
-  <h1>PhenBOT 🤖</h1>
+  <h1>PhenBot ~ AI Study Companion</h1>
   <div class="chat-container">
     <div id="chat"></div>
     <div class="input-bar">
@@ -169,14 +184,14 @@ function init() {
   stars = [];
   shootingStars = [];
   
-  for (let i = 0; i < 300; i++) {
+  for (let i = 0; i < 250; i++) {
     stars.push({
       x: Math.random()*width,
       y: Math.random()*height,
-      r: Math.random()*1.5 + 0.5,
+      r: Math.random()*2.5 + 1.5, // Bigger, bolder stars
       dx: (Math.random()-0.5)/2,
       dy: (Math.random()-0.5)/2,
-      color: `rgba(${Math.floor(150+Math.random()*100)}, ${Math.floor(100+Math.random()*100)}, ${Math.floor(200+Math.random()*55)}, ${Math.random()})`
+      color: `rgba(${Math.floor(200+Math.random()*55)}, ${Math.floor(200+Math.random()*55)}, ${Math.floor(255)}, ${Math.random()})`
     });
   }
 }
@@ -188,7 +203,7 @@ function createShootingStar() {
     x: Math.random()*width,
     y: Math.random()*height/2,
     length: Math.random()*200 + 100,
-    speed: Math.random()*10 + 6,
+    speed: Math.random()*12 + 6,
     angle: Math.PI/4
   });
 }
@@ -197,8 +212,7 @@ function drawGalaxy() {
   ctx.fillStyle = "rgba(0,0,0,0.2)";
   ctx.fillRect(0,0,width,height);
 
-  // Stars
-  for (let star of stars) {
+  stars.forEach(star=>{
     star.x += star.dx;
     star.y += star.dy;
 
@@ -211,25 +225,23 @@ function drawGalaxy() {
     ctx.arc(star.x, star.y, star.r, 0, Math.PI*2);
     ctx.fillStyle = star.color;
     ctx.fill();
-  }
+  });
 
-  // Shooting stars
   if(Math.random() < 0.02) createShootingStar();
-  for(let i=shootingStars.length-1; i>=0; i--){
+  for(let i=shootingStars.length-1;i>=0;i--){
     let s = shootingStars[i];
     s.x += s.speed * Math.cos(s.angle);
     s.y += s.speed * Math.sin(s.angle);
     ctx.beginPath();
     ctx.moveTo(s.x, s.y);
     ctx.lineTo(s.x - s.length*Math.cos(s.angle), s.y - s.length*Math.sin(s.angle));
-    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.lineWidth = 2.5;
     ctx.stroke();
 
     if(s.x > width || s.y > height) shootingStars.splice(i,1);
   }
 
-  // Nebula
   const gradient = ctx.createRadialGradient(width/2, height/2, 0, width/2, height/2, width/1.2);
   gradient.addColorStop(0, 'rgba(138,43,226,0.1)');
   gradient.addColorStop(0.5, 'rgba(58,123,213,0.05)');
@@ -248,7 +260,7 @@ document.addEventListener('mousemove', e=>{
     particles.push({
       x:e.clientX,
       y:e.clientY,
-      r:Math.random()*2+1,
+      r:Math.random()*2+1.5,
       dx:(Math.random()-0.5)*2,
       dy:(Math.random()-0.5)*2,
       life: 50
@@ -284,8 +296,7 @@ async function askQuestion() {
   questionInput.value = '';
 
   try {
-    // Relative path ensures it works on Render
-    const res = await fetch('/ask', {
+    const res = await fetch('/ask', { // relative path works on Render
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ question })
@@ -305,9 +316,9 @@ async function askQuestion() {
 
     chatDiv.innerHTML += `
       <div class="message bot">
-        <b>PhenBOT:</b> ${displayAnswer}
-        <div class="source">🔗 Source: ${source}${data.confidence ? ' | 📊 Confidence: ' + data.confidence + '%' : ''}</div>
+        <b>PhenBot:</b> ${displayAnswer}
+        <div class="source">Source: ${source}${data.confidence ? ' | Confidence: ' + data.confidence + '%' : ''}</div>
       </div>`;
     chatDiv.scrollTop = chatDiv.scrollHeight;
   } catch (err) {
-    chatDiv.innerHTML += `<div class="
+    chatDiv.innerHTML += `<div class="message bot"><b>
