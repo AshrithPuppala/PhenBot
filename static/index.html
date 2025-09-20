@@ -47,11 +47,12 @@
       append('bot-msg', 'Thinking...');
       let nds = m.querySelector('.bot-msg:last-child');
       try {
-        let r = await fetch('/api/ask', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ question: text })
-        });
+       let r = await fetch('/api/ask', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ question: text })
+});
+
         let j = await r.json();
         nds.remove();
         append('bot-msg', j.answer || j.error || 'No response.');
