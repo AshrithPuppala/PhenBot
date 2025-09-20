@@ -1,6 +1,10 @@
+# app.py
 from flask import Flask, request, jsonify, render_template_string
 import os
 import sys
+
+# Import Groq library at the top for standard practice
+from groq import Groq, GroqError
 
 app = Flask(__name__)
 
@@ -9,28 +13,30 @@ GROQ_AVAILABLE = False
 GROQ_ERROR = None
 
 def initialize_groq():
+    """Initializes the Groq client and checks for necessary environment variables."""
     global groq_client, GROQ_AVAILABLE, GROQ_ERROR
-    try:
-        # Import Groq here without proxies argument
-        from groq import Groq
-    except ImportError as e:
-        GROQ_ERROR = "Groq library not installed"
-        print(GROQ_ERROR, file=sys.stderr)
-        return
     api_key = os.environ.get('GROQ_API_KEY')
+    
     if not api_key:
-        GROQ_ERROR = "GROQ_API_KEY env variable missing"
+        GROQ_ERROR = "GROQ_API_KEY environment variable is missing."
         print(GROQ_ERROR, file=sys.stderr)
         return
+    
     try:
-        # Initialize without proxies= argument
+        # The key to fixing the error: Initialize without any 'proxies' argument.
+        # This is the correct way to initialize the client with recent versions of the Groq library.
         groq_client = Groq(api_key=api_key)
         GROQ_AVAILABLE = True
-        print("Groq client initialized successfully")
+        print("Groq client initialized successfully.")
+    except GroqError as e:
+        # Catch specific Groq API errors for better reporting
+        GROQ_ERROR = f"Groq API client failed to initialize: {e}"
+        print(GROQ_ERROR, file=sys.stderr)
     except Exception as e:
-        GROQ_ERROR = f"Groq initialization failed: {e}"
+        GROQ_ERROR = f"An unexpected error occurred during Groq initialization: {e}"
         print(GROQ_ERROR, file=sys.stderr)
 
+# Call the initialization function when the app starts
 initialize_groq()
 
 HTML_TEMPLATE = """<!DOCTYPE html>
