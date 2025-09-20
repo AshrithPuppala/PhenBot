@@ -53,7 +53,7 @@ def ask():
     try:
         # Example: use Groq LLM (adjust model name if needed)
         chat_completion = groq_client.chat.completions.create(
-            model="mixtral-8x7b-32768",  # or llama3, gemma, etc.
+            model="llama-3.1-8b-instant",  # or llama3, gemma, etc.
             messages=[{"role": "user", "content": question}],
             temperature=0.7,
             max_tokens=300,
@@ -68,3 +68,4 @@ def ask():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 3000))
     app.run(host="0.0.0.0", port=port)
+
