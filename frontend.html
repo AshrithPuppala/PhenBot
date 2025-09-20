@@ -2,38 +2,52 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>PhenBOT 🤖</title>
+<title>PhenBOT 🤖 Galaxy</title>
 <style>
-  body {
+  html, body {
     margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
     font-family: 'Segoe UI', sans-serif;
-    background: linear-gradient(135deg, #6a11cb, #2575fc);
-    height: 100vh;
+    color: #fff;
+    background: black;
+  }
+
+  canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: -1;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
-    color: #fff;
+    padding-top: 50px;
   }
 
   h1 {
-    margin: 20px 0;
-    font-size: 2.5rem;
-    font-weight: bold;
-    text-shadow: 0px 2px 6px rgba(0,0,0,0.3);
+    font-size: 3rem;
+    text-shadow: 0 0 10px #ffffff, 0 0 20px #8a2be2;
+    margin-bottom: 20px;
   }
 
   .chat-container {
     width: 90%;
     max-width: 800px;
-    height: 75vh;
-    background: rgba(255,255,255,0.1);
+    height: 70vh;
+    background: rgba(0,0,0,0.4);
     backdrop-filter: blur(12px);
     border-radius: 20px;
-    box-shadow: 0px 8px 20px rgba(0,0,0,0.25);
     padding: 20px;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    box-shadow: 0 0 30px rgba(138,43,226,0.5);
   }
 
   #chat {
@@ -63,7 +77,7 @@
   }
 
   .message.bot {
-    background: rgba(106,17,203,0.85);
+    background: rgba(138,43,226,0.85);
     align-self: flex-start;
     text-align: left;
     color: #f9f9f9;
@@ -95,7 +109,7 @@
   }
 
   button {
-    background: linear-gradient(135deg, #6a11cb, #2575fc);
+    background: linear-gradient(135deg, #8a2be2, #2575fc);
     color: white;
     font-weight: bold;
     cursor: pointer;
@@ -104,7 +118,7 @@
 
   button:hover {
     transform: scale(1.05);
-    box-shadow: 0px 5px 12px rgba(0,0,0,0.2);
+    box-shadow: 0px 5px 12px rgba(138,43,226,0.4);
   }
 
   @keyframes fadeIn {
@@ -122,6 +136,9 @@
 </style>
 </head>
 <body>
+<canvas id="galaxy"></canvas>
+
+<div class="container">
   <h1>PhenBOT 🤖</h1>
   <div class="chat-container">
     <div id="chat"></div>
@@ -136,8 +153,126 @@
       <button onclick="askQuestion()">Ask</button>
     </div>
   </div>
+</div>
 
 <script>
+// ---------------- Galaxy Animation ----------------
+const canvas = document.getElementById("galaxy");
+const ctx = canvas.getContext("2d");
+let stars = [];
+let shootingStars = [];
+let width, height;
+
+function init() {
+  width = canvas.width = window.innerWidth;
+  height = canvas.height = window.innerHeight;
+  stars = [];
+  shootingStars = [];
+  
+  for (let i = 0; i < 300; i++) {
+    stars.push({
+      x: Math.random()*width,
+      y: Math.random()*height,
+      r: Math.random()*1.5 + 0.5,
+      dx: (Math.random()-0.5)/2,
+      dy: (Math.random()-0.5)/2,
+      color: `rgba(${Math.floor(150+Math.random()*100)}, ${Math.floor(100+Math.random()*100)}, ${Math.floor(200+Math.random()*55)}, ${Math.random()})`
+    });
+  }
+}
+window.addEventListener("resize", init);
+init();
+
+function createShootingStar() {
+  shootingStars.push({
+    x: Math.random()*width,
+    y: Math.random()*height/2,
+    length: Math.random()*200 + 100,
+    speed: Math.random()*10 + 6,
+    angle: Math.PI/4
+  });
+}
+
+function drawGalaxy() {
+  ctx.fillStyle = "rgba(0,0,0,0.2)";
+  ctx.fillRect(0,0,width,height);
+
+  // Stars
+  for (let star of stars) {
+    star.x += star.dx;
+    star.y += star.dy;
+
+    if(star.x < 0) star.x = width;
+    if(star.x > width) star.x = 0;
+    if(star.y < 0) star.y = height;
+    if(star.y > height) star.y = 0;
+
+    ctx.beginPath();
+    ctx.arc(star.x, star.y, star.r, 0, Math.PI*2);
+    ctx.fillStyle = star.color;
+    ctx.fill();
+  }
+
+  // Shooting stars
+  if(Math.random() < 0.02) createShootingStar();
+  for(let i=shootingStars.length-1; i>=0; i--){
+    let s = shootingStars[i];
+    s.x += s.speed * Math.cos(s.angle);
+    s.y += s.speed * Math.sin(s.angle);
+    ctx.beginPath();
+    ctx.moveTo(s.x, s.y);
+    ctx.lineTo(s.x - s.length*Math.cos(s.angle), s.y - s.length*Math.sin(s.angle));
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    if(s.x > width || s.y > height) shootingStars.splice(i,1);
+  }
+
+  // Nebula
+  const gradient = ctx.createRadialGradient(width/2, height/2, 0, width/2, height/2, width/1.2);
+  gradient.addColorStop(0, 'rgba(138,43,226,0.1)');
+  gradient.addColorStop(0.5, 'rgba(58,123,213,0.05)');
+  gradient.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0,0,width,height);
+
+  requestAnimationFrame(drawGalaxy);
+}
+drawGalaxy();
+
+// Cursor particles
+let particles = [];
+document.addEventListener('mousemove', e=>{
+  for(let i=0;i<2;i++){
+    particles.push({
+      x:e.clientX,
+      y:e.clientY,
+      r:Math.random()*2+1,
+      dx:(Math.random()-0.5)*2,
+      dy:(Math.random()-0.5)*2,
+      life: 50
+    });
+  }
+});
+
+function drawParticles(){
+  for(let i=particles.length-1;i>=0;i--){
+    let p = particles[i];
+    p.x += p.dx;
+    p.y += p.dy;
+    p.life--;
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx.fillStyle='rgba(255,255,255,'+p.life/50+')';
+    ctx.fill();
+    if(p.life<=0) particles.splice(i,1);
+  }
+  requestAnimationFrame(drawParticles);
+}
+drawParticles();
+
+// ---------------- Chat Logic ----------------
 async function askQuestion() {
   const questionInput = document.getElementById('question');
   const question = questionInput.value.trim();
@@ -149,7 +284,7 @@ async function askQuestion() {
   questionInput.value = '';
 
   try {
-    // ✅ Use relative path so it works locally AND on Render
+    // Relative path ensures it works on Render
     const res = await fetch('/ask', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -160,7 +295,6 @@ async function askQuestion() {
     let displayAnswer = '';
     let source = '';
 
-    // Subject filtering
     if (subject && data.subject && data.subject !== subject) {
       displayAnswer = "No high-confidence match in this subject. Pulling from API...";
       source = data.source || 'Groq API';
@@ -176,9 +310,4 @@ async function askQuestion() {
       </div>`;
     chatDiv.scrollTop = chatDiv.scrollHeight;
   } catch (err) {
-    chatDiv.innerHTML += `<div class="message bot"><b>PhenBOT:</b> ❌ Error connecting to server</div>`;
-  }
-}
-</script>
-</body>
-</html>
+    chatDiv.innerHTML += `<div class="
