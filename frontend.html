@@ -3,203 +3,227 @@
 <head>
 <meta charset="UTF-8">
 <title>PhenBot ~ AI Study Companion</title>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  body {
-    margin: 0;
-    font-family: 'Roboto', sans-serif;
-    background: radial-gradient(ellipse at bottom, #000010 0%, #0a0a20 100%);
-    height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    color: #fff;
-    overflow: hidden;
-    position: relative;
-  }
+/* === Global Styles === */
+body, html {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  font-family: 'Poppins', 'Segoe UI', sans-serif;
+  overflow: hidden;
+  background: radial-gradient(circle at 30% 30%, #1b0033, #000010);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #fff;
+}
 
-  .chat-wrapper {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    z-index: 1;
-  }
+/* === Canvas for Galaxy === */
+canvas#stars {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
 
-  h1 {
-    margin-bottom: 20px;
-    font-size: 2.5rem;
-    font-weight: bold;
-    font-family: 'Orbitron', sans-serif;
-    text-align: center;
-    text-shadow: 0px 2px 10px rgba(255,255,255,0.7);
-  }
+/* === Header === */
+h1 {
+  text-align: center;
+  font-size: 2.5rem;
+  font-weight: 800;
+  text-shadow: 0 0 15px #fff, 0 0 30px #6a11cb, 0 0 45px #2575fc;
+  margin-bottom: 20px;
+  position: relative;
+  z-index: 5;
+}
 
-  .chat-container {
-    width: 90%;
-    max-width: 750px;
-    height: 70vh;
-    background: rgba(255,255,255,0.05);
-    backdrop-filter: blur(20px);
-    border-radius: 25px;
-    box-shadow: 0px 10px 35px rgba(0,0,0,0.5);
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    position: relative;
-  }
+/* === Chat Container === */
+.chat-container {
+  position: relative;
+  z-index: 5;
+  width: 90%;
+  max-width: 700px;
+  height: 70vh;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(15px);
+  border-radius: 25px;
+  box-shadow: 0 0 50px rgba(106,17,203,0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 
-  #chat {
-    flex-grow: 1;
-    overflow-y: auto;
-    padding-right: 10px;
-  }
+/* === Chat Area === */
+#chat {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
 
-  .message {
-    margin: 10px 0;
-    padding: 12px 16px;
-    border-radius: 15px;
-    max-width: 75%;
-    line-height: 1.4;
-    font-size: 15px;
-    word-wrap: break-word;
-    position: relative;
-    animation: fadeIn 0.3s ease-in;
-    white-space: pre-wrap;
-  }
+/* === Messages === */
+.message {
+  margin: 10px 0;
+  padding: 12px 18px;
+  border-radius: 15px;
+  max-width: 75%;
+  line-height: 1.5;
+  font-size: 15px;
+  word-wrap: break-word;
+  position: relative;
+  animation: fadeIn 0.3s ease-in;
+}
 
-  .message.user {
-    background: rgba(37,117,252,0.85);
-    align-self: flex-end;
-    text-align: right;
-    color: #fff;
-    border-bottom-right-radius: 0px;
-  }
+.message.user {
+  background: rgba(37,117,252,0.9);
+  align-self: flex-end;
+  text-align: right;
+  color: #fff;
+  border-bottom-right-radius: 0px;
+}
 
-  .message.bot {
-    background: rgba(106,17,203,0.85);
-    align-self: flex-start;
-    text-align: left;
-    color: #f9f9f9;
-    border-bottom-left-radius: 0px;
-  }
+.message.bot {
+  background: rgba(106,17,203,0.85);
+  align-self: flex-start;
+  text-align: left;
+  color: #fff;
+  border-bottom-left-radius: 0px;
+}
 
-  .source {
-    font-size: 12px;
-    opacity: 0.8;
-    margin-top: 6px;
-  }
+.source {
+  font-size: 12px;
+  opacity: 0.8;
+  margin-top: 6px;
+}
 
-  .input-bar {
-    margin-top: 10px;
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
+/* === Input Bar === */
+.input-bar {
+  margin: 10px 20px 20px 20px;
+  display: flex;
+  gap: 10px;
+  z-index: 10;
+  position: relative;
+}
 
-  select, input, button {
-    font-size: 15px;
-    border-radius: 12px;
-    border: none;
-    padding: 12px;
-    outline: none;
-  }
+select, input, button {
+  font-size: 15px;
+  border-radius: 12px;
+  border: none;
+  padding: 12px;
+  outline: none;
+}
 
-  select, input {
-    flex: 1;
-  }
+select, input {
+  flex: 1;
+}
 
-  button {
-    background: linear-gradient(135deg, #6a11cb, #2575fc);
-    color: white;
-    font-weight: bold;
-    cursor: pointer;
-    transition: 0.3s;
-  }
+button {
+  background: linear-gradient(135deg, #6a11cb, #2575fc);
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.3s;
+}
 
-  button:hover {
-    transform: scale(1.05);
-    box-shadow: 0px 5px 15px rgba(0,0,0,0.3);
-  }
+button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
 
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
+/* === Scrollbar === */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.4);
+  border-radius: 10px;
+}
 
-  ::-webkit-scrollbar {
-    width: 6px;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: rgba(255,255,255,0.4);
-    border-radius: 10px;
-  }
-
-  /* Stars background */
-  .star {
-    position: absolute;
-    border-radius: 50%;
-    background: white;
-    opacity: 0.9;
-    animation: twinkle 3s infinite ease-in-out, drift linear infinite;
-    z-index: 0;
-  }
-
-  @keyframes twinkle {
-    0%, 100% { opacity: 0.6; transform: scale(1); }
-    50% { opacity: 1; transform: scale(1.8); }
-  }
-
-  @keyframes drift {
-    0% { transform: translate(0,0); }
-    100% { transform: translate(20px, 20px); }
-  }
-
+/* === Animations === */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 </style>
 </head>
 <body>
 
-<div class="chat-wrapper">
+<canvas id="stars"></canvas>
+
+<div style="position:relative; z-index:5; width:100%; text-align:center;">
   <h1>PhenBot ~ AI Study Companion</h1>
-  <div class="chat-container">
-    <div id="chat"></div>
+</div>
 
-    <div class="input-bar">
-      <select id="subject">
-        <option value="">All Subjects</option>
-        <option value="math">Math</option>
-        <option value="science">Science</option>
-        <option value="programming">Programming</option>
-      </select>
-
-      <input type="file" id="pdfUpload" accept=".pdf">
-      <button onclick="uploadPDF()">Upload PDF</button>
-
-      <input type="text" id="question" placeholder="Ask a question...">
-      <button onclick="askQuestion()">Ask</button>
-    </div>
+<div class="chat-container">
+  <div id="chat"></div>
+  <div class="input-bar">
+    <select id="subject">
+      <option value="">All Subjects</option>
+      <option value="math">Math</option>
+      <option value="science">Science</option>
+      <option value="programming">Programming</option>
+    </select>
+    <input type="file" id="pdfUpload" accept=".pdf" onchange="uploadPDF(event)" title="Upload PDF Reference">
+    <input type="text" id="question" placeholder="Ask a question...">
+    <button onclick="askQuestion()">Ask</button>
   </div>
 </div>
 
 <script>
-const chatDiv = document.getElementById('chat');
+/* === Stars Animation === */
+const canvas = document.getElementById('stars');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
-function addMessage(user, text, source='', confidence='') {
-  const msgDiv = document.createElement('div');
-  msgDiv.className = `message ${user ? 'user' : 'bot'}`;
-  msgDiv.innerHTML = `<b>${user ? 'You' : 'PhenBOT'}:</b> ${text}` +
-    (source ? `<div class="source">Source: ${source}${confidence ? ' | Confidence: '+confidence+'%' : ''}</div>` : '');
-  chatDiv.appendChild(msgDiv);
-  chatDiv.scrollTop = chatDiv.scrollHeight;
+let stars = [];
+for (let i = 0; i < 200; i++) {
+  stars.push({
+    x: Math.random()*canvas.width,
+    y: Math.random()*canvas.height,
+    r: Math.random()*2 + 1.5,
+    dx: (Math.random()-0.5)*0.2,
+    dy: (Math.random()-0.5)*0.2
+  });
 }
 
+function drawStars() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  // gradient nebula
+  let gradient = ctx.createRadialGradient(canvas.width*0.3, canvas.height*0.3, 0, canvas.width*0.3, canvas.height*0.3, canvas.width);
+  gradient.addColorStop(0, '#6a11cb33');
+  gradient.addColorStop(0.5, '#2575fc22');
+  gradient.addColorStop(1, '#000');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  
+  ctx.fillStyle = "#fff";
+  stars.forEach(s => {
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+    ctx.fill();
+    s.x += s.dx;
+    s.y += s.dy;
+    if (s.x<0) s.x=canvas.width;
+    if (s.x>canvas.width) s.x=0;
+    if (s.y<0) s.y=canvas.height;
+    if (s.y>canvas.height) s.y=0;
+  });
+  requestAnimationFrame(drawStars);
+}
+drawStars();
+
+/* === Chat Logic === */
 async function askQuestion() {
   const questionInput = document.getElementById('question');
   const question = questionInput.value.trim();
   if (!question) return;
   const subject = document.getElementById('subject').value;
 
-  addMessage(true, question);
+  const chatDiv = document.getElementById('chat');
+  chatDiv.innerHTML += `<div class="message user"><b>You:</b> ${question}</div>`;
   questionInput.value = '';
 
   try {
@@ -221,46 +245,35 @@ async function askQuestion() {
       source = data.source || (data.subject ? 'dataset' : 'Groq API');
     }
 
-    addMessage(false, displayAnswer, source, data.confidence);
-
+    chatDiv.innerHTML += `
+      <div class="message bot">
+        <b>PhenBOT:</b> ${displayAnswer}
+        <div class="source">Source: ${source}${data.confidence ? ' | Confidence: ' + data.confidence + '%' : ''}</div>
+      </div>`;
+    chatDiv.scrollTop = chatDiv.scrollHeight;
   } catch (err) {
-    addMessage(false, "❌ Error connecting to server");
+    chatDiv.innerHTML += `<div class="message bot"><b>PhenBOT:</b> ❌ Error connecting to server</div>`;
   }
 }
 
-async function uploadPDF() {
-  const fileInput = document.getElementById('pdfUpload');
-  if (!fileInput.files.length) return alert("Select a PDF first.");
-
-  const file = fileInput.files[0];
+/* === PDF Upload Handler === */
+async function uploadPDF(event) {
+  const file = event.target.files[0];
+  if (!file) return;
   const formData = new FormData();
   formData.append('pdf', file);
 
-  addMessage(false, "Uploading PDF and preparing it as reference...");
-
-  try {
-    const res = await fetch('/upload-pdf', {
-      method: 'POST',
-      body: formData
-    });
-    const data = await res.json();
-    if (data.success) {
-      addMessage(false, `PDF uploaded successfully. PhenBOT will now use it as reference.`);
-    } else {
-      addMessage(false, `Failed to upload PDF: ${data.error}`);
-    }
-  } catch (err) {
-    addMessage(false, "❌ Error uploading PDF");
-  }
+  const res = await fetch('/upload-pdf', { method: 'POST', body: formData });
+  const data = await res.json();
+  alert(data.message || "PDF uploaded!");
 }
 
-/* Stars generation */
-const starCount = 150;
-for (let i = 0; i < starCount; i++) {
-  const star = document.createElement('div');
-  star.className = 'star';
-  star.style.width = `${Math.random()*4 + 2}px`;
-  star.style.height = star.style.width;
-  star.style.top = `${Math.random()*100}%`;
-  star.style.left = `${Math.random()*100}%`;
-  star.style.animation
+/* === Handle Resize === */
+window.addEventListener('resize', () => {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+});
+</script>
+
+</body>
+</html>
