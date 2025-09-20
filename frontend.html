@@ -3,117 +3,105 @@
 <head>
 <meta charset="UTF-8">
 <title>PhenBot ~ AI Study Companion</title>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  html, body {
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@400;500&display=swap');
+
+  body, html {
     margin: 0;
     padding: 0;
+    font-family: 'Roboto', sans-serif;
     height: 100%;
     overflow: hidden;
-    font-family: 'Roboto', sans-serif;
+    background: radial-gradient(ellipse at bottom, #000000 0%, #0f0f0f 100%);
     color: #fff;
-    background: black;
-  }
-
-  canvas {
-    position: fixed;
-    top: 0;
-    left: 0;
-    z-index: -1;
   }
 
   h1 {
     font-family: 'Orbitron', sans-serif;
-    font-size: 3rem;
-    text-shadow: 0 0 15px #fff, 0 0 25px #8a2be2;
-    margin: 30px 0 15px;
     text-align: center;
+    margin-top: 15px;
+    font-size: 2.5rem;
+    letter-spacing: 1.5px;
+    color: #ffffff;
   }
 
   .chat-container {
-    width: 85%;
-    max-width: 800px;
-    height: 65vh; /* slightly smaller */
+    position: relative;
+    width: 90%;
+    max-width: 700px;
+    height: 70vh;
+    margin: 20px auto;
     background: rgba(0,0,0,0.5);
-    backdrop-filter: blur(15px);
     border-radius: 20px;
-    padding: 20px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 0 30px rgba(128, 0, 255, 0.7);
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    box-shadow: 0 0 40px rgba(138,43,226,0.5);
+    z-index: 1;
   }
 
   #chat {
     flex-grow: 1;
     overflow-y: auto;
-    padding-right: 10px;
+    padding: 15px;
   }
 
   .message {
     margin: 10px 0;
-    padding: 12px 16px;
+    padding: 10px 14px;
     border-radius: 15px;
     max-width: 75%;
+    font-size: 14px;
     line-height: 1.5;
-    font-size: 15px;
     word-wrap: break-word;
     position: relative;
     animation: fadeIn 0.3s ease-in;
-    background: rgba(255,255,255,0.05);
-    border-left: 4px solid transparent;
+    white-space: pre-wrap;
   }
 
   .message.user {
-    background: rgba(37,117,252,0.9);
-    border-left: 4px solid #1e90ff;
+    background: rgba(63, 81, 181, 0.9);
     align-self: flex-end;
     text-align: right;
-    color: #fff;
+    border-bottom-right-radius: 0;
   }
 
   .message.bot {
-    background: rgba(138,43,226,0.85);
-    border-left: 4px solid #ba55d3;
+    background: rgba(138, 43, 226, 0.85);
     align-self: flex-start;
     text-align: left;
-    color: #f9f9f9;
+    border-bottom-left-radius: 0;
   }
 
   .source {
-    font-size: 12px;
+    font-size: 11px;
     opacity: 0.7;
-    margin-top: 6px;
+    margin-top: 5px;
     font-style: italic;
   }
 
   .input-bar {
-    margin-top: 15px;
     display: flex;
-    gap: 10px;
+    padding: 10px;
+    gap: 8px;
+    background: rgba(0,0,0,0.3);
   }
 
   select, input, button {
-    font-size: 15px;
+    font-size: 14px;
     border-radius: 12px;
     border: none;
-    padding: 12px;
+    padding: 10px;
     outline: none;
   }
 
   select, input {
     flex: 1;
-    background: rgba(255,255,255,0.1);
-    color: #fff;
-    font-weight: 500;
-  }
-
-  select option {
-    color: #000;
   }
 
   button {
-    background: linear-gradient(135deg, #8a2be2, #2575fc);
+    background: linear-gradient(135deg, #6a11cb, #2575fc);
     color: white;
     font-weight: bold;
     cursor: pointer;
@@ -122,7 +110,7 @@
 
   button:hover {
     transform: scale(1.05);
-    box-shadow: 0 5px 12px rgba(138,43,226,0.4);
+    box-shadow: 0 5px 12px rgba(0,0,0,0.2);
   }
 
   @keyframes fadeIn {
@@ -137,151 +125,106 @@
     background: rgba(255,255,255,0.4);
     border-radius: 10px;
   }
+
+  /* Star background */
+  canvas#stars {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .upload-section {
+    display: flex;
+    gap: 8px;
+    margin-top: 5px;
+  }
 </style>
 </head>
 <body>
-<canvas id="galaxy"></canvas>
+  <canvas id="stars"></canvas>
+  <h1>PhenBot ~ AI Study Companion</h1>
 
-<h1>PhenBot ~ AI Study Companion</h1>
-<div class="chat-container">
-  <div id="chat"></div>
-  <div class="input-bar">
-    <select id="subject">
-      <option value="">All Subjects</option>
-      <option value="math">Math</option>
-      <option value="science">Science</option>
-      <option value="programming">Programming</option>
-    </select>
-    <input type="text" id="question" placeholder="Ask a question...">
-    <button onclick="askQuestion()">Ask</button>
+  <div class="chat-container">
+    <div id="chat"></div>
+    <div class="input-bar">
+      <select id="subject">
+        <option value="">All Subjects</option>
+        <option value="math">Math</option>
+        <option value="science">Science</option>
+        <option value="programming">Programming</option>
+      </select>
+      <input type="text" id="question" placeholder="Ask a question...">
+      <button onclick="askQuestion()">Ask</button>
+    </div>
+    <div class="input-bar upload-section">
+      <input type="file" id="pdfFile" accept="application/pdf">
+      <button onclick="uploadPDF()">Upload PDF</button>
+    </div>
   </div>
-</div>
 
 <script>
-// --------------- Galaxy Background ----------------
-const canvas = document.getElementById("galaxy");
+// --- Stars Background ---
+const canvas = document.getElementById("stars");
 const ctx = canvas.getContext("2d");
 let stars = [];
-let shootingStars = [];
-let width, height;
 
-function init() {
-  width = canvas.width = window.innerWidth;
-  height = canvas.height = window.innerHeight;
-  stars = [];
-  shootingStars = [];
-  for (let i = 0; i < 250; i++) {
-    stars.push({
-      x: Math.random()*width,
-      y: Math.random()*height,
-      r: Math.random()*2.5 + 1.5,
-      dx: (Math.random()-0.5)/2,
-      dy: (Math.random()-0.5)/2,
-      color: `rgba(${Math.floor(200+Math.random()*55)},${Math.floor(200+Math.random()*55)},255,${Math.random()})`
-    });
-  }
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
 }
-window.addEventListener("resize", init);
-init();
+window.addEventListener("resize", resizeCanvas);
+resizeCanvas();
 
-function createShootingStar() {
-  shootingStars.push({
-    x: Math.random()*width,
-    y: Math.random()*height/2,
-    length: Math.random()*200 + 100,
-    speed: Math.random()*12 + 6,
-    angle: Math.PI/4
+for (let i = 0; i < 150; i++) {
+  stars.push({
+    x: Math.random()*canvas.width,
+    y: Math.random()*canvas.height,
+    radius: Math.random()*2 + 1,
+    dx: (Math.random()-0.5)*0.3,
+    dy: (Math.random()-0.5)*0.3
   });
 }
 
-function drawGalaxy() {
-  ctx.fillStyle = "rgba(0,0,0,0.2)";
-  ctx.fillRect(0,0,width,height);
-
-  stars.forEach(star=>{
-    star.x += star.dx;
-    star.y += star.dy;
-    if(star.x < 0) star.x = width;
-    if(star.x > width) star.x = 0;
-    if(star.y < 0) star.y = height;
-    if(star.y > height) star.y = 0;
+function drawStars() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  for (let s of stars) {
     ctx.beginPath();
-    ctx.arc(star.x, star.y, star.r, 0, Math.PI*2);
-    ctx.fillStyle = star.color;
+    ctx.arc(s.x, s.y, s.radius, 0, Math.PI*2);
+    ctx.fillStyle = "#fff";
     ctx.fill();
-  });
-
-  if(Math.random() < 0.02) createShootingStar();
-  for(let i=shootingStars.length-1;i>=0;i--){
-    let s = shootingStars[i];
-    s.x += s.speed * Math.cos(s.angle);
-    s.y += s.speed * Math.sin(s.angle);
-    ctx.beginPath();
-    ctx.moveTo(s.x, s.y);
-    ctx.lineTo(s.x - s.length*Math.cos(s.angle), s.y - s.length*Math.sin(s.angle));
-    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-    ctx.lineWidth = 2.5;
-    ctx.stroke();
-    if(s.x > width || s.y > height) shootingStars.splice(i,1);
+    s.x += s.dx;
+    s.y += s.dy;
+    if (s.x < 0 || s.x > canvas.width) s.dx = -s.dx;
+    if (s.y < 0 || s.y > canvas.height) s.dy = -s.dy;
   }
-
-  const gradient = ctx.createRadialGradient(width/2, height/2, 0, width/2, height/2, width/1.2);
-  gradient.addColorStop(0, 'rgba(138,43,226,0.1)');
-  gradient.addColorStop(0.5, 'rgba(58,123,213,0.05)');
-  gradient.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0,0,width,height);
-
-  requestAnimationFrame(drawGalaxy);
+  requestAnimationFrame(drawStars);
 }
-drawGalaxy();
+drawStars();
 
-// Cursor particles
-let particles = [];
-document.addEventListener('mousemove', e=>{
-  for(let i=0;i<2;i++){
-    particles.push({
-      x:e.clientX,
-      y:e.clientY,
-      r:Math.random()*2+1.5,
-      dx:(Math.random()-0.5)*2,
-      dy:(Math.random()-0.5)*2,
-      life: 50
-    });
-  }
-});
-function drawParticles(){
-  for(let i=particles.length-1;i>=0;i--){
-    let p = particles[i];
-    p.x += p.dx;
-    p.y += p.dy;
-    p.life--;
-    ctx.beginPath();
-    ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
-    ctx.fillStyle='rgba(255,255,255,'+p.life/50+')';
-    ctx.fill();
-    if(p.life<=0) particles.splice(i,1);
-  }
-  requestAnimationFrame(drawParticles);
-}
-drawParticles();
-
-// ---------------- Chat Functionality ----------------
+// --- Ask Question ---
 async function askQuestion() {
   const questionInput = document.getElementById('question');
   const question = questionInput.value.trim();
   if (!question) return;
   const subject = document.getElementById('subject').value;
+
   const chatDiv = document.getElementById('chat');
   chatDiv.innerHTML += `<div class="message user"><b>You:</b> ${question}</div>`;
   questionInput.value = '';
 
   try {
-    const res = await fetch('/ask', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({question}) });
+    const res = await fetch('/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question })
+    });
     const data = await res.json();
 
     let displayAnswer = '';
     let source = '';
+
     if (subject && data.subject && data.subject !== subject) {
       displayAnswer = "No high-confidence match in this subject. Pulling from API...";
       source = data.source || 'Groq API';
@@ -290,10 +233,41 @@ async function askQuestion() {
       source = data.source || (data.subject ? 'dataset' : 'Groq API');
     }
 
-    chatDiv.innerHTML += `<div class="message bot"><b>PhenBot:</b> ${displayAnswer}<div class="source">Source: ${source}${data.confidence ? ' | Confidence: ' + data.confidence + '%' : ''}</div></div>`;
+    chatDiv.innerHTML += `
+      <div class="message bot">
+        <b>PhenBOT:</b> ${displayAnswer}
+        <div class="source">Source: ${source}${data.confidence ? ' | Confidence: ' + data.confidence + '%' : ''}</div>
+      </div>`;
     chatDiv.scrollTop = chatDiv.scrollHeight;
   } catch (err) {
-    chatDiv.innerHTML += `<div class="message bot"><b>PhenBot:</b> ❌ Error connecting to server</div>`;
+    chatDiv.innerHTML += `<div class="message bot"><b>PhenBOT:</b> Error connecting to server</div>`;
+  }
+}
+
+// --- Upload PDF ---
+async function uploadPDF() {
+  const fileInput = document.getElementById('pdfFile');
+  const file = fileInput.files[0];
+  if (!file) return alert("Select a PDF first");
+
+  const formData = new FormData();
+  formData.append("pdf", file);
+
+  const chatDiv = document.getElementById('chat');
+  chatDiv.innerHTML += `<div class="message user"><b>You uploaded a PDF:</b> ${file.name}</div>`;
+
+  try {
+    const res = await fetch('/upload-pdf', { method: 'POST', body: formData });
+    const data = await res.json();
+
+    chatDiv.innerHTML += `
+      <div class="message bot">
+        <b>PhenBOT:</b> ${data.answer || data.error || "No answer found from PDF."}
+        <div class="source">Source: ${data.source || 'PDF via Groq API'}</div>
+      </div>`;
+    chatDiv.scrollTop = chatDiv.scrollHeight;
+  } catch (err) {
+    chatDiv.innerHTML += `<div class="message bot"><b>PhenBOT:</b> Error processing PDF</div>`;
   }
 }
 </script>
