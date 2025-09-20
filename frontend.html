@@ -11,15 +11,22 @@
     background: radial-gradient(ellipse at bottom, #000010 0%, #0a0a20 100%);
     height: 100vh;
     display: flex;
-    justify-content: center; /* Center horizontally */
-    align-items: center;     /* Center vertically */
+    justify-content: center;
+    align-items: center;
     color: #fff;
     overflow: hidden;
     position: relative;
   }
 
+  .chat-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 1;
+  }
+
   h1 {
-    margin-bottom: 15px;
+    margin-bottom: 20px;
     font-size: 2.5rem;
     font-weight: bold;
     font-family: 'Orbitron', sans-serif;
@@ -40,7 +47,6 @@
     flex-direction: column;
     overflow: hidden;
     position: relative;
-    z-index: 1;
   }
 
   #chat {
@@ -88,6 +94,7 @@
     margin-top: 10px;
     display: flex;
     gap: 10px;
+    flex-wrap: wrap;
   }
 
   select, input, button {
@@ -152,27 +159,25 @@
 </head>
 <body>
 
-<div style="position:absolute; width:100%; top:0; left:0; display:flex; justify-content:center; z-index:1;">
+<div class="chat-wrapper">
   <h1>PhenBot ~ AI Study Companion</h1>
-</div>
+  <div class="chat-container">
+    <div id="chat"></div>
 
-<div class="chat-container">
-  <div id="chat"></div>
+    <div class="input-bar">
+      <select id="subject">
+        <option value="">All Subjects</option>
+        <option value="math">Math</option>
+        <option value="science">Science</option>
+        <option value="programming">Programming</option>
+      </select>
 
-  <div style="margin-bottom:8px;">
-    <input type="file" id="pdfUpload" accept=".pdf">
-    <button onclick="uploadPDF()">Upload PDF</button>
-  </div>
+      <input type="file" id="pdfUpload" accept=".pdf">
+      <button onclick="uploadPDF()">Upload PDF</button>
 
-  <div class="input-bar">
-    <select id="subject">
-      <option value="">All Subjects</option>
-      <option value="math">Math</option>
-      <option value="science">Science</option>
-      <option value="programming">Programming</option>
-    </select>
-    <input type="text" id="question" placeholder="Ask a question...">
-    <button onclick="askQuestion()">Ask</button>
+      <input type="text" id="question" placeholder="Ask a question...">
+      <button onclick="askQuestion()">Ask</button>
+    </div>
   </div>
 </div>
 
@@ -249,7 +254,7 @@ async function uploadPDF() {
   }
 }
 
-/* Generate drifting stars dynamically */
+/* Stars generation */
 const starCount = 150;
 for (let i = 0; i < starCount; i++) {
   const star = document.createElement('div');
@@ -258,11 +263,4 @@ for (let i = 0; i < starCount; i++) {
   star.style.height = star.style.width;
   star.style.top = `${Math.random()*100}%`;
   star.style.left = `${Math.random()*100}%`;
-  star.style.animationDuration = `${Math.random()*3 + 2}s, ${Math.random()*20 + 30}s`;
-  star.style.opacity = Math.random()*0.8 + 0.2;
-  document.body.appendChild(star);
-}
-</script>
-
-</body>
-</html>
+  star.style.animation
