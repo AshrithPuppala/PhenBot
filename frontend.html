@@ -4,23 +4,20 @@
 <meta charset="UTF-8">
 <title>PhenBot ~ AI Study Companion</title>
 <style>
-/* === Global Styles === */
-body, html {
+html, body {
   margin: 0;
   padding: 0;
-  width: 100%;
   height: 100%;
-  font-family: 'Poppins', 'Segoe UI', sans-serif;
+  font-family: 'Poppins', sans-serif;
+  background: #000;
   overflow: hidden;
-  background: radial-gradient(circle at 30% 30%, #1b0033, #000010);
   display: flex;
   justify-content: center;
   align-items: center;
-  color: #fff;
 }
 
-/* === Canvas for Galaxy === */
-canvas#stars {
+/* Canvas for galaxy animation */
+canvas#galaxy {
   position: fixed;
   top: 0;
   left: 0;
@@ -29,47 +26,51 @@ canvas#stars {
   z-index: 0;
 }
 
-/* === Header === */
+/* Header */
 h1 {
   text-align: center;
   font-size: 2.5rem;
   font-weight: 800;
-  text-shadow: 0 0 15px #fff, 0 0 30px #6a11cb, 0 0 45px #2575fc;
+  color: #fff;
+  text-shadow: 0 0 10px #fff, 0 0 20px #6a11cb, 0 0 30px #2575fc, 0 0 40px #fff;
   margin-bottom: 20px;
+  z-index: 2;
   position: relative;
-  z-index: 5;
 }
 
-/* === Chat Container === */
+/* Chat container */
 .chat-container {
   position: relative;
-  z-index: 5;
+  z-index: 2;
   width: 90%;
   max-width: 700px;
   height: 70vh;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0,0,0,0.6);
   backdrop-filter: blur(15px);
   border-radius: 25px;
   box-shadow: 0 0 50px rgba(106,17,203,0.5);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
 }
 
-/* === Chat Area === */
+/* Chat area */
 #chat {
   flex: 1;
+  width: 100%;
   overflow-y: auto;
-  padding: 20px;
+  padding: 10px;
 }
 
-/* === Messages === */
+/* Messages */
 .message {
   margin: 10px 0;
-  padding: 12px 18px;
+  padding: 12px 16px;
   border-radius: 15px;
   max-width: 75%;
-  line-height: 1.5;
+  line-height: 1.4;
   font-size: 15px;
   word-wrap: break-word;
   position: relative;
@@ -98,13 +99,12 @@ h1 {
   margin-top: 6px;
 }
 
-/* === Input Bar === */
+/* Input bar */
 .input-bar {
-  margin: 10px 20px 20px 20px;
+  width: 100%;
   display: flex;
   gap: 10px;
-  z-index: 10;
-  position: relative;
+  margin-top: 10px;
 }
 
 select, input, button {
@@ -121,7 +121,7 @@ select, input {
 
 button {
   background: linear-gradient(135deg, #6a11cb, #2575fc);
-  color: white;
+  color: #fff;
   font-weight: bold;
   cursor: pointer;
   transition: 0.3s;
@@ -132,7 +132,6 @@ button:hover {
   box-shadow: 0 5px 15px rgba(0,0,0,0.3);
 }
 
-/* === Scrollbar === */
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -141,7 +140,6 @@ button:hover {
   border-radius: 10px;
 }
 
-/* === Animations === */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
@@ -150,9 +148,9 @@ button:hover {
 </head>
 <body>
 
-<canvas id="stars"></canvas>
+<canvas id="galaxy"></canvas>
 
-<div style="position:relative; z-index:5; width:100%; text-align:center;">
+<div style="position:relative; z-index:2; width:100%; text-align:center;">
   <h1>PhenBot ~ AI Study Companion</h1>
 </div>
 
@@ -172,108 +170,125 @@ button:hover {
 </div>
 
 <script>
-/* === Stars Animation === */
-const canvas = document.getElementById('stars');
+/* === Galaxy Animation === */
+const canvas = document.getElementById('galaxy');
 const ctx = canvas.getContext('2d');
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
 let stars = [];
-for (let i = 0; i < 200; i++) {
+for (let i = 0; i < 300; i++) {
   stars.push({
     x: Math.random()*canvas.width,
     y: Math.random()*canvas.height,
     r: Math.random()*2 + 1.5,
-    dx: (Math.random()-0.5)*0.2,
-    dy: (Math.random()-0.5)*0.2
+    dx: (Math.random()-0.5)*0.3,
+    dy: (Math.random()-0.5)*0.3,
+    alpha: Math.random()
   });
 }
 
-function drawStars() {
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  // gradient nebula
-  let gradient = ctx.createRadialGradient(canvas.width*0.3, canvas.height*0.3, 0, canvas.width*0.3, canvas.height*0.3, canvas.width);
-  gradient.addColorStop(0, '#6a11cb33');
+// shooting stars
+let shootingStars = [];
+function createShootingStar() {
+  shootingStars.push({
+    x: Math.random()*canvas.width,
+    y: Math.random()*canvas.height/2,
+    length: Math.random()*150 + 50,
+    speed: Math.random()*5 + 5
+  });
+}
+
+function drawGalaxy() {
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // nebula effect
+  let gradient = ctx.createRadialGradient(canvas.width/2, canvas.height/2, 0, canvas.width/2, canvas.height/2, canvas.width);
+  gradient.addColorStop(0, '#6a11cb22');
   gradient.addColorStop(0.5, '#2575fc22');
   gradient.addColorStop(1, '#000');
   ctx.fillStyle = gradient;
   ctx.fillRect(0,0,canvas.width,canvas.height);
-  
-  ctx.fillStyle = "#fff";
+
+  // draw stars
   stars.forEach(s => {
     ctx.beginPath();
     ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(255,255,255,${s.alpha})`;
     ctx.fill();
     s.x += s.dx;
     s.y += s.dy;
+    s.alpha += (Math.random()-0.5)*0.02;
+    if (s.alpha < 0) s.alpha=0;
+    if (s.alpha > 1) s.alpha=1;
     if (s.x<0) s.x=canvas.width;
     if (s.x>canvas.width) s.x=0;
     if (s.y<0) s.y=canvas.height;
     if (s.y>canvas.height) s.y=0;
   });
-  requestAnimationFrame(drawStars);
-}
-drawStars();
 
-/* === Chat Logic === */
+  // draw shooting stars
+  if (Math.random() < 0.01) createShootingStar();
+  shootingStars.forEach((s,i)=>{
+    ctx.beginPath();
+    ctx.moveTo(s.x, s.y);
+    ctx.lineTo(s.x-s.length, s.y+s.length);
+    ctx.strokeStyle = "rgba(255,255,255,0.8)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    s.x += s.speed;
+    s.y += s.speed;
+    if(s.x>canvas.width || s.y>canvas.height) shootingStars.splice(i,1);
+  });
+
+  requestAnimationFrame(drawGalaxy);
+}
+drawGalaxy();
+
+/* === Chat Functions === */
 async function askQuestion() {
   const questionInput = document.getElementById('question');
   const question = questionInput.value.trim();
-  if (!question) return;
+  if(!question) return;
   const subject = document.getElementById('subject').value;
 
   const chatDiv = document.getElementById('chat');
   chatDiv.innerHTML += `<div class="message user"><b>You:</b> ${question}</div>`;
-  questionInput.value = '';
+  questionInput.value='';
 
   try {
-    const res = await fetch('/ask', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question })
+    const res = await fetch('/ask',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({question})
     });
     const data = await res.json();
-
-    let displayAnswer = '';
-    let source = '';
-
-    if (subject && data.subject && data.subject !== subject) {
-      displayAnswer = "No high-confidence match in this subject. Pulling from API...";
-      source = data.source || 'Groq API';
-    } else {
-      displayAnswer = data.answer || data.error || "No answer found.";
-      source = data.source || (data.subject ? 'dataset' : 'Groq API');
-    }
-
-    chatDiv.innerHTML += `
-      <div class="message bot">
-        <b>PhenBOT:</b> ${displayAnswer}
-        <div class="source">Source: ${source}${data.confidence ? ' | Confidence: ' + data.confidence + '%' : ''}</div>
-      </div>`;
-    chatDiv.scrollTop = chatDiv.scrollHeight;
-  } catch (err) {
+    let displayAnswer = data.answer || data.error || 'No answer';
+    let source = data.source || (data.subject?'dataset':'Groq API');
+    chatDiv.innerHTML += `<div class="message bot"><b>PhenBOT:</b> ${displayAnswer}<div class="source">Source: ${source}${data.confidence? ' | Confidence: '+data.confidence+'%':''}</div></div>`;
+    chatDiv.scrollTop=chatDiv.scrollHeight;
+  } catch(err){
     chatDiv.innerHTML += `<div class="message bot"><b>PhenBOT:</b> ❌ Error connecting to server</div>`;
   }
 }
 
-/* === PDF Upload Handler === */
-async function uploadPDF(event) {
+/* === PDF Upload === */
+async function uploadPDF(event){
   const file = event.target.files[0];
-  if (!file) return;
+  if(!file) return;
   const formData = new FormData();
   formData.append('pdf', file);
-
-  const res = await fetch('/upload-pdf', { method: 'POST', body: formData });
+  const res = await fetch('/upload-pdf',{method:'POST', body:formData});
   const data = await res.json();
-  alert(data.message || "PDF uploaded!");
+  alert(data.message || 'PDF uploaded!');
 }
 
-/* === Handle Resize === */
-window.addEventListener('resize', () => {
+/* === Resize === */
+window.addEventListener('resize',()=>{
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
 });
 </script>
-
 </body>
 </html>
