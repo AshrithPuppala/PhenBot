@@ -835,46 +835,63 @@ function createServer(port) {
     }
 
     // --- PDF Upload endpoint ---
-    if (method === 'POST' && pathName === '/upload-pdf') {
-      const form = new formidable.IncomingForm();
-      form.uploadDir = path.join(__dirname, 'temp');
-      form.keepExtensions = true;
-      
-      form.parse(req, async (err, fields, files) => {
-        if (err) {
-          res.writeHead(400, {'Content-Type': 'application/json'});
-          return res.end(JSON.stringify({ success: false, error: 'Upload failed' }));
-        }
-        
-        const file = files.pdf;
-        if (!file) {
-          res.writeHead(400, {'Content-Type': 'application/json'});
-          return res.end(JSON.stringify({ success: false, error: 'No PDF file uploaded' }));
-        }
-        
-        try {
-          const fileData = {
-            buffer: fs.readFileSync(file.filepath),
-            originalFilename: file.originalFilename,
-            size: file.size
-          };
-          
-          const result = await processPDF(userId, fileData);
-          
-          // Clean up temp file
-          fs.unlinkSync(file.filepath);
-          
-          res.setHeader('Content-Type', 'application/json');
-          res.writeHead(result.success ? 200 : 400);
-          res.end(JSON.stringify(result));
-        } catch (error) {
-          console.error('PDF upload error:', error);
-          res.writeHead(500, {'Content-Type': 'application/json'});
-          res.end(JSON.stringify({ success: false, error: 'PDF processing failed' }));
-        }
-      });
-      return;
+if (method === 'POST' && pathName === '/upload-pdf') {
+  const form = new formidable.IncomingForm();
+
+  // Ensure temp directory exists
+  const tempDir = path.join(__dirname, 'temp');
+  if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+  form.uploadDir = tempDir;
+  form.keepExtensions = true;
+
+  form.parse(req, async (err, fields, files) => {
+    if (err) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ success: false, error: 'Upload failed' }));
     }
+
+    const file = files.pdf;
+    if (!file) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ success: false, error: 'No PDF file uploaded' }));
+    }
+
+    const filePath = file.filepath || file.path;
+    if (!filePath) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ success: false, error: 'File path missing' }));
+    }
+
+    try {
+      // Ensure user dirs exist for safety
+      const pdfDir = path.join(USERS_DIR, userId, 'pdfs');
+      const extractedTextDir = path.join(USERS_DIR, userId, 'extracted-text');
+      if (!fs.existsSync(pdfDir)) fs.mkdirSync(pdfDir, { recursive: true });
+      if (!fs.existsSync(extractedTextDir)) fs.mkdirSync(extractedTextDir, { recursive: true });
+
+      const fileData = {
+        buffer: fs.readFileSync(filePath),
+        originalFilename: file.originalFilename || file.name,
+        size: file.size
+      };
+
+      const result = await processPDF(userId, fileData);
+
+      fs.unlinkSync(filePath);
+
+      res.setHeader('Content-Type', 'application/json');
+      res.writeHead(result.success ? 200 : 400);
+      res.end(JSON.stringify(result));
+    } catch (error) {
+      console.error('PDF upload error:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'PDF processing failed' }));
+    }
+  });
+  return;
+}
+
+
 
     // --- Get user PDFs ---
     if (method === 'GET' && pathName === '/user-pdfs') {
@@ -1013,4 +1030,7 @@ process.on('SIGINT', () => {
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
 createServer(PORT);
+
+
+
 
