@@ -1,11 +1,7 @@
 gunicorn==21.2.0
 groq
 httpx<0.28
-Flask
-flask-bcrypt
-flask-login
-flask==2.3.3
-flask-login==0.6.3
-flask-bcrypt==1.0.1
-groq==0.4.1
-gunicorn==21.2.0
+Flask==2.3.2
+Werkzeug==2.3.9
+PyPDF2==3.1.0
+openai==1.31.0
