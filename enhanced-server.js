@@ -787,7 +787,70 @@ function createServer(port) {
             }
           }
 
-          // Update user analytics
+         // Add this entire block to your enhanced-server.js file
+
+    // --- PDF Upload endpoint ---
+    if (method === 'POST' && pathName === '/upload.pdf') {
+        const form = new formidable.IncomingForm();
+
+        // Ensure temp directory exists
+        const tempDir = path.join(__dirname, 'temp');
+        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+        form.uploadDir = tempDir;
+        form.keepExtensions = true;
+
+        form.parse(req, async (err, fields, files) => {
+            if (err) {
+                console.error('Formidable parsing error:', err);
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                return res.end(JSON.stringify({ success: false, error: 'Upload failed during parsing' }));
+            }
+
+            const file = files.pdf?.[0] || files.pdf; // formidable v3+ wraps files in an array
+            const uploadUserId = fields.userId?.[0] || fields.userId;
+
+            if (!file || !uploadUserId) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                return res.end(JSON.stringify({ success: false, error: 'No PDF file or user ID found in request' }));
+            }
+
+            const filePath = file.filepath;
+            if (!filePath) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                return res.end(JSON.stringify({ success: false, error: 'File path missing after upload' }));
+            }
+
+            try {
+                // Ensure user directories exist before processing
+                createUserDirectories(uploadUserId);
+
+                const fileData = {
+                    buffer: fs.readFileSync(filePath),
+                    originalFilename: file.originalFilename,
+                    size: file.size
+                };
+
+                // Process PDF with existing logic
+                const result = await processPDF(uploadUserId, fileData);
+
+                // IMPORTANT: Remove temp file after processing
+                fs.unlinkSync(filePath);
+
+                res.writeHead(result.success ? 200 : 400, {'Content-Type': 'application/json'});
+                res.end(JSON.stringify(result));
+            } catch(e) {
+                console.error('Fatal error in PDF upload endpoint:', e);
+                // Ensure temp file is removed even on error
+                if (fs.existsSync(filePath)) {
+                    fs.unlinkSync(filePath);
+                }
+                res.writeHead(500, {'Content-Type': 'application/json'});
+                return res.end(JSON.stringify({success:false, error:'Server failed to process PDF'}));
+            }
+        });
+        return;
+    }
+ // Update user analytics
           if (userData) {
             userData.analytics.questionsAsked += 1;
             if (subject && !userData.analytics.conceptsLearned.includes(subject)) {
