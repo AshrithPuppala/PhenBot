@@ -1065,7 +1065,7 @@ background: rgba(139, 92, 246, 0.9);
 <form id="loginForm">
 <div class="form-group">
 <label class="form-label" for="loginEmail">Email</label>
-<input type="email" id="loginEmail" class="form-input" placeholder="Enter your cosmic email" required>
+<input type="email" id="loginEmail" class="form-input" placeholder="Enter your email" required>
 </div>
 <div class="form-group">
 <label class="form-label" for="loginPassword">Password</label>
@@ -1085,22 +1085,22 @@ New to the galaxy?
 <div class="auth-container">
 <div class="logo-section">
 <h1 class="logo-title">Join PhenBOT</h1>
-<p class="logo-subtitle">Begin your cosmic learning journey</p>
+<p class="logo-subtitle">Begin your learning journey</p>
 </div>
 <form id="registerForm">
 <div class="form-group">
 <label class="form-label" for="registerUsername">Space Name</label>
-<input type="text" id="registerUsername" class="form-input" placeholder="Choose your cosmic identity" required>
+<input type="text" id="registerUsername" class="form-input" placeholder="Choose your Username" required>
 </div>
 <div class="form-group">
 <label class="form-label" for="registerEmail">Email</label>
-<input type="email" id="registerEmail" class="form-input" placeholder="Your cosmic communication channel" required>
+<input type="email" id="registerEmail" class="form-input" placeholder="Your communication channel" required>
 </div>
 <div class="form-group">
 <label class="form-label" for="registerPassword">Secret Code</label>
 <input type="password" id="registerPassword" class="form-input" placeholder="Create a strong galactic password" required minlength="6">
 </div>
-<button type="submit" class="btn-primary">Create Cosmic Account 🌌</button>
+<button type="submit" class="btn-primary">Create Account 🌌</button>
 </form>
 <p class="auth-switch">
 Already exploring?
@@ -1131,7 +1131,7 @@ Already exploring?
 <main class="main-content">
 <section class="chat-section">
 <div class="chat-header">
-<h1 class="chat-title">Your Cosmic Study Companion</h1>
+<h1 class="chat-title">Your Personalised Study Companion</h1>
 <p class="chat-subtitle">Explore knowledge across the universe with AI-powered learning</p>
 </div>
 <div class="chat-container">
@@ -1643,7 +1643,7 @@ body: JSON.stringify({ username, email, password })
 const data = await response.json();
 
 if (data.success) {
-showNotification('Cosmic account created! Welcome to the universe of learning!', 'success');
+showNotification('Your account is created! Welcome to the universe of learning!', 'success');
 showLogin();
 document.getElementById('loginEmail').value = email;
 } else {
@@ -1769,7 +1769,7 @@ async function uploadPDFFile() {
     formData.append('userId', currentUser.userId);
 
     try {
-        showNotification('Processing your cosmic document...', 'info');
+        showNotification('Processing your document...', 'info');
         closePDFModal();
 
         // ✅ CHANGE 2: Correct the endpoint from '/upload-pdf' to '/upload.pdf'
@@ -2123,7 +2123,7 @@ pomodoroTimer.isRunning = false;
 pomodoroTimer.focusSessions++;
 document.getElementById('focusSessions').textContent = pomodoroTimer.focusSessions;
 clearInterval(pomodoroTimer.interval);
-showNotification('Focus session complete! Time for a cosmic break!', 'success');
+showNotification('Focus session complete! Time for a break!', 'success');
 resetPomodoro();
 return;
 }
@@ -2236,7 +2236,7 @@ async function handlePDFUpload(event) {
     formData.append('userId', currentUser.userId);
 
     try {
-        showNotification('Processing your cosmic document...', 'info');
+        showNotification('Processing your document...', 'info');
 
         // ✅ FIX 2: Correct the URL to '/upload.pdf'
         const response = await fetch('/upload.pdf', {
