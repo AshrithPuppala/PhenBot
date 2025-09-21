@@ -2226,20 +2226,20 @@ showNotification('Study summary feature in development!', 'info');
 }
 
 // Handle PDF upload through hidden input (fallback)
-// Handle PDF upload through hidden input (fallback)
 async function handlePDFUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
 
     const formData = new FormData();
     formData.append('pdf', file);
-    // ✅ FIX: Add the user's ID to the form data
+    // ✅ FIX 1: Add the user's ID to the form data
     formData.append('userId', currentUser.userId);
 
     try {
         showNotification('Processing your cosmic document...', 'info');
 
-        const response = await fetch('/upload.pdf', { // Also ensure this URL is correct
+        // ✅ FIX 2: Correct the URL to '/upload.pdf'
+        const response = await fetch('/upload.pdf', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${sessionToken}` },
             body: formData
@@ -2281,6 +2281,8 @@ flashcardTypeEl.style.textDecoration = 'underline';
 </script>
 </body>
 </html>
+
+
 
 
 
