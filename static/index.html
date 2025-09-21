@@ -1,15 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PhenBOT - Advanced Study Companion</title>
     <style>
-        /* preserved CSS + small additions for new UI */
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        :root{
-            --primary-gradient: linear-gradient(135deg,#667eea 0%,#764ba2 100%);
-            --secondary-gradient: linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --secondary-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
             --accent-color: #4facfe;
             --success-color: #10b981;
             --warning-color: #f59e0b;
@@ -18,83 +22,605 @@
             --text-primary: #1e293b;
             --text-secondary: #64748b;
             --border-color: #e2e8f0;
-            --shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
-            --shadow-lg: 0 20px 25px -5px rgba(0,0,0,0.1);
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
         }
-        body{ font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background: var(--primary-gradient); min-height:100vh; color:var(--text-primary); }
-        .app-container{ display:flex; height:100vh; overflow:hidden; }
-        .sidebar{ width:280px; background:var(--card-bg); border-right:1px solid var(--border-color); display:flex; flex-direction:column; transition: transform .3s ease; }
-        .sidebar-header{ padding:20px; background:var(--secondary-gradient); color:white; }
-        .logo{ font-size:24px; font-weight:700; margin-bottom:5px; }
-        .tagline{ font-size:14px; opacity:.9; }
-        .nav-tabs{ padding:20px 0; flex:1; overflow:auto; }
-        .nav-tab{ display:flex; align-items:center; padding:12px 20px; color:var(--text-secondary); text-decoration:none; border-left:3px solid transparent; cursor:pointer; background:none; border:none; width:100%; text-align:left; font-size:14px; }
-        .nav-tab:hover, .nav-tab.active{ background: rgba(79,172,254,0.08); color:var(--accent-color); border-left-color:var(--accent-color); }
-        .nav-tab-icon{ margin-right:12px; font-size:16px; width:20px; text-align:center; }
-        .streak-section{ margin:20px; padding:20px; background:linear-gradient(135deg,#fef3c7,#fbbf24); border-radius:12px; text-align:center; }
-        .streak-counter{ font-size:32px; font-weight:700; color:#92400e; }
-        .streak-label{ font-size:14px; color:#92400e; margin-top:5px; }
 
-        .main-content{ flex:1; display:flex; flex-direction:column; overflow:hidden; }
-        .top-bar{ background:var(--card-bg); padding:16px 24px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; gap:12px; }
-        .system-status{ display:flex; align-items:center; gap:8px; padding:6px 12px; border-radius:20px; font-size:12px; font-weight:600; cursor:pointer; transition:transform .2s; }
-        .system-status:hover{ transform:scale(1.03); }
-        .system-status.online{ background:var(--success-color); color:white; }
-        .system-status.offline{ background:var(--error-color); color:white; }
-        .system-status.checking{ background:var(--warning-color); color:white; }
-        .user-info{ display:flex; align-items:center; gap:12px; }
-        .accuracy-meter, .pomodoro-timer{ display:flex; align-items:center; gap:8px; padding:8px 16px; border-radius:20px; font-weight:600; font-size:12px; }
-        .accuracy-meter{ background:var(--success-color); color:white; }
-        .pomodoro-timer{ background:var(--warning-color); color:white; cursor:default; }
-        .pomodoro-controls button{ margin-left:8px; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--primary-gradient);
+            min-height: 100vh;
+            color: var(--text-primary);
+        }
 
-        .content-area{ flex:1; padding:24px; overflow-y:auto; background: rgba(255,255,255,0.05); }
+        .app-container {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
 
-        .tab-content{ display:none; animation: fadeIn .25s ease; }
-        .tab-content.active{ display:block; }
-        @keyframes fadeIn{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:translateY(0); } }
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: var(--card-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease;
+        }
 
-        .chat-container{ background:var(--card-bg); border-radius:16px; box-shadow:var(--shadow-lg); height:65vh; display:flex; flex-direction:column; overflow:hidden; }
-        .chat-messages{ flex:1; padding:20px; overflow-y:auto; scroll-behavior:smooth; }
-        .message{ margin-bottom:20px; display:flex; align-items:flex-start; gap:12px; animation: slideIn .25s ease; }
-        .message.user{ flex-direction:row-reverse; }
-        @keyframes slideIn{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:translateY(0); } }
-        .message-avatar{ width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; font-weight:600; }
-        .message.bot .message-avatar{ background:var(--secondary-gradient); color:white; }
-        .message.user .message-avatar{ background:var(--primary-gradient); color:white; }
-        .message-content{ max-width:75%; padding:16px 20px; border-radius:18px; line-height:1.6; word-wrap:break-word; white-space:pre-wrap; }
-        .message.bot .message-content{ background:#f1f5f9; border-bottom-left-radius:6px; color:var(--text-primary); }
-        .message.user .message-content{ background:var(--accent-color); color:white; border-bottom-right-radius:6px; }
-        .loading .message-content{ opacity:.75; font-style:italic; }
+        .sidebar-header {
+            padding: 20px;
+            background: var(--secondary-gradient);
+            color: white;
+        }
 
-        .chat-input-area{ padding:20px; border-top:1px solid var(--border-color); }
-        .input-container{ display:flex; gap:12px; align-items:flex-end; }
-        .message-input{ flex:1; min-height:50px; max-height:120px; padding:15px 20px; border:2px solid var(--border-color); border-radius:25px; outline:none; font-size:16px; font-family:inherit; resize:none; transition:border-color .2s; }
-        .message-input:focus{ border-color:var(--accent-color); box-shadow:0 0 0 3px rgba(79,172,254,0.08); }
-        .send-button{ background:var(--secondary-gradient); color:white; border:none; border-radius:50%; width:50px; height:50px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:18px; transition:transform .15s; }
-        .send-button:hover:not(:disabled){ transform:scale(1.05); }
-        .send-button:disabled{ opacity:.6; cursor:not-allowed; transform:none; }
+        .logo {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
 
-        .dashboard-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:24px; margin-bottom:24px; }
-        .dashboard-card{ background:var(--card-bg); border-radius:16px; padding:24px; box-shadow:var(--shadow); transition:transform .2s; }
-        .dashboard-card:hover{ transform:translateY(-4px); box-shadow:var(--shadow-lg); }
-        .card-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
-        .card-title{ font-size:18px; font-weight:600; color:var(--text-primary); }
-        .card-icon{ font-size:24px; color:var(--accent-color); }
-        .progress-bar{ width:100%; height:8px; background:var(--border-color); border-radius:4px; overflow:hidden; margin:12px 0; }
-        .progress-fill{ height:100%; background:var(--secondary-gradient); border-radius:4px; transition:width .3s; }
+        .tagline {
+            font-size: 14px;
+            opacity: 0.9;
+        }
 
-        .sidebar-toggle{ display:none; background:var(--border-color); border:none; padding:12px; border-radius:8px; cursor:pointer; }
-        .sidebar-toggle:hover{ background:var(--accent-color); color:white; }
-        @media (max-width:768px){ .app-container{ flex-direction:column; } .sidebar{ position:fixed; left:-280px; z-index:1000; height:100vh; width:280px; } .sidebar.open{ transform:translateX(280px); } .main-content{ width:100%; } .dashboard-grid{ grid-template-columns:1fr; } .chat-container{ height:70vh; } .sidebar-toggle{ display:block; } }
+        .nav-tabs {
+            padding: 20px 0;
+            flex: 1;
+        }
 
-        /* PDF + flashcards small styles */
-        .pdf-upload { display:flex; gap:8px; align-items:center; }
-        .pdf-list { margin-top:12px; display:flex; flex-direction:column; gap:8px; }
-        .pdf-item { background:#fff; padding:10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; box-shadow:var(--shadow); }
-        .flashcards-controls { display:flex; gap:8px; margin-bottom:12px; }
-        .flashcard { background:#fff; padding:12px; border-radius:8px; margin-bottom:8px; box-shadow:var(--shadow); }
-        .review-card { min-height:120px; display:flex; align-items:center; justify-content:center; text-align:center; font-size:18px; }
+        .nav-tab {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
+            cursor: pointer;
+        }
+
+        .nav-tab:hover, .nav-tab.active {
+            background: rgba(79, 172, 254, 0.1);
+            color: var(--accent-color);
+            border-left-color: var(--accent-color);
+        }
+
+        .nav-tab-icon {
+            margin-right: 12px;
+            font-size: 18px;
+        }
+
+        .pdf-status {
+            margin: 20px;
+            padding: 12px;
+            background: #f0f9ff;
+            border: 1px solid #0ea5e9;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #0369a1;
+            display: none;
+        }
+
+        .pdf-status.visible {
+            display: block;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .top-bar {
+            background: var(--card-bg);
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .menu-toggle {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text-primary);
+        }
+
+        .content-area {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        /* Tab Content */
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Chat Interface */
+        .chat-container {
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: var(--shadow-lg);
+            height: 70vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .pdf-context-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .pdf-context-toggle input[type="checkbox"] {
+            margin: 0;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .message.user {
+            flex-direction: row-reverse;
+        }
+
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .message.bot .message-avatar {
+            background: var(--secondary-gradient);
+            color: white;
+        }
+
+        .message.user .message-avatar {
+            background: var(--primary-gradient);
+            color: white;
+        }
+
+        .message-content {
+            max-width: 70%;
+            padding: 16px 20px;
+            border-radius: 18px;
+            line-height: 1.6;
+            position: relative;
+        }
+
+        .message.bot .message-content {
+            background: #f1f5f9;
+            border-bottom-left-radius: 6px;
+        }
+
+        .message.user .message-content {
+            background: var(--accent-color);
+            color: white;
+            border-bottom-right-radius: 6px;
+        }
+
+        .pdf-context-indicator {
+            font-size: 12px;
+            color: var(--success-color);
+            margin-top: 8px;
+            font-weight: 500;
+        }
+
+        .chat-input-area {
+            padding: 20px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .input-container {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+
+        .message-input {
+            flex: 1;
+            min-height: 50px;
+            max-height: 120px;
+            padding: 15px 20px;
+            border: 2px solid var(--border-color);
+            border-radius: 25px;
+            outline: none;
+            font-size: 16px;
+            resize: none;
+            font-family: inherit;
+            transition: border-color 0.3s ease;
+        }
+
+        .message-input:focus {
+            border-color: var(--accent-color);
+        }
+
+        .send-button {
+            background: var(--secondary-gradient);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.3s ease;
+            font-size: 20px;
+        }
+
+        .send-button:hover:not(:disabled) {
+            transform: scale(1.05);
+        }
+
+        .send-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* File Upload */
+        .file-upload-area {
+            border: 2px dashed var(--accent-color);
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .file-upload-area:hover {
+            background: rgba(79, 172, 254, 0.05);
+        }
+
+        .file-upload-area.dragover {
+            border-color: var(--success-color);
+            background: rgba(16, 185, 129, 0.05);
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            color: var(--accent-color);
+            margin-bottom: 16px;
+        }
+
+        /* Tool Cards */
+        .tool-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .tool-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: var(--shadow);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .tool-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .tool-card h3 {
+            color: var(--accent-color);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        /* Flashcard Styles */
+        .flashcard-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 24px;
+        }
+
+        .flashcard {
+            perspective: 1000px;
+            height: 200px;
+        }
+
+        .flashcard-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            cursor: pointer;
+        }
+
+        .flashcard.flipped .flashcard-inner {
+            transform: rotateY(180deg);
+        }
+
+        .flashcard-front, .flashcard-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: var(--shadow);
+            text-align: center;
+        }
+
+        .flashcard-front {
+            background: var(--secondary-gradient);
+            color: white;
+        }
+
+        .flashcard-back {
+            background: var(--success-color);
+            color: white;
+            transform: rotateY(180deg);
+        }
+
+        /* Calculator Styles */
+        .calculator {
+            max-width: 400px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .calculator-display {
+            width: 100%;
+            height: 80px;
+            font-size: 24px;
+            text-align: right;
+            padding: 16px;
+            margin-bottom: 16px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            background: #f8f9fa;
+            font-family: 'Courier New', monospace;
+        }
+
+        .calculator-buttons {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+
+        .calc-btn {
+            height: 60px;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .calc-btn.number {
+            background: #e2e8f0;
+            color: var(--text-primary);
+        }
+
+        .calc-btn.operator {
+            background: var(--accent-color);
+            color: white;
+        }
+
+        .calc-btn.function {
+            background: var(--warning-color);
+            color: white;
+            font-size: 14px;
+        }
+
+        .calc-btn.equals {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .calc-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
+        }
+
+        /* Summary Section */
+        .summary-content {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: var(--shadow);
+            margin-top: 20px;
+        }
+
+        .summary-content h3 {
+            color: var(--accent-color);
+            margin-bottom: 16px;
+        }
+
+        .summary-text {
+            line-height: 1.6;
+            color: var(--text-primary);
+            white-space: pre-wrap;
+        }
+
+        /* Button Styles */
+        .btn {
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-success {
+            background: var(--success-color);
+        }
+
+        .btn-warning {
+            background: var(--warning-color);
+        }
+
+        /* Loading States */
+        .loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--accent-color);
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Status Messages */
+        .status-message {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin: 16px 0;
+            font-weight: 500;
+        }
+
+        .status-message.success {
+            background: #ecfdf5;
+            color: var(--success-color);
+            border: 1px solid #86efac;
+        }
+
+        .status-message.error {
+            background: #fee2e2;
+            color: var(--error-color);
+            border: 1px solid #fca5a5;
+        }
+
+        .status-message.info {
+            background: #f0f9ff;
+            color: #0369a1;
+            border: 1px solid #7dd3fc;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .menu-toggle {
+                display: block;
+            }
+
+            .sidebar {
+                position: absolute;
+                left: -280px;
+                z-index: 1000;
+                height: 100vh;
+            }
+
+            .sidebar.open {
+                transform: translateX(280px);
+            }
+
+            .tool-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .flashcard-container {
+                grid-template-columns: 1fr;
+            }
+
+            .calculator {
+                max-width: 100%;
+            }
+        }
+
+        /* Hidden file input */
+        #pdfFileInput {
+            display: none;
+        }
+
+        /* Typing indicator */
+        .typing-indicator {
+            display: none;
+            padding: 16px 20px;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        .typing-indicator.visible {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -106,679 +632,799 @@
                 <div class="tagline">Advanced Study Companion</div>
             </div>
 
-            <nav class="nav-tabs" id="navTabs">
-                <button class="nav-tab active" data-tab="dashboard" type="button">
-                    <span class="nav-tab-icon">📊</span>Dashboard
-                </button>
-                <button class="nav-tab" data-tab="math" type="button">
-                    <span class="nav-tab-icon">🔢</span>Mathematics
-                </button>
-                <button class="nav-tab" data-tab="science" type="button">
-                    <span class="nav-tab-icon">🔬</span>Science
-                </button>
-                <button class="nav-tab" data-tab="english" type="button">
-                    <span class="nav-tab-icon">📚</span>English
-                </button>
-                <button class="nav-tab" data-tab="history" type="button">
-                    <span class="nav-tab-icon">🏛️</span>History
-                </button>
-                <button class="nav-tab" data-tab="tools" type="button">
-                    <span class="nav-tab-icon">🛠️</span>Study Tools
-                </button>
-                <button class="nav-tab" data-tab="bookmarks" type="button">
-                    <span class="nav-tab-icon">📖</span>Bookmarks
-                </button>
-                <button class="nav-tab" data-tab="analytics" type="button">
-                    <span class="nav-tab-icon">📈</span>Analytics
-                </button>
+            <nav class="nav-tabs">
+                <div class="nav-tab active" data-tab="dashboard">
+                    <span class="nav-tab-icon">📊</span>
+                    Dashboard
+                </div>
+                <div class="nav-tab" data-tab="math">
+                    <span class="nav-tab-icon">🔢</span>
+                    Mathematics
+                </div>
+                <div class="nav-tab" data-tab="science">
+                    <span class="nav-tab-icon">🔬</span>
+                    Science
+                </div>
+                <div class="nav-tab" data-tab="english">
+                    <span class="nav-tab-icon">📚</span>
+                    English
+                </div>
+                <div class="nav-tab" data-tab="history">
+                    <span class="nav-tab-icon">🏛️</span>
+                    History
+                </div>
+                <div class="nav-tab" data-tab="tools">
+                    <span class="nav-tab-icon">🛠️</span>
+                    Study Tools
+                </div>
+                <div class="nav-tab" data-tab="calculator">
+                    <span class="nav-tab-icon">🧮</span>
+                    Calculator
+                </div>
             </nav>
 
-            <div class="streak-section">
-                <div class="streak-counter" id="streakCounter">7</div>
-                <div class="streak-label">Day Streak 🔥</div>
+            <div class="pdf-status" id="pdfStatus">
+                📄 No PDF uploaded yet
             </div>
         </div>
 
         <!-- Main Content -->
         <div class="main-content">
             <div class="top-bar">
-                <button id="sidebarToggle" class="sidebar-toggle" type="button">☰</button>
-                <div id="systemStatus" class="system-status checking">🔄 Checking...</div>
-                <div class="user-info">
-                    <div class="accuracy-meter">
-                        <span>Accuracy: 92%</span>
-                    </div>
-                    <div class="pomodoro-timer" id="pomodoroWrap">
-                        <span id="pomodoroLabel">🍅 Pomodoro</span>
-                        <strong id="pomodoroTime">25:00</strong>
-                        <div class="pomodoro-controls">
-                            <button id="pomStart">Start</button>
-                            <button id="pomPause">Pause</button>
-                            <button id="pomReset">Reset</button>
-                        </div>
-                    </div>
+                <button class="menu-toggle" id="menuToggle">☰</button>
+                <div id="systemStatus" class="status-message info" style="display: none;">
+                    Checking system status...
                 </div>
             </div>
 
             <div class="content-area">
                 <!-- Dashboard Tab -->
                 <div class="tab-content active" id="dashboard">
-                    <div class="dashboard-grid">
-                        <div class="dashboard-card">
-                            <div class="card-header">
-                                <div class="card-title">Today's Progress</div>
-                                <div class="card-icon">📅</div>
-                            </div>
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="width:65%"></div>
-                            </div>
-                            <p>65% of daily goals completed</p>
+                    <h2 style="margin-bottom: 24px; color: var(--text-primary);">Welcome to PhenBOT Dashboard</h2>
+                    
+                    <div class="tool-grid">
+                        <div class="tool-card" onclick="switchTab('tools')">
+                            <h3>📁 Upload PDF</h3>
+                            <p>Upload your study materials and ask questions based on the content</p>
                         </div>
 
-                        <div class="dashboard-card">
-                            <div class="card-header">
-                                <div class="card-title">Recent Activity</div>
-                                <div class="card-icon">⚡</div>
-                            </div>
-                            <ul id="recentActivity">
-                                <li>✅ System initialized</li>
-                                <li>🤖 AI assistant ready</li>
-                                <li>🔄 Checking connections...</li>
-                            </ul>
+                        <div class="tool-card" onclick="generateSummary()">
+                            <h3>📄 Summarize</h3>
+                            <p>Get a comprehensive summary of your uploaded PDF</p>
                         </div>
 
-                        <div class="dashboard-card">
-                            <div class="card-header">
-                                <div class="card-title">AI Status</div>
-                                <div class="card-icon">🤖</div>
-                            </div>
-                            <div id="aiStatusDetails">
-                                <p id="groqStatus">Checking AI connection...</p>
-                                <p id="apiKeyStatus">Verifying API key...</p>
-                            </div>
+                        <div class="tool-card" onclick="generateFlashcards()">
+                            <h3>🗂️ Create Flashcards</h3>
+                            <p>Generate interactive flashcards from your study material</p>
+                        </div>
+
+                        <div class="tool-card" onclick="switchTab('calculator')">
+                            <h3>🧮 Calculator</h3>
+                            <p>Use the scientific calculator for mathematical calculations</p>
                         </div>
                     </div>
+
+                    <div id="dashboardSummary" class="summary-content" style="display: none;">
+                        <h3>📄 Document Summary</h3>
+                        <div id="summaryText" class="summary-text"></div>
+                    </div>
+
+                    <div id="dashboardFlashcards" class="flashcard-container"></div>
                 </div>
 
-                <!-- Math tab (chat) -->
+                <!-- Subject-specific tabs -->
                 <div class="tab-content" id="math">
                     <div class="chat-container">
+                        <div class="chat-header">
+                            <h3>🔢 Mathematics Assistant</h3>
+                            <div class="pdf-context-toggle">
+                                <input type="checkbox" id="mathPdfContext" disabled>
+                                <label for="mathPdfContext">Use PDF context</label>
+                            </div>
+                        </div>
                         <div class="chat-messages" id="mathMessages">
                             <div class="message bot">
                                 <div class="message-avatar">🤖</div>
-                                <div class="message-content">Welcome to Mathematics! Ask anything — I'll explain step-by-step.</div>
+                                <div class="message-content">
+                                    Welcome to Mathematics! I'm here to help you understand concepts through step-by-step explanations and clear examples. What math topic would you like to explore today?
+                                </div>
                             </div>
                         </div>
-
+                        <div class="typing-indicator" id="mathTyping">PhenBOT is thinking...</div>
                         <div class="chat-input-area">
                             <div class="input-container">
                                 <textarea class="message-input" placeholder="Ask a math question..." data-subject="math"></textarea>
-                                <button class="send-button" type="button" title="Send">➤</button>
+                                <button class="send-button" onclick="sendMessage('math')">➤</button>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Science tab -->
                 <div class="tab-content" id="science">
                     <div class="chat-container">
+                        <div class="chat-header">
+                            <h3>🔬 Science Assistant</h3>
+                            <div class="pdf-context-toggle">
+                                <input type="checkbox" id="sciencePdfContext" disabled>
+                                <label for="sciencePdfContext">Use PDF context</label>
+                            </div>
+                        </div>
                         <div class="chat-messages" id="scienceMessages">
                             <div class="message bot">
                                 <div class="message-avatar">🤖</div>
-                                <div class="message-content">Ready to explore Science! Ask a question to begin.</div>
+                                <div class="message-content">
+                                    Ready to explore Science! I can explain complex concepts using real-world analogies and help you understand the 'why' behind every phenomenon. What scientific concept interests you?
+                                </div>
                             </div>
                         </div>
-
+                        <div class="typing-indicator" id="scienceTyping">PhenBOT is thinking...</div>
                         <div class="chat-input-area">
                             <div class="input-container">
                                 <textarea class="message-input" placeholder="Ask a science question..." data-subject="science"></textarea>
-                                <button class="send-button" type="button">➤</button>
+                                <button class="send-button" onclick="sendMessage('science')">➤</button>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- English tab -->
                 <div class="tab-content" id="english">
                     <div class="chat-container">
+                        <div class="chat-header">
+                            <h3>📚 English Assistant</h3>
+                            <div class="pdf-context-toggle">
+                                <input type="checkbox" id="englishPdfContext" disabled>
+                                <label for="englishPdfContext">Use PDF context</label>
+                            </div>
+                        </div>
                         <div class="chat-messages" id="englishMessages">
                             <div class="message bot">
                                 <div class="message-avatar">🤖</div>
-                                <div class="message-content">Let's dive into English & Literature! Ask away.</div>
+                                <div class="message-content">
+                                    Let's dive into English & Literature! I can help with grammar, essays, poetry analysis, and creative writing. Share what you're working on!
+                                </div>
                             </div>
                         </div>
-
+                        <div class="typing-indicator" id="englishTyping">PhenBOT is thinking...</div>
                         <div class="chat-input-area">
                             <div class="input-container">
                                 <textarea class="message-input" placeholder="Ask about English/Literature..." data-subject="english"></textarea>
-                                <button class="send-button" type="button">➤</button>
+                                <button class="send-button" onclick="sendMessage('english')">➤</button>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- History tab -->
                 <div class="tab-content" id="history">
                     <div class="chat-container">
+                        <div class="chat-header">
+                            <h3>🏛️ History Assistant</h3>
+                            <div class="pdf-context-toggle">
+                                <input type="checkbox" id="historyPdfContext" disabled>
+                                <label for="historyPdfContext">Use PDF context</label>
+                            </div>
+                        </div>
                         <div class="chat-messages" id="historyMessages">
                             <div class="message bot">
                                 <div class="message-avatar">🤖</div>
-                                <div class="message-content">Welcome to History! I'm here to help unpack events and causes.</div>
+                                <div class="message-content">
+                                    Welcome to History! I'll help you understand historical events through engaging stories and timelines. What period or event would you like to explore?
+                                </div>
                             </div>
                         </div>
-
+                        <div class="typing-indicator" id="historyTyping">PhenBOT is thinking...</div>
                         <div class="chat-input-area">
                             <div class="input-container">
                                 <textarea class="message-input" placeholder="Ask a history question..." data-subject="history"></textarea>
-                                <button class="send-button" type="button">➤</button>
+                                <button class="send-button" onclick="sendMessage('history')">➤</button>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Tools tab (PDF upload + Flashcards) -->
                 <div class="tab-content" id="tools">
-                    <div class="dashboard-card">
-                        <div class="card-header">
-                            <div class="card-title">Study Tools</div>
-                            <div class="card-icon">🧰</div>
+                    <h2 style="margin-bottom: 24px;">Study Tools & Resources</h2>
+                    
+                    <div class="file-upload-area" onclick="document.getElementById('pdfFileInput').click()">
+                        <div class="upload-icon">📄</div>
+                        <h3>Upload PDF Document</h3>
+                        <p>Upload your study materials, textbooks, or notes to ask questions and generate summaries</p>
+                        <input type="file" id="pdfFileInput" accept=".pdf" onchange="uploadPDF(this)">
+                    </div>
+
+                    <div id="uploadStatus" class="status-message" style="display: none;"></div>
+
+                    <div class="tool-grid">
+                        <div class="tool-card" onclick="generateSummary()">
+                            <h3>📄 Generate Summary</h3>
+                            <p>Create a comprehensive summary of your uploaded PDF</p>
+                            <button class="btn" style="margin-top: 12px;" id="summaryBtn" disabled>Generate Summary</button>
                         </div>
-
-                        <!-- PDF upload -->
-                        <h3>Upload PDF (notes/assignments)</h3>
-                        <div class="pdf-upload">
-                            <input id="pdfFile" type="file" accept="application/pdf" />
-                            <button id="uploadPdfBtn">Upload PDF</button>
-                            <span id="uploadStatus"></span>
+                        
+                        <div class="tool-card" onclick="generateFlashcards()">
+                            <h3>🗂️ Create Flashcards</h3>
+                            <p>Generate interactive flashcards from your PDF content</p>
+                            <div style="margin-top: 12px;">
+                                <input type="number" id="numCards" value="10" min="5" max="15" style="width: 60px; padding: 4px; margin-right: 8px;">
+                                <button class="btn" id="flashcardBtn" disabled>Create Cards</button>
+                            </div>
                         </div>
-                        <div class="pdf-list" id="pdfList"></div>
+                    </div>
 
-                        <hr style="margin:16px 0;" />
+                    <div id="toolsSummary" class="summary-content" style="display: none;">
+                        <h3>📄 Document Summary</h3>
+                        <div id="toolsSummaryText" class="summary-text"></div>
+                    </div>
 
-                        <!-- Flashcards -->
-                        <h3>Flashcards</h3>
-                        <div class="flashcards-controls">
-                            <input id="fcQuestion" placeholder="Question" style="flex:1;padding:8px;border-radius:6px;border:1px solid var(--border-color)" />
-                            <input id="fcAnswer" placeholder="Answer" style="flex:1;padding:8px;border-radius:6px;border:1px solid var(--border-color)" />
-                            <button id="addFlashcardBtn">Add</button>
-                        </div>
+                    <div id="toolsFlashcards" class="flashcard-container"></div>
+                </div>
 
-                        <div id="flashcardsList"></div>
-
-                        <hr style="margin:16px 0;" />
-
-                        <h4>Review Mode</h4>
-                        <div class="review-card flashcard" id="reviewCard">
-                            <div id="reviewContent">No flashcards yet — add some to start reviewing.</div>
-                        </div>
-                        <div style="display:flex;gap:8px;margin-top:8px;">
-                            <button id="prevCard">Prev</button>
-                            <button id="showAnswer">Show Answer</button>
-                            <button id="nextCard">Next</button>
+                <div class="tab-content" id="calculator">
+                    <h2 style="margin-bottom: 24px; text-align: center;">Scientific Calculator</h2>
+                    
+                    <div class="calculator">
+                        <input type="text" class="calculator-display" id="calcDisplay" readonly placeholder="0">
+                        
+                        <div class="calculator-buttons">
+                            <!-- Row 1: Functions -->
+                            <button class="calc-btn function" onclick="clearCalculator()">C</button>
+                            <button class="calc-btn function" onclick="clearEntry()">CE</button>
+                            <button class="calc-btn function" onclick="backspace()">⌫</button>
+                            <button class="calc-btn operator" onclick="appendToDisplay('/')">÷</button>
+                            
+                            <!-- Row 2: Functions -->
+                            <button class="calc-btn function" onclick="appendFunction('sin(')">sin</button>
+                            <button class="calc-btn function" onclick="appendFunction('cos(')">cos</button>
+                            <button class="calc-btn function" onclick="appendFunction('tan(')">tan</button>
+                            <button class="calc-btn operator" onclick="appendToDisplay('*')">×</button>
+                            
+                            <!-- Row 3: Functions -->
+                            <button class="calc-btn function" onclick="appendFunction('log(')">log</button>
+                            <button class="calc-btn function" onclick="appendFunction('ln(')">ln</button>
+                            <button class="calc-btn function" onclick="appendToDisplay('^')">x^y</button>
+                            <button class="calc-btn operator" onclick="appendToDisplay('-')">−</button>
+                            
+                            <!-- Row 4: Numbers -->
+                            <button class="calc-btn number" onclick="appendToDisplay('7')">7</button>
+                            <button class="calc-btn number" onclick="appendToDisplay('8')">8</button>
+                            <button class="calc-btn number" onclick="appendToDisplay('9')">9</button>
+                            <button class="calc-btn operator" onclick="appendToDisplay('+')">+</button>
+                            
+                            <!-- Row 5: Numbers -->
+                            <button class="calc-btn number" onclick="appendToDisplay('4')">4</button>
+                            <button class="calc-btn number" onclick="appendToDisplay('5')">5</button>
+                            <button class="calc-btn number" onclick="appendToDisplay('6')">6</button>
+                            <button class="calc-btn function" onclick="appendToDisplay('(')">(</button>
+                            
+                            <!-- Row 6: Numbers -->
+                            <button class="calc-btn number" onclick="appendToDisplay('1')">1</button>
+                            <button class="calc-btn number" onclick="appendToDisplay('2')">2</button>
+                            <button class="calc-btn number" onclick="appendToDisplay('3')">3</button>
+                            <button class="calc-btn function" onclick="appendToDisplay(')')">)</button>
+                            
+                            <!-- Row 7: Numbers -->
+                            <button class="calc-btn number" onclick="appendToDisplay('0')">0</button>
+                            <button class="calc-btn number" onclick="appendToDisplay('.')">.</button>
+                            <button class="calc-btn function" onclick="appendToDisplay('3.14159')">π</button>
+                            <button class="calc-btn equals" onclick="calculateResult()">=</button>
                         </div>
                     </div>
                 </div>
-
-                <div class="tab-content" id="bookmarks">
-                    <div class="dashboard-card">
-                        <div class="card-title">Bookmarks</div>
-                        <p>Saved notes, links and highlights will appear here.</p>
-                    </div>
-                </div>
-
-                <div class="tab-content" id="analytics">
-                    <div class="dashboard-card">
-                        <div class="card-title">Analytics</div>
-                        <p>Your study stats and performance graphs will be shown here.</p>
-                    </div>
-                </div>
-
             </div>
         </div>
     </div>
 
-    <!-- JS: tabs, chat send, health, pomodoro, pdf upload, flashcards -->
     <script>
-    (function () {
-        // ---------- Tabs & Sidebar ----------
-        const navTabs = document.querySelectorAll('.nav-tab');
-        const tabContents = document.querySelectorAll('.tab-content');
-        navTabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                const name = tab.dataset.tab;
-                if (!name) return;
-                navTabs.forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                tabContents.forEach(c => c.classList.remove('active'));
-                const target = document.getElementById(name);
-                if (target) target.classList.add('active');
-                document.getElementById('sidebar').classList.remove('open');
-            });
+        // Global variables
+        let currentTab = 'dashboard';
+        let hasPDF = false;
+        let calculatorExpression = '';
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            checkSystemHealth();
+            setupEventListeners();
+            updatePDFStatus();
         });
-        const sidebarToggle = document.getElementById('sidebarToggle');
-        const sidebar = document.getElementById('sidebar');
-        sidebarToggle.addEventListener('click', () => sidebar.classList.toggle('open'));
 
-        // ---------- Chat wiring (same as before) ----------
-        function createMessageEl(text, role='user') {
-            const msg = document.createElement('div');
-            msg.className = 'message ' + role;
-            const avatar = document.createElement('div');
-            avatar.className = 'message-avatar';
-            avatar.textContent = role === 'user' ? 'A' : '🤖';
-            const content = document.createElement('div');
-            content.className = 'message-content';
-            content.textContent = text;
-            msg.appendChild(avatar);
-            msg.appendChild(content);
-            return msg;
-        }
-
-        async function sendQuestion(question, subject, chatMessagesEl) {
-            const userMsg = createMessageEl(question, 'user');
-            chatMessagesEl.appendChild(userMsg);
-            chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
-
-            const botPlaceholder = createMessageEl('Thinking...', 'bot');
-            botPlaceholder.classList.add('loading');
-            chatMessagesEl.appendChild(botPlaceholder);
-            chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
-
-            try {
-                const res = await fetch('/api/ask', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ question, subject })
+        function setupEventListeners() {
+            // Tab switching
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const tabId = tab.dataset.tab;
+                    switchTab(tabId);
                 });
+            });
 
-                if (!res.ok) {
-                    const errBody = await res.json().catch(()=>({ error: res.statusText }));
-                    botPlaceholder.classList.remove('loading');
-                    botPlaceholder.querySelector('.message-content').textContent = 'Error: ' + (errBody.error || res.statusText);
-                    return;
-                }
+            // Mobile menu toggle
+            document.getElementById('menuToggle').addEventListener('click', () => {
+                document.getElementById('sidebar').classList.toggle('open');
+            });
 
-                const data = await res.json();
-                botPlaceholder.classList.remove('loading');
-
-                if (data.answer) {
-                    botPlaceholder.querySelector('.message-content').textContent = data.answer;
-                } else if (data.error) {
-                    botPlaceholder.querySelector('.message-content').textContent = 'Error: ' + data.error;
-                } else {
-                    botPlaceholder.querySelector('.message-content').textContent = 'No response from AI.';
-                }
-            } catch (err) {
-                botPlaceholder.classList.remove('loading');
-                botPlaceholder.querySelector('.message-content').textContent = 'Network error: ' + err.message;
-            } finally {
-                chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
-                const activity = document.getElementById('recentActivity');
-                if (activity) {
-                    const li = document.createElement('li');
-                    li.textContent = `Asked "${question.length>60?question.slice(0,57)+'...':question}" (${subject})`;
-                    activity.insertBefore(li, activity.firstChild);
-                }
-            }
-        }
-
-        document.querySelectorAll('.tab-content').forEach(tab => {
-            const sendBtn = tab.querySelector('.send-button');
-            const textarea = tab.querySelector('.message-input');
-            const chatMessages = tab.querySelector('.chat-messages');
-            if (sendBtn && textarea && chatMessages) {
-                sendBtn.addEventListener('click', () => {
-                    const question = textarea.value.trim();
-                    if (!question) return;
-                    const subject = tab.id || textarea.dataset.subject || 'general';
-                    textarea.value = '';
-                    sendQuestion(question, subject, chatMessages);
-                });
-                textarea.addEventListener('keydown', (e) => {
+            // Enter key handling for message inputs
+            document.querySelectorAll('.message-input').forEach(input => {
+                input.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
-                        sendBtn.click();
+                        const subject = input.dataset.subject;
+                        sendMessage(subject);
                     }
                 });
+            });
+
+            // File drag and drop
+            const uploadArea = document.querySelector('.file-upload-area');
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                uploadArea.addEventListener(eventName, preventDefaults, false);
+            });
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                uploadArea.addEventListener(eventName, () => uploadArea.classList.add('dragover'), false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                uploadArea.addEventListener(eventName, () => uploadArea.classList.remove('dragover'), false);
+            });
+
+            uploadArea.addEventListener('drop', handleDrop, false);
+        }
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length > 0 && files[0].type === 'application/pdf') {
+                document.getElementById('pdfFileInput').files = files;
+                uploadPDF(document.getElementById('pdfFileInput'));
             }
-        });
+        }
 
-        // ---------- Health polling ----------
-        const systemStatusEl = document.getElementById('systemStatus');
-        async function updateHealth(){
+        // System health check
+        async function checkSystemHealth() {
             try {
-                systemStatusEl.textContent = '🔄 Checking...';
-                systemStatusEl.classList.remove('online','offline','checking');
-                systemStatusEl.classList.add('checking');
-
-                const res = await fetch('/health');
-                if (!res.ok) {
-                    systemStatusEl.textContent = '⚠️ Health check failed';
-                    systemStatusEl.classList.remove('checking');
-                    systemStatusEl.classList.add('offline');
-                    return;
-                }
-                const data = await res.json();
-                const groqAvailable = !!data.groq_available;
-                const apiKeyPresent = !!data.api_key_present;
-                if (groqAvailable) {
-                    systemStatusEl.textContent = '🟢 Online';
-                    systemStatusEl.classList.remove('checking','offline');
-                    systemStatusEl.classList.add('online');
-                    document.getElementById('groqStatus').textContent = 'AI connected';
-                    document.getElementById('apiKeyStatus').textContent = apiKeyPresent ? 'API Key present' : 'API Key missing';
+                const response = await fetch('/health');
+                const data = await response.json();
+                
+                const statusDiv = document.getElementById('systemStatus');
+                statusDiv.style.display = 'block';
+                
+                if (data.groq_available) {
+                    statusDiv.className = 'status-message success';
+                    statusDiv.textContent = 'System ready - AI assistant available';
                 } else {
-                    systemStatusEl.textContent = '🔴 AI unavailable';
-                    systemStatusEl.classList.remove('checking','online');
-                    systemStatusEl.classList.add('offline');
-                    document.getElementById('groqStatus').textContent = data.error || 'AI not available';
-                    document.getElementById('apiKeyStatus').textContent = apiKeyPresent ? 'API Key present' : 'API Key missing';
+                    statusDiv.className = 'status-message error';
+                    statusDiv.textContent = `AI system unavailable: ${data.error || 'Unknown error'}`;
                 }
-            } catch (err) {
-                systemStatusEl.textContent = '⚠️ Error';
-                systemStatusEl.classList.remove('checking');
-                systemStatusEl.classList.add('offline');
-            }
-        }
-        updateHealth();
-        setInterval(updateHealth, 15000);
-
-        // ---------- Pomodoro timer (client-side) ----------
-        const pomTimeEl = document.getElementById('pomodoroTime');
-        const pomStartBtn = document.getElementById('pomStart');
-        const pomPauseBtn = document.getElementById('pomPause');
-        const pomResetBtn = document.getElementById('pomReset');
-
-        const DEFAULT_SECONDS = 25 * 60;
-        let pomSeconds = DEFAULT_SECONDS;
-        let pomTimer = null;
-        let pomRunning = false;
-
-        // load from localStorage
-        function loadPom() {
-            try {
-                const raw = localStorage.getItem('phenbot_pomodoro');
-                if (raw) {
-                    const obj = JSON.parse(raw);
-                    pomSeconds = typeof obj.seconds === 'number' ? obj.seconds : DEFAULT_SECONDS;
-                    pomRunning = !!obj.running;
-                }
-            } catch (e) { /* ignore */ }
-            updatePomDisplay();
-            if (pomRunning) startPom();
-        }
-
-        function savePom() {
-            localStorage.setItem('phenbot_pomodoro', JSON.stringify({ seconds: pomSeconds, running: pomRunning }));
-        }
-
-        function formatTime(s) {
-            const m = Math.floor(s/60).toString().padStart(2,'0');
-            const sec = (s%60).toString().padStart(2,'0');
-            return `${m}:${sec}`;
-        }
-
-        function updatePomDisplay() {
-            pomTimeEl.textContent = formatTime(pomSeconds);
-        }
-
-        function tickPom() {
-            if (pomSeconds > 0) {
-                pomSeconds -= 1;
-                updatePomDisplay();
-                savePom();
-            } else {
-                // finished - simple notification
-                pomRunning = false;
-                clearInterval(pomTimer);
-                pomTimer = null;
-                try { new Notification('Pomodoro finished!'); } catch(e){}
+                
+                // Hide status after 5 seconds
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 5000);
+                
+            } catch (error) {
+                const statusDiv = document.getElementById('systemStatus');
+                statusDiv.className = 'status-message error';
+                statusDiv.textContent = 'Connection error - please check your internet connection';
+                statusDiv.style.display = 'block';
             }
         }
 
-        function startPom() {
-            if (pomRunning) return;
-            pomRunning = true;
-            pomTimer = setInterval(tickPom, 1000);
-            savePom();
+        // Tab switching
+        function switchTab(tabId) {
+            // Update active tab
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+
+            // Update content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(tabId).classList.add('active');
+
+            currentTab = tabId;
+
+            // Close mobile menu
+            document.getElementById('sidebar').classList.remove('open');
         }
 
-        function pausePom() {
-            pomRunning = false;
-            if (pomTimer) clearInterval(pomTimer);
-            pomTimer = null;
-            savePom();
-        }
+        // PDF upload functionality
+        async function uploadPDF(input) {
+            const file = input.files[0];
+            if (!file) return;
 
-        function resetPom() {
-            pausePom();
-            pomSeconds = DEFAULT_SECONDS;
-            updatePomDisplay();
-            savePom();
-        }
-
-        pomStartBtn.addEventListener('click', () => startPom());
-        pomPauseBtn.addEventListener('click', () => pausePom());
-        pomResetBtn.addEventListener('click', () => resetPom());
-        loadPom();
-
-        // request permission for notifications (optional)
-        if (window.Notification && Notification.permission !== 'granted') {
-            Notification.requestPermission().catch(()=>{});
-        }
-
-        // ---------- PDF upload and listing ----------
-        const pdfInput = document.getElementById('pdfFile');
-        const uploadBtn = document.getElementById('uploadPdfBtn');
-        const uploadStatus = document.getElementById('uploadStatus');
-        const pdfList = document.getElementById('pdfList');
-
-        async function fetchPdfList() {
-            pdfList.innerHTML = 'Loading...';
-            try {
-                const res = await fetch('/api/pdfs');
-                const data = await res.json();
-                pdfList.innerHTML = '';
-                if (data.files && data.files.length) {
-                    data.files.forEach(f => {
-                        const div = document.createElement('div');
-                        div.className = 'pdf-item';
-                        const left = document.createElement('div');
-                        left.textContent = f.name;
-                        const right = document.createElement('div');
-                        const a = document.createElement('a');
-                        a.href = f.url;
-                        a.target = '_blank';
-                        a.textContent = 'Preview';
-                        right.appendChild(a);
-                        div.appendChild(left);
-                        div.appendChild(right);
-                        pdfList.appendChild(div);
-                    });
-                } else {
-                    pdfList.innerHTML = '<div class="pdf-item">No PDFs uploaded yet.</div>';
-                }
-            } catch (err) {
-                pdfList.innerHTML = '<div class="pdf-item">Error loading list.</div>';
-            }
-        }
-
-        uploadBtn.addEventListener('click', async () => {
-            uploadStatus.textContent = '';
-            if (!pdfInput.files || pdfInput.files.length === 0) {
-                uploadStatus.textContent = 'Select a PDF first.';
-                return;
-            }
-            const file = pdfInput.files[0];
             if (file.type !== 'application/pdf') {
-                uploadStatus.textContent = 'Only PDF files allowed.';
+                showStatus('error', 'Please select a PDF file.');
                 return;
             }
-            const form = new FormData();
-            form.append('file', file);
-            uploadBtn.disabled = true;
-            uploadStatus.textContent = 'Uploading...';
+
+            const formData = new FormData();
+            formData.append('pdf_file', file);
+
+            const uploadStatus = document.getElementById('uploadStatus');
+            uploadStatus.className = 'status-message info';
+            uploadStatus.textContent = 'Uploading and processing PDF...';
+            uploadStatus.style.display = 'block';
+
             try {
-                const res = await fetch('/api/upload-pdf', { method: 'POST', body: form });
-                const data = await res.json();
-                uploadBtn.disabled = false;
-                if (res.status === 201) {
-                    uploadStatus.textContent = 'Uploaded ✔';
-                    pdfInput.value = '';
-                    fetchPdfList();
+                const response = await fetch('/api/upload-pdf', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    hasPDF = true;
+                    updatePDFStatus(data.filename, data.text_length);
+                    enablePDFFeatures();
+                    
+                    uploadStatus.className = 'status-message success';
+                    uploadStatus.textContent = `PDF uploaded successfully! Extracted ${data.text_length} characters.`;
+                    
+                    // Show preview
+                    if (data.preview) {
+                        uploadStatus.innerHTML += `<br><br><strong>Preview:</strong><br>${data.preview}`;
+                    }
                 } else {
-                    uploadStatus.textContent = 'Upload failed: ' + (data.error || res.statusText);
+                    uploadStatus.className = 'status-message error';
+                    uploadStatus.textContent = data.error || 'Upload failed';
                 }
-            } catch (err) {
-                uploadBtn.disabled = false;
-                uploadStatus.textContent = 'Network error';
-            }
-        });
-
-        fetchPdfList();
-
-        // ---------- Flashcards (create/list/review/delete) ----------
-        const fcQ = document.getElementById('fcQuestion');
-        const fcA = document.getElementById('fcAnswer');
-        const addFcBtn = document.getElementById('addFlashcardBtn');
-        const fcListEl = document.getElementById('flashcardsList');
-        const reviewContent = document.getElementById('reviewContent');
-        const prevBtn = document.getElementById('prevCard');
-        const nextBtn = document.getElementById('nextCard');
-        const showAnswerBtn = document.getElementById('showAnswer');
-
-        let flashcards = [];
-        let reviewIndex = 0;
-        let showingAnswer = false;
-
-        async function loadFlashcards() {
-            fcListEl.innerHTML = 'Loading...';
-            try {
-                const res = await fetch('/api/flashcards');
-                const data = await res.json();
-                flashcards = data.flashcards || [];
-                renderFlashcards();
-                reviewIndex = 0;
-                showReviewCard();
-            } catch (err) {
-                fcListEl.innerHTML = 'Error loading flashcards';
+            } catch (error) {
+                uploadStatus.className = 'status-message error';
+                uploadStatus.textContent = 'Upload failed: ' + error.message;
             }
         }
 
-        function renderFlashcards() {
-            fcListEl.innerHTML = '';
-            if (!flashcards.length) {
-                fcListEl.innerHTML = '<div>No flashcards yet.</div>';
+        function updatePDFStatus(filename = null, textLength = null) {
+            const statusDiv = document.getElementById('pdfStatus');
+            if (filename) {
+                statusDiv.textContent = `📄 ${filename} (${textLength} chars)`;
+                statusDiv.classList.add('visible');
+            } else if (hasPDF) {
+                statusDiv.textContent = '📄 PDF uploaded';
+                statusDiv.classList.add('visible');
+            } else {
+                statusDiv.textContent = '📄 No PDF uploaded';
+                statusDiv.classList.remove('visible');
+            }
+        }
+
+        function enablePDFFeatures() {
+            // Enable PDF context checkboxes
+            document.querySelectorAll('input[id$="PdfContext"]').forEach(checkbox => {
+                checkbox.disabled = false;
+            });
+
+            // Enable summary and flashcard buttons
+            document.getElementById('summaryBtn').disabled = false;
+            document.getElementById('flashcardBtn').disabled = false;
+        }
+
+        // Message sending
+        async function sendMessage(subject) {
+            const input = document.querySelector(`#${subject} .message-input, [data-subject="${subject}"]`);
+            const messagesContainer = document.getElementById(`${subject}Messages`);
+            const typingIndicator = document.getElementById(`${subject}Typing`);
+            const pdfContextCheckbox = document.getElementById(`${subject}PdfContext`);
+            
+            const message = input.value.trim();
+            if (!message) return;
+
+            // Add user message
+            addMessage(messagesContainer, 'user', message);
+            input.value = '';
+
+            // Show typing indicator
+            if (typingIndicator) {
+                typingIndicator.classList.add('visible');
+            }
+
+            const usePdfContext = pdfContextCheckbox ? pdfContextCheckbox.checked : false;
+
+            try {
+                const response = await fetch('/api/ask', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        question: message,
+                        subject: subject,
+                        use_pdf_context: usePdfContext
+                    })
+                });
+
+                const data = await response.json();
+
+                // Hide typing indicator
+                if (typingIndicator) {
+                    typingIndicator.classList.remove('visible');
+                }
+
+                if (data.status === 'success') {
+                    addMessage(messagesContainer, 'bot', data.answer, data.used_pdf_context);
+                } else {
+                    addMessage(messagesContainer, 'bot', `Sorry, I encountered an error: ${data.error}`);
+                }
+            } catch (error) {
+                if (typingIndicator) {
+                    typingIndicator.classList.remove('visible');
+                }
+                addMessage(messagesContainer, 'bot', 'Sorry, I encountered a connection error. Please try again.');
+            }
+        }
+
+        function addMessage(container, type, content, usedPdfContext = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+
+            const avatar = document.createElement('div');
+            avatar.className = 'message-avatar';
+            avatar.textContent = type === 'bot' ? '🤖' : '👤';
+
+            const messageContent = document.createElement('div');
+            messageContent.className = 'message-content';
+            messageContent.textContent = content;
+
+            if (usedPdfContext) {
+                const indicator = document.createElement('div');
+                indicator.className = 'pdf-context-indicator';
+                indicator.textContent = '📄 Answer based on your uploaded PDF';
+                messageContent.appendChild(indicator);
+            }
+
+            if (type === 'bot') {
+                messageDiv.appendChild(avatar);
+                messageDiv.appendChild(messageContent);
+            } else {
+                messageDiv.appendChild(messageContent);
+                messageDiv.appendChild(avatar);
+            }
+
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Summary generation
+        async function generateSummary() {
+            if (!hasPDF) {
+                showStatus('error', 'Please upload a PDF first.');
                 return;
             }
-            flashcards.forEach(card => {
-                const div = document.createElement('div');
-                div.className = 'flashcard';
-                const q = document.createElement('div');
-                q.innerHTML = `<strong>Q:</strong> ${card.question}`;
-                const a = document.createElement('div');
-                a.innerHTML = `<strong>A:</strong> ${card.answer}`;
-                const del = document.createElement('button');
-                del.textContent = 'Delete';
-                del.style.float = 'right';
-                del.addEventListener('click', () => deleteFlashcard(card.id));
-                div.appendChild(del);
-                div.appendChild(q);
-                div.appendChild(a);
-                fcListEl.appendChild(div);
+
+            const summaryBtn = document.getElementById('summaryBtn');
+            if (summaryBtn) {
+                summaryBtn.innerHTML = '<div class="spinner"></div> Generating...';
+                summaryBtn.disabled = true;
+            }
+
+            try {
+                const response = await fetch('/api/summarize', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        source: 'pdf'
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    displaySummary(data.summary);
+                    showStatus('success', 'Summary generated successfully!');
+                } else {
+                    showStatus('error', data.error || 'Failed to generate summary');
+                }
+            } catch (error) {
+                showStatus('error', 'Error generating summary: ' + error.message);
+            } finally {
+                if (summaryBtn) {
+                    summaryBtn.innerHTML = 'Generate Summary';
+                    summaryBtn.disabled = false;
+                }
+            }
+        }
+
+        function displaySummary(summary) {
+            // Show in dashboard
+            const dashboardSummary = document.getElementById('dashboardSummary');
+            const dashboardText = document.getElementById('summaryText');
+            dashboardText.textContent = summary;
+            dashboardSummary.style.display = 'block';
+
+            // Show in tools tab
+            const toolsSummary = document.getElementById('toolsSummary');
+            const toolsText = document.getElementById('toolsSummaryText');
+            toolsText.textContent = summary;
+            toolsSummary.style.display = 'block';
+        }
+
+        // Flashcard generation
+        async function generateFlashcards() {
+            if (!hasPDF) {
+                showStatus('error', 'Please upload a PDF first.');
+                return;
+            }
+
+            const numCards = document.getElementById('numCards')?.value || 10;
+            const flashcardBtn = document.getElementById('flashcardBtn');
+            
+            if (flashcardBtn) {
+                flashcardBtn.innerHTML = '<div class="spinner"></div> Creating...';
+                flashcardBtn.disabled = true;
+            }
+
+            try {
+                const response = await fetch('/api/generate-flashcards', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        source: 'pdf',
+                        num_cards: parseInt(numCards)
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success' && data.flashcards.length > 0) {
+                    displayFlashcards(data.flashcards);
+                    showStatus('success', `Generated ${data.flashcards.length} flashcards!`);
+                } else {
+                    showStatus('error', data.error || 'Failed to generate flashcards');
+                }
+            } catch (error) {
+                showStatus('error', 'Error generating flashcards: ' + error.message);
+            } finally {
+                if (flashcardBtn) {
+                    flashcardBtn.innerHTML = 'Create Cards';
+                    flashcardBtn.disabled = false;
+                }
+            }
+        }
+
+        function displayFlashcards(flashcards) {
+            const containers = [
+                document.getElementById('dashboardFlashcards'),
+                document.getElementById('toolsFlashcards')
+            ];
+
+            containers.forEach(container => {
+                if (!container) return;
+                
+                container.innerHTML = '';
+                
+                flashcards.forEach((card, index) => {
+                    const flashcardDiv = document.createElement('div');
+                    flashcardDiv.className = 'flashcard';
+                    flashcardDiv.onclick = () => flipCard(flashcardDiv);
+
+                    flashcardDiv.innerHTML = `
+                        <div class="flashcard-inner">
+                            <div class="flashcard-front">
+                                <h4>Question ${index + 1}</h4>
+                                <p>${card.question}</p>
+                            </div>
+                            <div class="flashcard-back">
+                                <h4>Answer</h4>
+                                <p>${card.answer}</p>
+                            </div>
+                        </div>
+                    `;
+                    
+                    container.appendChild(flashcardDiv);
+                });
             });
         }
 
-        async function deleteFlashcard(id) {
-            try {
-                const res = await fetch('/api/flashcards/' + encodeURIComponent(id), { method: 'DELETE' });
-                if (res.ok) {
-                    flashcards = flashcards.filter(c => c.id !== id);
-                    renderFlashcards();
-                    if (reviewIndex >= flashcards.length) reviewIndex = Math.max(0, flashcards.length - 1);
-                    showReviewCard();
-                } else {
-                    const d = await res.json().catch(()=>({}));
-                    alert('Delete failed: ' + (d.error || res.statusText));
-                }
-            } catch (err) {
-                alert('Network error');
-            }
+        function flipCard(cardElement) {
+            cardElement.classList.toggle('flipped');
         }
 
-        addFcBtn.addEventListener('click', async () => {
-            const question = fcQ.value.trim();
-            const answer = fcA.value.trim();
-            if (!question || !answer) {
-                alert('Both question and answer are required');
-                return;
-            }
-            addFcBtn.disabled = true;
-            try {
-                const res = await fetch('/api/flashcards', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ question, answer })
-                });
-                const data = await res.json();
-                addFcBtn.disabled = false;
-                if (res.status === 201 && data.flashcard) {
-                    flashcards.unshift(data.flashcard);
-                    fcQ.value = '';
-                    fcA.value = '';
-                    renderFlashcards();
-                    reviewIndex = 0;
-                    showReviewCard();
-                } else {
-                    alert('Could not add flashcard: ' + (data.error || 'unknown'));
-                }
-            } catch (err) {
-                addFcBtn.disabled = false;
-                alert('Network error');
-            }
-        });
-
-        function showReviewCard() {
-            if (!flashcards.length) {
-                reviewContent.textContent = 'No flashcards yet — add some to start reviewing.';
-                return;
-            }
-            showingAnswer = false;
-            const c = flashcards[reviewIndex];
-            reviewContent.innerHTML = `<strong>Q:</strong> ${c.question}<div style="margin-top:8px;color:var(--text-secondary);font-size:12px;">(${reviewIndex+1}/${flashcards.length})</div>`;
-        }
-
-        function showAnswer() {
-            if (!flashcards.length) return;
-            showingAnswer = true;
-            const c = flashcards[reviewIndex];
-            reviewContent.innerHTML = `<strong>A:</strong> ${c.answer}<div style="margin-top:8px;color:var(--text-secondary);font-size:12px;">(${reviewIndex+1}/${flashcards.length})</div>`;
-        }
-
-        prevBtn.addEventListener('click', () => {
-            if (!flashcards.length) return;
-            reviewIndex = (reviewIndex - 1 + flashcards.length) % flashcards.length;
-            showReviewCard();
-        });
-        nextBtn.addEventListener('click', () => {
-            if (!flashcards.length) return;
-            reviewIndex = (reviewIndex + 1) % flashcards.length;
-            showReviewCard();
-        });
-        showAnswerBtn.addEventListener('click', () => {
-            if (!flashcards.length) return;
-            if (showingAnswer) {
-                // reveal question again
-                showReviewCard();
+        // Calculator functions
+        function appendToDisplay(value) {
+            const display = document.getElementById('calcDisplay');
+            if (display.value === '0' && value !== '.') {
+                display.value = value;
             } else {
-                showAnswer();
+                display.value += value;
             }
-        });
+        }
 
-        // load initial state
-        loadFlashcards();
+        function appendFunction(func) {
+            const display = document.getElementById('calcDisplay');
+            if (display.value === '0') {
+                display.value = func;
+            } else {
+                display.value += func;
+            }
+        }
 
-    })();
+        function clearCalculator() {
+            document.getElementById('calcDisplay').value = '0';
+        }
+
+        function clearEntry() {
+            document.getElementById('calcDisplay').value = '0';
+        }
+
+        function backspace() {
+            const display = document.getElementById('calcDisplay');
+            if (display.value.length > 1) {
+                display.value = display.value.slice(0, -1);
+            } else {
+                display.value = '0';
+            }
+        }
+
+        function calculateResult() {
+            const display = document.getElementById('calcDisplay');
+            const expression = display.value;
+
+            try {
+                // Replace display symbols with JavaScript operators
+                let jsExpression = expression
+                    .replace(/×/g, '*')
+                    .replace(/÷/g, '/')
+                    .replace(/−/g, '-')
+                    .replace(/\^/g, '**')
+                    .replace(/sin\(/g, 'Math.sin(')
+                    .replace(/cos\(/g, 'Math.cos(')
+                    .replace(/tan\(/g, 'Math.tan(')
+                    .replace(/log\(/g, 'Math.log10(')
+                    .replace(/ln\(/g, 'Math.log(')
+                    .replace(/π/g, 'Math.PI');
+
+                const result = eval(jsExpression);
+                display.value = result.toString();
+            } catch (error) {
+                display.value = 'Error';
+                setTimeout(() => {
+                    display.value = '0';
+                }, 2000);
+            }
+        }
+
+        // Utility functions
+        function showStatus(type, message) {
+            const statusDiv = document.getElementById('uploadStatus') || document.getElementById('systemStatus');
+            if (statusDiv) {
+                statusDiv.className = `status-message ${type}`;
+                statusDiv.textContent = message;
+                statusDiv.style.display = 'block';
+                
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        // Check PDF status on load
+        async function checkPDFStatus() {
+            try {
+                const response = await fetch('/api/pdf-status');
+                const data = await response.json();
+                
+                if (data.has_pdf) {
+                    hasPDF = true;
+                    updatePDFStatus();
+                    enablePDFFeatures();
+                }
+            } catch (error) {
+                console.error('Error checking PDF status:', error);
+            }
+        }
+
+        // Initialize PDF status check
+        checkPDFStatus();
     </script>
 </body>
 </html>
