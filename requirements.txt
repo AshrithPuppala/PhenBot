@@ -1,12 +1,13 @@
+Flask==2.3.3
+Flask-SQLAlchemy==3.0.5
+Werkzeug==2.3.7
 groq==0.4.1
-Flask>=2.1
-Flask-SQLAlchemy>=2.5
-gunicorn
-werkzeug
-python-dotenv
+gunicorn==21.2.0
+python-dotenv==1.0.0
 # Add groq==<version> only if you will provide that dependency and GROQ_API_KEY
 
 # Note: do NOT force-add `groq` here unless you need it; app works without it.
 # If you use Groq in production, add the package version: groq==<version>
+
 
 
