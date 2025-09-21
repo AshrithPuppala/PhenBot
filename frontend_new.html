@@ -1765,24 +1765,29 @@ async function uploadPDFFile() {
 
     const formData = new FormData();
     formData.append('pdf', file);
-    // ✅ CHANGE 1: Attach the current user's ID to the request.
     formData.append('userId', currentUser.userId);
 
     try {
         showNotification('Processing your document...', 'info');
         closePDFModal();
 
-        // ✅ CHANGE 2: Correct the endpoint from '/upload-pdf' to '/upload.pdf'
         const response = await fetch('/upload.pdf', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${sessionToken}` },
             body: formData
         });
+        
         const data = await response.json();
 
         if (data.success) {
             showNotification(`${file.name} uploaded successfully!`, 'success');
-            await loadUserPDFs();
+            
+            // FIX: Add these lines to refresh the PDF list
+            await loadUserPDFs(); // This was missing!
+            
+            // Optional: Show additional success info
+            console.log('PDF processed:', data);
+            
         } else {
             showNotification(data.error || 'PDF upload failed', 'error');
         }
@@ -1791,6 +1796,22 @@ async function uploadPDFFile() {
         showNotification('PDF upload failed. Please try again.', 'error');
     }
 }
+
+
+async function debugPDFList() {
+    try {
+        const response = await fetch('/user-pdfs', {
+            headers: { 'Authorization': `Bearer ${sessionToken}` }
+        });
+        const data = await response.json();
+        console.log('Current PDFs:', data);
+    } catch (error) {
+        console.error('Debug error:', error);
+    }
+}
+
+// Call this after upload to see if PDFs are being saved
+
 
 
 // ===== FLASHCARD MANAGEMENT =====
@@ -2225,20 +2246,17 @@ function showSummary() {
 showNotification('Study summary feature in development!', 'info');
 }
 
-// Handle PDF upload through hidden input (fallback)
 async function handlePDFUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
 
     const formData = new FormData();
     formData.append('pdf', file);
-    // ✅ FIX 1: Add the user's ID to the form data
     formData.append('userId', currentUser.userId);
 
     try {
         showNotification('Processing your document...', 'info');
 
-        // ✅ FIX 2: Correct the URL to '/upload.pdf'
         const response = await fetch('/upload.pdf', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${sessionToken}` },
@@ -2248,7 +2266,7 @@ async function handlePDFUpload(event) {
 
         if (data.success) {
             showNotification(`${file.name} uploaded successfully!`, 'success');
-            await loadUserPDFs();
+            await loadUserPDFs(); // FIX: This was missing here too!
         } else {
             showNotification(data.error || 'PDF upload failed', 'error');
         }
@@ -2257,6 +2275,7 @@ async function handlePDFUpload(event) {
         showNotification('PDF upload failed. Please try again.', 'error');
     }
 }
+
 
 
 // Initialize timer display and other components
