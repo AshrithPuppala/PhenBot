@@ -1,0 +1,11 @@
+{
+    "users": [
+        {
+            "username": "ashrith",
+            "email": "ashrith@example.com",
+            "password_hash": "$2b$12$...",
+            "streak": 7,
+            "history": []
+        }
+    ]
+}
