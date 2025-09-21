@@ -1060,7 +1060,7 @@ background: rgba(139, 92, 246, 0.9);
 <div class="auth-container">
 <div class="logo-section">
 <h1 class="logo-title">PhenBOT</h1>
-<p class="logo-subtitle">Your AI Study Companion in Space</p>
+<p class="logo-subtitle">Your AI Study Companion</p>
 </div>
 <form id="loginForm">
 <div class="form-group">
@@ -1074,7 +1074,7 @@ background: rgba(139, 92, 246, 0.9);
 <button type="submit" class="btn-primary">Launch into Learning 🚀</button>
 </form>
 <p class="auth-switch">
-New to the galaxy?
+New to PhenBot?
 <a href="#" class="auth-link" onclick="showRegister()">Join the mission</a>
 </p>
 </div>
@@ -1089,7 +1089,7 @@ New to the galaxy?
 </div>
 <form id="registerForm">
 <div class="form-group">
-<label class="form-label" for="registerUsername">Space Name</label>
+<label class="form-label" for="registerUsername">UserName</label>
 <input type="text" id="registerUsername" class="form-input" placeholder="Choose your Username" required>
 </div>
 <div class="form-group">
@@ -1132,7 +1132,7 @@ Already exploring?
 <section class="chat-section">
 <div class="chat-header">
 <h1 class="chat-title">Your Personalised Study Companion</h1>
-<p class="chat-subtitle">Explore knowledge across the universe with AI-powered learning</p>
+<p class="chat-subtitle">Explore knowledge at your fingertips with AI-powered learning</p>
 </div>
 <div class="chat-container">
 <div class="chat-messages" id="chatMessages">
@@ -1155,7 +1155,7 @@ Welcome to the cosmos of knowledge! I'm your AI study companion, ready to help y
 </div>
 <div class="loading" id="loading">
 <div class="loading-animation"></div>
-<span>Thinking across the galaxy<span id="loadingDots">...</span></span>
+<span>Thinking….<span id="loadingDots">...</span></span>
 </div>
 <div class="chat-input-container">
 <div class="input-controls">
@@ -1179,7 +1179,7 @@ Welcome to the cosmos of knowledge! I'm your AI study companion, ready to help y
 <textarea 
 class="chat-input" 
 id="chatInput" 
-placeholder="Ask me anything about the universe of knowledge..." 
+placeholder="Ask me anything" 
 rows="1"></textarea>
 <button class="send-btn" onclick="sendMessage()">
 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1643,7 +1643,7 @@ body: JSON.stringify({ username, email, password })
 const data = await response.json();
 
 if (data.success) {
-showNotification('Your account is created! Welcome to the universe of learning!', 'success');
+showNotification('Your account is created! Welcome to PhenBot!', 'success');
 showLogin();
 document.getElementById('loginEmail').value = email;
 } else {
@@ -2021,7 +2021,7 @@ updateAnalyticsDisplay(userAnalytics);
 scrollToBottom();
 } catch (error) {
 loading.style.display = 'none';
-addMessage('bot', 'Connection lost in space. Please try again.', { source: 'Error' });
+addMessage('bot', 'Connection lost. Please try again.', { source: 'Error' });
 }
 }
 
@@ -2300,6 +2300,8 @@ flashcardTypeEl.style.textDecoration = 'underline';
 </script>
 </body>
 </html>
+
+
 
 
 
