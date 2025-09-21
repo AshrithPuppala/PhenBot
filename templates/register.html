@@ -1,19 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="auth-card">
-  <h2>Create a new PhenBOT account</h2>
-  <form method="POST" class="auth-form">
-    <label>Username</label>
-    <input name="username" required placeholder="Pick a username" />
+<h2>Register</h2>
+<form method="POST">
+    <label for="username">Username:</label><br>
+    <input type="text" id="username" name="username" required><br><br>
 
-    <label>Password</label>
-    <input name="password" type="password" required placeholder="Choose a secure password" />
+    <label for="password">Password:</label><br>
+    <input type="password" id="password" name="password" required><br><br>
 
-    <div style="margin-top:12px;">
-      <button class="btn-primary" type="submit">Register</button>
-    </div>
-  </form>
-
-  <p class="small muted" style="margin-top:12px;">Already have an account? <a href="{{ url_for('login') }}">Login here</a>.</p>
-</div>
+    <button type="submit">Register</button>
+</form>
+<p>Already have an account? <a href="{{ url_for('login') }}">Login here</a></p>
 {% endblock %}
