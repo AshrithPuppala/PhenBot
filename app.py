@@ -1,100 +1,359 @@
-from flask import Flask, render_template, redirect, url_for, request, flash, session
-from flask_sqlalchemy import SQLAlchemy
-from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, User
 import os
+import sys
+import uuid
+import traceback
+from functools import wraps
+from datetime import datetime
+from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
 
-app = Flask(__name__)
-app.config['SECRET_KEY'] = "your_secret_key"  
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///instance/app.db'
+from flask import (
+    Flask, request, jsonify, send_from_directory,
+    render_template, redirect, url_for, flash, session
+)
+from flask_sqlalchemy import SQLAlchemy
+
+# ---------------------
+# App + config
+# ---------------------
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+INSTANCE_DIR = os.path.join(BASE_DIR, "instance")
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+UPLOAD_DIR = os.path.join(STATIC_DIR, "uploads")
+
+os.makedirs(INSTANCE_DIR, exist_ok=True)
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+app = Flask(__name__, static_folder='static', static_url_path='/static')
+
+# Secret key: set in Railway env var SECRET_KEY; fallback to random (not recommended for production)
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or uuid.uuid4().hex
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(INSTANCE_DIR, 'app.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['UPLOAD_FOLDER'] = UPLOAD_DIR
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB limit
 
-db.init_app(app)
+db = SQLAlchemy(app)
 
-# -------------------------------
-# Create database if not exists
-# -------------------------------
+# ---------------------
+# Database models
+# ---------------------
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(120), unique=True, nullable=False)
+    password = db.Column(db.String(256), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Flashcard(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    question = db.Column(db.Text, nullable=False)
+    answer = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class PDFFile(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    filename = db.Column(db.String(300), nullable=False)          # stored filename
+    original_name = db.Column(db.String(300), nullable=False)     # uploaded original
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+# Create tables if not exists
 with app.app_context():
     db.create_all()
 
-# -------------------------------
-# Routes
-# -------------------------------
+# ---------------------
+# Groq (AI) initialization with graceful handling
+# ---------------------
+groq_client = None
+GROQ_AVAILABLE = False
+GROQ_ERROR = None
 
-@app.route("/")
-def index():
-    if "user_id" in session:
-        return redirect(url_for("dashboard"))
-    return render_template("index.html")
+def initialize_groq():
+    global groq_client, GROQ_AVAILABLE, GROQ_ERROR
+    try:
+        from groq import Groq
+    except Exception as e:
+        GROQ_ERROR = f"Groq library not available: {e}"
+        GROQ_AVAILABLE = False
+        return False
 
-@app.route("/register", methods=["GET", "POST"])
+    api_key = os.environ.get("GROQ_API_KEY")
+    if not api_key:
+        GROQ_ERROR = "GROQ_API_KEY environment variable not set"
+        GROQ_AVAILABLE = False
+        return False
+
+    try:
+        groq_client = Groq(api_key=api_key)
+        GROQ_AVAILABLE = True
+        return True
+    except Exception as e:
+        GROQ_ERROR = f"Groq initialization failed: {e}"
+        GROQ_AVAILABLE = False
+        return False
+
+# Try init (won't crash if Groq isn't installed)
+initialize_groq()
+
+def get_ai_response(question, subject=None):
+    """Call Groq if available, otherwise return explanatory message."""
+    if not groq_client:
+        return "AI system not available on server. Check GROQ_API_KEY and Groq SDK installation."
+
+    system_prompts = {
+        "math": "You are PhenBOT, a mathematics tutor. Provide step-by-step explanations...",
+        "science": "You are PhenBOT, a science educator. Explain scientific concepts with analogies...",
+        "english": "You are PhenBOT, an English & literature assistant...",
+        "history": "You are PhenBOT, a history educator...",
+        "general": "You are PhenBOT, an advanced study companion..."
+    }
+    system_prompt = system_prompts.get(subject, system_prompts["general"])
+
+    try:
+        if hasattr(groq_client, 'chat') and hasattr(groq_client.chat, 'completions'):
+            response = groq_client.chat.completions.create(
+                model="llama-3.1-8b-instant",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": question}
+                ],
+                temperature=0.7,
+                max_tokens=600,
+                top_p=0.9
+            )
+            # try sdk object or dict
+            try:
+                return response.choices[0].message.content
+            except Exception:
+                try:
+                    return response['choices'][0]['message']['content']
+                except Exception:
+                    return str(response)
+        if hasattr(groq_client, 'chat') and hasattr(groq_client.chat, 'create'):
+            response = groq_client.chat.create(
+                model="llama-3.1-8b-instant",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": question}
+                ],
+                temperature=0.7,
+                max_tokens=600
+            )
+            try:
+                return response.choices[0].message.content
+            except Exception:
+                return str(response)
+        return "Groq client interface not recognized."
+    except Exception as e:
+        traceback.print_exc()
+        return f"Error fetching AI response: {str(e)}"
+
+# ---------------------
+# Helpers: login_required decorator
+# ---------------------
+def login_required_json(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if 'user_id' not in session:
+            return jsonify({'error': 'Authentication required'}), 401
+        return f(*args, **kwargs)
+    return decorated
+
+def login_required_page(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if 'user_id' not in session:
+            flash("Please log in to continue", "warning")
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated
+
+# ---------------------
+# HTML Routes (templates) for auth + web app entry
+# ---------------------
+@app.route('/')
+def root():
+    if 'user_id' in session:
+        return redirect(url_for('app_ui'))
+    return render_template('index.html')
+
+@app.route('/app')
+@login_required_page
+def app_ui():
+    # Serve single-page frontend (static/index.html). It will call /api/me for user info.
+    return send_from_directory(app.static_folder, 'index.html')
+
+@app.route('/register', methods=['GET', 'POST'])
 def register():
-    if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '').strip()
+
+        if not username or not password:
+            flash('Username and password required', 'danger')
+            return redirect(url_for('register'))
 
         if User.query.filter_by(username=username).first():
-            flash("Username already exists", "danger")
-            return redirect(url_for("register"))
+            flash('Username already taken', 'danger')
+            return redirect(url_for('register'))
 
-        hashed_pw = generate_password_hash(password, method="sha256")
-        new_user = User(username=username, password=hashed_pw)
-        db.session.add(new_user)
+        hashed = generate_password_hash(password)
+        user = User(username=username, password=hashed)
+        db.session.add(user)
         db.session.commit()
+        flash('Account created. Please log in.', 'success')
+        return redirect(url_for('login'))
 
-        flash("Account created! Please log in.", "success")
-        return redirect(url_for("login"))
+    return render_template('register.html')
 
-    return render_template("register.html")
-
-@app.route("/login", methods=["GET", "POST"])
+@app.route('/login', methods=['GET', 'POST'])
 def login():
-    if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
-
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '').strip()
         user = User.query.filter_by(username=username).first()
         if user and check_password_hash(user.password, password):
-            session["user_id"] = user.id
-            flash("Login successful!", "success")
-            return redirect(url_for("dashboard"))
-        else:
-            flash("Invalid username or password", "danger")
+            session['user_id'] = user.id
+            session['username'] = user.username
+            flash('Logged in successfully', 'success')
+            return redirect(url_for('app_ui'))
+        flash('Invalid credentials', 'danger')
+    return render_template('login.html')
 
-    return render_template("login.html")
-
-@app.route("/logout")
+@app.route('/logout')
 def logout():
-    session.pop("user_id", None)
-    flash("Logged out successfully", "info")
-    return redirect(url_for("index"))
+    session.clear()
+    flash('Logged out', 'info')
+    return redirect(url_for('root'))
 
-@app.route("/dashboard")
-def dashboard():
-    if "user_id" not in session:
-        flash("Please log in to access dashboard", "warning")
-        return redirect(url_for("login"))
+# ---------------------
+# API: get current user (for SPA)
+# ---------------------
+@app.route('/api/me')
+@login_required_json
+def api_me():
+    uid = session['user_id']
+    user = User.query.get(uid)
+    return jsonify({'id': user.id, 'username': user.username})
 
-    user = User.query.get(session["user_id"])
-    
-    # ✅ Insert your existing personalized feature logic here
-    personalized_content = f"Welcome {user.username}, this is your personalized dashboard!"
+# ---------------------
+# API: Health
+# ---------------------
+@app.route('/health')
+def health_check():
+    return jsonify({
+        'status': 'ok',
+        'groq_available': GROQ_AVAILABLE,
+        'api_key_present': bool(os.environ.get('GROQ_API_KEY')),
+        'error': GROQ_ERROR,
+        'python_version': f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    })
 
-    return render_template("dashboard.html", user=user, personalized_content=personalized_content)
+# ---------------------
+# API: AI ask (requires login)
+# ---------------------
+@app.route('/api/ask', methods=['POST'])
+@login_required_json
+def api_ask():
+    data = request.get_json() or {}
+    question = (data.get('question') or '').strip()
+    subject = data.get('subject', 'general')
+    if not question:
+        return jsonify({'error': 'Question is required'}), 400
+    if not GROQ_AVAILABLE:
+        return jsonify({'error': f'AI not available: {GROQ_ERROR or "Groq not initialized"}'}), 503
+    answer = get_ai_response(question, subject)
+    # Optionally, you can store question/answer history per-user in DB here
+    return jsonify({'answer': answer, 'subject': subject})
 
-# -------------------------------
-# Example existing feature route
-# -------------------------------
-@app.route("/feature")
-def feature():
-    if "user_id" not in session:
-        flash("Please log in first", "warning")
-        return redirect(url_for("login"))
+# ---------------------
+# API: PDF upload/list per-user
+# ---------------------
+ALLOWED_EXT = {'pdf'}
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXT
 
-    user = User.query.get(session["user_id"])
+@app.route('/api/upload-pdf', methods=['POST'])
+@login_required_json
+def upload_pdf():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+    f = request.files['file']
+    if f.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+    if not allowed_file(f.filename):
+        return jsonify({'error': 'Only PDF allowed'}), 400
+    filename = secure_filename(f.filename)
+    unique_name = f"{uuid.uuid4().hex}_{filename}"
+    save_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_name)
+    f.save(save_path)
+    # Save record
+    pdf = PDFFile(user_id=session['user_id'], filename=unique_name, original_name=filename)
+    db.session.add(pdf)
+    db.session.commit()
+    url = url_for('static', filename=f"uploads/{unique_name}")
+    return jsonify({'message': 'Uploaded', 'url': url}), 201
 
-    # ✅ Example: Personalized feature based on user
-    return f"Feature accessed by {user.username}"
+@app.route('/api/pdfs', methods=['GET'])
+@login_required_json
+def list_pdfs():
+    uid = session['user_id']
+    files = PDFFile.query.filter_by(user_id=uid).order_by(PDFFile.uploaded_at.desc()).all()
+    out = [{'id': p.id, 'name': p.original_name, 'url': url_for('static', filename=f"uploads/{p.filename}"), 'uploaded_at': p.uploaded_at.isoformat()} for p in files]
+    return jsonify({'files': out})
 
-if __name__ == "__main__":
-    app.run(debug=True)
+# ---------------------
+# API: Flashcards per-user
+# ---------------------
+@app.route('/api/flashcards', methods=['GET', 'POST'])
+@login_required_json
+def flashcards_collection():
+    uid = session['user_id']
+    if request.method == 'GET':
+        cards = Flashcard.query.filter_by(user_id=uid).order_by(Flashcard.created_at.desc()).all()
+        out = [{'id': c.id, 'question': c.question, 'answer': c.answer} for c in cards]
+        return jsonify({'flashcards': out})
+    else:
+        data = request.get_json() or {}
+        q = (data.get('question') or '').strip()
+        a = (data.get('answer') or '').strip()
+        if not q or not a:
+            return jsonify({'error': 'Question and answer required'}), 400
+        card = Flashcard(user_id=uid, question=q, answer=a)
+        db.session.add(card)
+        db.session.commit()
+        return jsonify({'flashcard': {'id': card.id, 'question': q, 'answer': a}}), 201
+
+@app.route('/api/flashcards/<int:card_id>', methods=['DELETE'])
+@login_required_json
+def flashcard_delete(card_id):
+    uid = session['user_id']
+    card = Flashcard.query.filter_by(id=card_id, user_id=uid).first()
+    if not card:
+        return jsonify({'error': 'Card not found'}), 404
+    db.session.delete(card)
+    db.session.commit()
+    return jsonify({'message': 'Deleted'}), 200
+
+# ---------------------
+# Serve static SPA index (fallback)
+# ---------------------
+@app.errorhandler(404)
+def page_not_found(e):
+    # If a logged-in user requests something that isn't a route (SPA), serve index.html
+    if 'user_id' in session:
+        try:
+            return send_from_directory(app.static_folder, 'index.html')
+        except Exception:
+            pass
+    return jsonify({'error': 'Not found'}), 404
+
+# ---------------------
+# Run - for local dev only (in production use gunicorn)
+# ---------------------
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('FLASK_ENV') == 'development'
+    print(f"Starting app on port {port} (debug={debug})")
+    app.run(host='0.0.0.0', port=port, debug=debug)
