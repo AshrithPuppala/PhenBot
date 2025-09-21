@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="welcome-hero">
+    <h1>Welcome to PhenBOT</h1>
+    <p>Your intelligent study companion powered by AI. Get personalized help with mathematics, science, English, history, and more.</p>
+    
+    <div class="cta-buttons">
+        <a href="{{ url_for('login') }}" class="btn-primary">Login</a>
+        <a href="{{ url_for('register') }}" class="btn-ghost">Create Account</a>
+    </div>
+</div>
+
+<div style="margin-top: 40px;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px;">
+        <div style="background: white; padding: 24px; border-radius: 12px; box-shadow: var(--shadow);">
+            <h3 style="color: var(--accent-color); margin-bottom: 12px;">🔢 Mathematics</h3>
+            <p style="color: var(--text-secondary);">Get step-by-step solutions and explanations for algebra, calculus, geometry, and more.</p>
+        </div>
+        
+        <div style="background: white; padding: 24px; border-radius: 12px; box-shadow: var(--shadow);">
+            <h3 style="color: var(--accent-color); margin-bottom: 12px;">🔬 Science</h3>
+            <p style="color: var(--text-secondary);">Understand complex concepts in physics, chemistry, biology through real-world examples.</p>
+        </div>
+        
+        <div style="background: white; padding: 24px; border-radius: 12px; box-shadow: var(--shadow);">
+            <h3 style="color: var(--accent-color); margin-bottom: 12px;">📚 English</h3>
+            <p style="color: var(--text-secondary);">Improve your writing, grammar, and literary analysis skills with personalized feedback.</p>
+        </div>
+        
+        <div style="background: white; padding: 24px; border-radius: 12px; box-shadow: var(--shadow);">
+            <h3 style="color: var(--accent-color); margin-bottom: 12px;">🏛️ History</h3>
+            <p style="color: var(--text-secondary);">Explore historical events and their connections through engaging narratives.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
