@@ -833,65 +833,51 @@ function createServer(port) {
       });
       return;
     }
+// IN enhanced-server.js
 
-    // --- PDF Upload endpoint ---
+// --- PDF Upload endpoint ---
 if (method === 'POST' && pathName === '/upload.pdf') {
   const form = new formidable.IncomingForm();
 
-  // Ensure temp directory exists
-  const tempDir = path.join(__dirname, 'temp');
-  if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
-  form.uploadDir = tempDir;
-  form.keepExtensions = true;
+  // ... (form setup code remains the same) ...
 
-  form.parse(req, async (err, fields, files) => {
+  form.parse(req, async (err, fields, files) => { // 'fields' contains the userId
     if (err) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ success: false, error: 'Upload failed' }));
     }
 
     const file = files.pdf;
-    if (!file) {
+    // ADD THIS LINE: Get the userId from the 'fields' object.
+    const uploadUserId = fields.userId; 
+
+    if (!file || !uploadUserId) { // Check for both file and userId
       res.writeHead(400, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ success: false, error: 'No PDF file uploaded' }));
+      return res.end(JSON.stringify({ success: false, error: 'No PDF file or user ID uploaded' }));
     }
 
-    const filePath = file.filepath || file.path;
-    if (!filePath) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ success: false, error: 'File path missing' }));
-    }
+    // ... (filePath checking code remains the same) ...
 
     try {
-      // Ensure user directories exist
-      const pdfDir = path.join(USERS_DIR, file.userId, 'pdfs');
-      const extractedDir = path.join(USERS_DIR, file.userId, 'extracted-text');
+      // CHANGE THIS: Use the 'uploadUserId' variable instead of 'file.userId'
+      const pdfDir = path.join(USERS_DIR, uploadUserId, 'pdfs');
+      const extractedDir = path.join(USERS_DIR, uploadUserId, 'extracted-text');
       if (!fs.existsSync(pdfDir)) fs.mkdirSync(pdfDir, {recursive: true});
       if (!fs.existsSync(extractedDir)) fs.mkdirSync(extractedDir, {recursive: true});
 
-      // Read file buffer
-      const fileData = {
-        buffer: fs.readFileSync(filePath),
-        originalFilename: file.originalFilename || file.name,
-        size: file.size
-      };
+      // ... (file reading code remains the same) ...
 
-      // Process PDF with existing logic
-      const result = await processPDF(file.userId, fileData);
+      // ✅ CHANGE THIS: Pass 'uploadUserId' to the processing function.
+      const result = await processPDF(uploadUserId, fileData);
 
-      // Remove temp file
-      fs.unlinkSync(filePath);
-
-      res.writeHead(result.success ? 200 : 400, {'Content-Type': 'application/json'});
-      res.end(JSON.stringify(result));
+      // ... (rest of the code remains the same) ...
     } catch(e) {
-      console.error('Error in PDF upload:', e);
-      res.writeHead(500, {'Content-Type': 'application/json'});
-      return res.end(JSON.stringify({success:false, error:'PDF processing failed'}));
+      // ... (error handling remains the same) ...
     }
   });
   return;
 }
+
 
     // --- Get user PDFs ---
     if (method === 'GET' && pathName === '/user-pdfs') {
@@ -1030,6 +1016,8 @@ process.on('SIGINT', () => {
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
 createServer(PORT);
+
+
 
 
 
