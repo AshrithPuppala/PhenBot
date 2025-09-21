@@ -1,108 +1,190 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+from flask import Flask, request, jsonify, send_from_directory, redirect, url_for, session
+from flask_bcrypt import generate_password_hash, check_password_hash
 import os
 import json
-import sys
+import traceback
 
-app = Flask(__name__, static_folder="static", template_folder="templates")
-app.secret_key = os.environ.get("SECRET_KEY", "supersecretkey")  # Use env var
+app = Flask(__name__, static_folder='static', static_url_path='')
+app.secret_key = os.environ.get('SECRET_KEY', 'supersecretkey')
 
-USERS_FILE = "users.json"
+USERS_FILE = 'users.json'
 
-# Ensure users.json exists and is a valid JSON dict
-def ensure_users_file():
-    if not os.path.exists(USERS_FILE):
-        with open(USERS_FILE, "w") as f:
-            json.dump({}, f)
-    else:
-        # If file exists but is invalid, reset
-        try:
-            with open(USERS_FILE, "r") as f:
-                json.load(f)
-        except Exception:
-            with open(USERS_FILE, "w") as f:
-                json.dump({}, f)
-
-# ----------------------------
-# Helpers
-# ----------------------------
+# Load/Save users from JSON file
 def load_users():
-    ensure_users_file()
-    with open(USERS_FILE, "r") as f:
+    if not os.path.exists(USERS_FILE):
+        return {}
+    with open(USERS_FILE, 'r') as f:
         return json.load(f)
 
 def save_users(users):
-    with open(USERS_FILE, "w") as f:
+    with open(USERS_FILE, 'w') as f:
         json.dump(users, f, indent=4)
 
-# ----------------------------
+# -----------------------------------
+# Groq AI Setup
+try:
+    from groq import Groq
+except ImportError:
+    Groq = None
+
+groq_client = None
+GROQ_AVAILABLE = False
+GROQ_ERROR = None
+
+def initialize_groq():
+    global groq_client, GROQ_AVAILABLE, GROQ_ERROR
+    if Groq is None:
+        GROQ_ERROR = 'Groq SDK not installed'
+        GROQ_AVAILABLE = False
+        return
+    api_key = os.environ.get('GROQ_API_KEY')
+    if not api_key:
+        GROQ_ERROR = 'GROQ_API_KEY env missing'
+        GROQ_AVAILABLE = False
+        return
+    try:
+        groq_client = Groq(api_key=api_key)
+        GROQ_AVAILABLE = True
+    except Exception as e:
+        GROQ_ERROR = str(e)
+        GROQ_AVAILABLE = False
+
+initialize_groq()
+
+def get_ai_response(question, subject):
+    if not groq_client:
+        return "AI system unavailable"
+    prompts = {
+        'math': 'You are a math tutor. Explain clearly.',
+        'science': 'You are a science tutor. Explain clearly.',
+        'english': 'You are an English tutor. Explain clearly.',
+        'history': 'You are a history tutor. Explain clearly.',
+        'general': 'You are a smart assistant.'
+    }
+    prompt = prompts.get(subject, prompts['general'])
+    try:
+        response = groq_client.chat.completions.create(
+            model="llama-3.1-instant",
+            messages=[
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": question}
+            ],
+            temperature=0.7,
+            max_tokens=500
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"Error calling Groq API: {e}"
+
+# -----------------------------------
+# Authentication Helpers
+
+def logged_in():
+    return 'username' in session
+
+def require_login(func):
+    def wrapper(*args, **kwargs):
+        if not logged_in():
+            return jsonify({'error': 'Authentication required'}), 401
+        return func(*args, **kwargs)
+    wrapper.__name__ = func.__name__
+    return wrapper
+
+# -----------------------------------
 # Routes
-# ----------------------------
-@app.route("/")
-def home():
-    if "username" in session:
-        return redirect(url_for("dashboard"))
-    return redirect(url_for("login"))
 
-@app.route("/login", methods=["GET", "POST"])
+@app.route('/')
+def index():
+    if logged_in():
+        return send_from_directory(app.static_folder, 'index.html')
+    else:
+        return redirect(url_for('login'))
+
+@app.route('/login', methods=['GET', 'POST'])
 def login():
-    ensure_users_file()
-    if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
+    if logged_in():
+        return redirect(url_for('index'))
+    if request.method == 'POST':
+        data = request.form or request.get_json()
+        username = data.get('username', '').strip()
+        password = data.get('password', '')
         users = load_users()
-        if username in users and users[username] == password:
-            session["username"] = username
-            return redirect(url_for("dashboard"))
-        return render_template("login.html", error="Invalid username or password")
-    return render_template("login.html")
+        stored_hash = users.get(username)
+        if stored_hash and check_password_hash(stored_hash, password):
+            session['username'] = username
+            return redirect(url_for('index'))
+        return 'Invalid credentials', 401
+    return send_from_directory(app.static_folder, 'login.html')
 
-@app.route("/register", methods=["GET", "POST"])
+@app.route('/register', methods=['GET', 'POST'])
 def register():
-    ensure_users_file()
-    if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
+    if logged_in():
+        return redirect(url_for('index'))
+    if request.method == 'POST':
+        data = request.form or request.get_json()
+        username = data.get('username', '').strip()
+        password = data.get('password', '')
+        if username == '' or password == '' or len(password) < 4:
+            return 'Invalid username or password', 400
         users = load_users()
         if username in users:
-            return render_template("register.html", error="Username already exists")
-        users[username] = password
+            return 'User already exists', 400
+        users[username] = generate_password_hash(password)
         save_users(users)
-        return redirect(url_for("login"))
-    return render_template("register.html")
+        return redirect(url_for('login'))
+    return send_from_directory(app.static_folder, 'register.html')
 
-@app.route("/dashboard")
-def dashboard():
-    if "username" not in session:
-        return redirect(url_for("login"))
-    return render_template("dashboard.html", username=session["username"])
-
-@app.route("/logout")
+@app.route('/logout')
 def logout():
-    session.pop("username", None)
-    return redirect(url_for("login"))
+    session.clear()
+    return redirect(url_for('login'))
 
-@app.route("/health")
-def health_check():
+@app.route('/dashboard')
+def dashboard():
+    if not logged_in():
+        return redirect(url_for('login'))
+    return send_from_directory(app.static_folder, 'index.html')
+
+@app.route('/api/ask', methods=['POST'])
+@require_login
+def api_ask():
+    try:
+        data = request.get_json()
+        question = data.get('question', '').strip()
+        subject = data.get('subject', 'general')
+        if question == '':
+            return jsonify({'error': 'Empty question'}), 400
+        if not GROQ_AVAILABLE:
+            return jsonify({'error': f'AI system unavailable: {GROQ_ERROR}'}), 503
+        answer = get_ai_response(question, subject)
+        return jsonify({'answer': answer})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'error': 'Server error'}), 500
+
+# Health check
+@app.route('/health')
+def health():
     return jsonify({
-        "status": "healthy",
-        "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+        'healthy': True,
+        'groq_available': GROQ_AVAILABLE,
+        'error': GROQ_ERROR
     })
 
-# ----------------------------
-# Error Pages
-# ----------------------------
+# Static Files (including login, register html)
+@app.route('/static/<path:path>')
+def static_files(path):
+    return send_from_directory(app.static_folder, path)
+
+# Error handlers - return JSON 
 @app.errorhandler(404)
 def not_found(e):
-    return render_template("404.html"), 404
+    return jsonify({'error': 'Not Found'}), 404
 
 @app.errorhandler(500)
-def server_error(e):
-    return render_template("500.html"), 500
+def internal_error(e):
+    return jsonify({'error': 'Internal Server Error'}), 500
 
-# ----------------------------
 # Run
-# ----------------------------
-if __name__ == "__main__":
-    ensure_users_file()
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=False)
