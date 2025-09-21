@@ -3,4 +3,6 @@ Flask-SQLAlchemy>=2.5
 gunicorn
 werkzeug
 python-dotenv
+groq==0.4.1
 # Add groq==<version> only if you will provide that dependency and GROQ_API_KEY
+
