@@ -179,3 +179,9 @@ if __name__ == '__main__':
     debug = os.environ.get('FLASK_ENV') == 'development'
     print(f"Starting PhenBOT server on port {port} (debug={debug})")
     app.run(host='0.0.0.0', port=port, debug=debug)
+from user_auth import auth, bcrypt, login_manager
+
+login_manager.init_app(app)
+bcrypt.init_app(app)
+app.register_blueprint(auth)
+
