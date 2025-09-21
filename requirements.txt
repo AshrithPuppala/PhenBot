@@ -1,5 +1,6 @@
-gunicorn==21.2.0
-groq
-httpx<0.28
-
-
+Flask>=2.1
+Flask-SQLAlchemy>=2.5
+gunicorn
+werkzeug
+python-dotenv
+# Add groq==<version> only if you will provide that dependency and GROQ_API_KEY
