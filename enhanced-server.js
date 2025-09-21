@@ -901,43 +901,55 @@ function createServer(port) {
 // --- PDF Upload endpoint ---
 if (method === 'POST' && pathName === '/upload.pdf') {
   const form = new formidable.IncomingForm();
-
-  // ... (form setup code remains the same) ...
-
-  form.parse(req, async (err, fields, files) => { // 'fields' contains the userId
+form.parse(req, async (err, fields, files) => {
     if (err) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ success: false, error: 'Upload failed' }));
+        console.error('Formidable parsing error:', err);
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ success: false, error: 'Upload failed during parsing' }));
     }
 
-    const file = files.pdf;
-    // ADD THIS LINE: Get the userId from the 'fields' object.
-    const uploadUserId = fields.userId; 
+    // Handle cases where file or fields can be arrays or single items
+    const file = Array.isArray(files.pdf) ? files.pdf[0] : files.pdf;
+    const uploadUserId = Array.isArray(fields.userId) ? fields.userId[0] : fields.userId;
 
-    if (!file || !uploadUserId) { // Check for both file and userId
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ success: false, error: 'No PDF file or user ID uploaded' }));
+    if (!file || !uploadUserId) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ success: false, error: 'No PDF file or user ID uploaded' }));
     }
 
-    // ... (filePath checking code remains the same) ...
+    const filePath = file.filepath || file.path;
+    if (!filePath) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ success: false, error: 'File path missing' }));
+    }
 
     try {
-      // CHANGE THIS: Use the 'uploadUserId' variable instead of 'file.userId'
-      const pdfDir = path.join(USERS_DIR, uploadUserId, 'pdfs');
-      const extractedDir = path.join(USERS_DIR, uploadUserId, 'extracted-text');
-      if (!fs.existsSync(pdfDir)) fs.mkdirSync(pdfDir, {recursive: true});
-      if (!fs.existsSync(extractedDir)) fs.mkdirSync(extractedDir, {recursive: true});
+        // Ensure user directories exist
+        const pdfDir = path.join(USERS_DIR, uploadUserId);
+        const userPdfDir = path.join(pdfDir, 'pdfs');
+        const userExtractedDir = path.join(pdfDir, 'extracted-text');
+        if (!fs.existsSync(userPdfDir)) fs.mkdirSync(userPdfDir, { recursive: true });
+        if (!fs.existsSync(userExtractedDir)) fs.mkdirSync(userExtractedDir, { recursive: true });
 
-      // ... (file reading code remains the same) ...
+        const fileData = {
+            buffer: fs.readFileSync(filePath),
+            originalFilename: file.originalFilename || file.name,
+            size: file.size
+        };
 
-      // ✅ CHANGE THIS: Pass 'uploadUserId' to the processing function.
-      const result = await processPDF(uploadUserId, fileData);
+        const result = await processPDF(uploadUserId, fileData);
 
-      // ... (rest of the code remains the same) ...
-    } catch(e) {
-      // ... (error handling remains the same) ...
+        // Cleanup temp uploaded file
+        fs.unlinkSync(filePath);
+
+        res.writeHead(result.success ? 200 : 400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(result));
+    } catch (error) {
+        console.error('Error processing uploaded PDF:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'PDF processing failed' }));
     }
-  });
+});
   return;
 }
 
