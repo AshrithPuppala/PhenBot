@@ -1,16 +1,15 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 import os
-import sys
 import json
-import traceback
+import sys
 
-app = Flask(__name__, static_folder='static')
-app.secret_key = "supersecretkey"  # CHANGE in production!
+app = Flask(__name__, static_folder="static")
+app.secret_key = "supersecretkey"  # ⚠️ change in production
 
 USERS_FILE = "users.json"
 
 # ----------------------------
-# User Management
+# Helpers
 # ----------------------------
 def load_users():
     if not os.path.exists(USERS_FILE):
@@ -67,18 +66,15 @@ def logout():
     session.pop("username", None)
     return redirect(url_for("login"))
 
-# ----------------------------
-# Health Check API (for AI system)
-# ----------------------------
 @app.route("/health")
 def health_check():
     return jsonify({
         "status": "healthy",
-        "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+        "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     })
 
 # ----------------------------
-# Error Handlers
+# Error Pages
 # ----------------------------
 @app.errorhandler(404)
 def not_found(e):
@@ -86,12 +82,11 @@ def not_found(e):
 
 @app.errorhandler(500)
 def server_error(e):
-    return render_template("500.html", error=str(e)), 500
+    return render_template("500.html"), 500
 
+# ----------------------------
+# Run
+# ----------------------------
 if __name__ == "__main__":
-    app.run(debug=True)
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))  # Railway gives PORT
+    port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
-
-
