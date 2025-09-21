@@ -3,72 +3,134 @@ from flask import Flask, request, jsonify, send_from_directory
 import os
 import sys
 import traceback
-import PyPDF2
 import io
 from werkzeug.utils import secure_filename
 import json
+import re
+import base64
 
 app = Flask(__name__, static_folder='static', static_url_path='')
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
-app.config['UPLOAD_FOLDER'] = 'uploads'
-
-# Create uploads directory if it doesn't exist
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 groq_client = None
 GROQ_AVAILABLE = False
 GROQ_ERROR = None
 
-# Store PDF content in memory for this session
+# Store PDF content in memory for this session (Railway-friendly)
 pdf_content_store = {}
 
 def initialize_groq():
     """
-    Initialize Groq client. This function tries to import the Groq SDK
-    and initialize the client if GROQ_API_KEY is present. Failures are handled
-    gracefully and exposed via GROQ_AVAILABLE / GROQ_ERROR.
+    Initialize Groq client with better error handling for Railway deployment
     """
     global groq_client, GROQ_AVAILABLE, GROQ_ERROR
     try:
         from groq import Groq
-    except Exception as e:
-        GROQ_ERROR = f"Groq library not available: {e}"
+        print("✓ Groq library imported successfully")
+    except ImportError as e:
+        GROQ_ERROR = f"Groq library not installed: {e}. Run: pip install groq"
         GROQ_AVAILABLE = False
+        print(f"✗ {GROQ_ERROR}")
+        return False
+    except Exception as e:
+        GROQ_ERROR = f"Groq import error: {e}"
+        GROQ_AVAILABLE = False
+        print(f"✗ {GROQ_ERROR}")
         return False
 
     api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
         GROQ_ERROR = "GROQ_API_KEY environment variable not set"
         GROQ_AVAILABLE = False
+        print(f"✗ {GROQ_ERROR}")
         return False
 
     try:
         groq_client = Groq(api_key=api_key)
+        # Test the connection with a simple call
+        test_response = groq_client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "user", "content": "Hi"}],
+            max_tokens=5
+        )
         GROQ_AVAILABLE = True
+        GROQ_ERROR = None
+        print("✓ Groq client initialized and tested successfully")
         return True
     except Exception as e:
         GROQ_ERROR = f"Groq initialization failed: {e}"
         GROQ_AVAILABLE = False
+        print(f"✗ {GROQ_ERROR}")
         return False
 
-def extract_text_from_pdf(file_stream):
-    """Extract text content from PDF file stream"""
+def extract_text_from_pdf_fallback(file_content):
+    """
+    Fallback PDF text extraction without PyPDF2 dependency
+    This is a basic approach for Railway deployment
+    """
     try:
-        pdf_reader = PyPDF2.PdfReader(file_stream)
-        text = ""
-        for page in pdf_reader.pages:
-            text += page.extract_text() + "\n"
-        return text.strip()
+        # Try to decode as text first (for text-based PDFs)
+        text_content = file_content.decode('utf-8', errors='ignore')
+        # Remove PDF headers and binary content
+        text_content = re.sub(r'%PDF-.*?%%EOF', '', text_content, flags=re.DOTALL)
+        # Extract readable text
+        lines = []
+        for line in text_content.split('\n'):
+            line = line.strip()
+            # Skip lines that look like PDF commands or binary data
+            if (len(line) > 10 and 
+                not line.startswith(('%', '<<', '>>', 'obj', 'endobj')) and
+                not re.match(r'^[0-9\s<>/]+$', line) and
+                any(c.isalpha() for c in line)):
+                lines.append(line)
+        
+        extracted_text = '\n'.join(lines)
+        if len(extracted_text.strip()) > 50:  # Must have substantial content
+            return extracted_text.strip()
+        else:
+            return None
+    except Exception as e:
+        print(f"Fallback PDF extraction failed: {e}")
+        return None
+
+def extract_text_from_pdf(file_content):
+    """
+    Extract text from PDF with multiple fallback methods for Railway
+    """
+    try:
+        # Try PyPDF2 first if available
+        try:
+            import PyPDF2
+            file_stream = io.BytesIO(file_content)
+            pdf_reader = PyPDF2.PdfReader(file_stream)
+            text = ""
+            for page in pdf_reader.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text += page_text + "\n"
+            if text.strip():
+                return text.strip()
+        except ImportError:
+            print("PyPDF2 not available, using fallback method")
+        except Exception as e:
+            print(f"PyPDF2 extraction failed: {e}")
+        
+        # Fallback method
+        fallback_text = extract_text_from_pdf_fallback(file_content)
+        if fallback_text:
+            return fallback_text
+        
+        raise Exception("Could not extract readable text from PDF. The file may be image-based or encrypted.")
+        
     except Exception as e:
         raise Exception(f"Failed to extract text from PDF: {str(e)}")
 
 def get_ai_response(question, subject=None, context=None):
     """
-    Query Groq chat API and return assistant text. If groq client is not available,
-    return a friendly message explaining the problem.
+    Query Groq API with better error handling for Railway
     """
     if not groq_client:
-        return "AI system is not available. Please check the server configuration."
+        return "AI system is not available. Please check server configuration."
 
     system_prompts = {
         "math": "You are PhenBOT, a mathematics tutor. Provide step-by-step explanations, use clear examples, and break down complex problems into manageable parts. Always explain the reasoning behind each step.",
@@ -84,104 +146,103 @@ def get_ai_response(question, subject=None, context=None):
     
     # Add context if provided (from uploaded PDF)
     if context:
-        system_prompt += f"\n\nUse this context to answer the question: {context[:2000]}..."  # Limit context length
+        # Limit context length to prevent token limit issues
+        context = context[:3000] if len(context) > 3000 else context
+        system_prompt += f"\n\nUse this context to answer the question:\n{context}"
 
     try:
-        if hasattr(groq_client, 'chat') and hasattr(groq_client.chat, 'completions'):
-            response = groq_client.chat.completions.create(
-                model="llama-3.1-8b-instant",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": question}
-                ],
-                temperature=0.7,
-                max_tokens=600,
-                top_p=0.9
-            )
-            
-            if hasattr(response, "choices") and len(response.choices) > 0:
-                try:
-                    return response.choices[0].message.content
-                except Exception:
-                    pass
-            
-            try:
-                return response['choices'][0]['message']['content']
-            except Exception:
-                pass
-
-        if hasattr(groq_client, 'chat') and hasattr(groq_client.chat, 'create'):
-            response = groq_client.chat.create(
-                model="llama-3.1-8b-instant",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": question}
-                ],
-                temperature=0.7,
-                max_tokens=600
-            )
-            
-            if isinstance(response, dict):
-                return response.get('choices', [{}])[0].get('message', {}).get('content', str(response))
-            
-            try:
-                return response.choices[0].message.content
-            except Exception:
-                return str(response)
-
-        return "Groq client available but SDK interface is not recognised on the server."
+        response = groq_client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": question}
+            ],
+            temperature=0.7,
+            max_tokens=800,
+            top_p=0.9
+        )
+        
+        if hasattr(response, "choices") and len(response.choices) > 0:
+            return response.choices[0].message.content
+        else:
+            return "I received an empty response. Please try rephrasing your question."
 
     except Exception as e:
-        traceback.print_exc()
-        return f"Error processing your question: {str(e)}"
+        error_msg = str(e).lower()
+        if "rate limit" in error_msg:
+            return "I'm currently experiencing high demand. Please wait a moment and try again."
+        elif "token" in error_msg:
+            return "Your question is too long. Please try a shorter question or break it into parts."
+        else:
+            traceback.print_exc()
+            return f"I encountered an error processing your question: {str(e)}"
 
-def generate_flashcards(content, num_cards=10):
-    """Generate flashcards from content using AI"""
+def generate_flashcards_simple(content, num_cards=10):
+    """
+    Generate flashcards with simpler parsing for Railway deployment
+    """
     if not groq_client or not content:
         return []
     
-    prompt = f"""Create {num_cards} educational flashcards from the following content. 
-    Format each flashcard as JSON with 'question' and 'answer' fields.
-    Focus on key concepts, important facts, definitions, and testable material.
-    Make questions clear and answers concise but complete.
+    # Limit content length to prevent issues
+    content = content[:2000] if len(content) > 2000 else content
     
-    Content: {content[:3000]}
+    prompt = f"""Create {min(num_cards, 15)} educational flashcards from this content. 
+    Format EXACTLY like this example:
     
-    Return only a JSON array of flashcards."""
+    Q: What is photosynthesis?
+    A: The process by which plants convert sunlight into energy.
+    
+    Q: Name the parts of a cell.
+    A: Nucleus, cytoplasm, cell membrane, and organelles.
+    
+    Content: {content}
+    
+    Create {min(num_cards, 15)} flashcards following the exact Q:/A: format above."""
     
     try:
         response = get_ai_response(prompt, "flashcard")
-        # Try to extract JSON from response
-        if response.startswith('['):
-            flashcards = json.loads(response)
-            return flashcards[:num_cards]  # Limit to requested number
-        else:
-            # Fallback: parse manually if AI didn't return pure JSON
-            lines = response.split('\n')
-            flashcards = []
-            current_card = {}
+        flashcards = []
+        
+        # Parse the response
+        lines = response.split('\n')
+        current_question = None
+        
+        for line in lines:
+            line = line.strip()
+            if line.startswith('Q:'):
+                current_question = line[2:].strip()
+            elif line.startswith('A:') and current_question:
+                answer = line[2:].strip()
+                flashcards.append({
+                    'question': current_question,
+                    'answer': answer
+                })
+                current_question = None
             
-            for line in lines:
-                line = line.strip()
-                if line.startswith('Q:') or line.startswith('Question:'):
-                    if current_card:
-                        flashcards.append(current_card)
-                    current_card = {'question': line.split(':', 1)[1].strip()}
-                elif line.startswith('A:') or line.startswith('Answer:'):
-                    if 'question' in current_card:
-                        current_card['answer'] = line.split(':', 1)[1].strip()
-            
-            if current_card and 'question' in current_card and 'answer' in current_card:
-                flashcards.append(current_card)
-            
-            return flashcards[:num_cards]
+            # Stop if we have enough cards
+            if len(flashcards) >= num_cards:
+                break
+        
+        return flashcards[:num_cards]
+        
     except Exception as e:
         print(f"Error generating flashcards: {e}")
-        return []
+        # Return sample flashcards as fallback
+        return [
+            {
+                "question": "Based on the uploaded content, what is the main topic?",
+                "answer": "Please refer to your uploaded document for specific details."
+            }
+        ]
 
-# Initialize Groq at startup
-print("Starting PhenBOT application...")
-initialize_groq()
+# Initialize Groq at startup with better error handling
+print("🚀 Starting PhenBOT application...")
+try:
+    initialize_groq()
+    print(f"✓ Initialization complete. Groq available: {GROQ_AVAILABLE}")
+except Exception as e:
+    print(f"✗ Initialization error: {e}")
 
 @app.route('/')
 def serve_index():
@@ -189,18 +250,29 @@ def serve_index():
         return send_from_directory(app.static_folder, 'index.html')
     except Exception as e:
         print(f"Error serving index.html: {e}")
-        return f"Error loading application. Please check if index.html exists in the static folder. Error: {str(e)}", 500
+        # Fallback HTML if static file not found
+        return """
+        <!DOCTYPE html>
+        <html><head><title>PhenBOT</title></head>
+        <body>
+        <h1>🤖 PhenBOT</h1>
+        <p>Advanced Study Companion</p>
+        <p>Static files not found. Please ensure index.html is in the static/ folder.</p>
+        <p><a href="/health">Check System Status</a></p>
+        </body></html>
+        """, 200
 
 @app.route('/health')
 def health_check():
     return jsonify({
-        'status': 'healthy',
+        'status': 'healthy' if GROQ_AVAILABLE else 'degraded',
         'groq_available': GROQ_AVAILABLE,
         'api_key_present': bool(os.environ.get('GROQ_API_KEY')),
         'error': GROQ_ERROR,
         'python_version': f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
         'port': os.environ.get('PORT', 'not set'),
-        'pdf_support': True
+        'pdf_support': True,
+        'environment': os.environ.get('RAILWAY_ENVIRONMENT', 'local')
     })
 
 @app.route('/api/ask', methods=['POST'])
@@ -255,12 +327,19 @@ def upload_pdf():
         if not file.filename.lower().endswith('.pdf'):
             return jsonify({'error': 'File must be a PDF'}), 400
         
-        # Extract text from PDF
-        file_stream = io.BytesIO(file.read())
-        pdf_text = extract_text_from_pdf(file_stream)
+        # Read file content
+        file_content = file.read()
+        if len(file_content) == 0:
+            return jsonify({'error': 'File is empty'}), 400
         
-        if not pdf_text.strip():
-            return jsonify({'error': 'Could not extract text from PDF. The file may be image-based or corrupted.'}), 400
+        # Extract text from PDF
+        try:
+            pdf_text = extract_text_from_pdf(file_content)
+        except Exception as e:
+            return jsonify({'error': str(e)}), 400
+        
+        if not pdf_text or len(pdf_text.strip()) < 10:
+            return jsonify({'error': 'Could not extract meaningful text from PDF. The file may be image-based, encrypted, or corrupted.'}), 400
         
         # Store PDF content with filename as key
         filename = secure_filename(file.filename)
@@ -271,7 +350,7 @@ def upload_pdf():
             'message': 'PDF uploaded and processed successfully',
             'filename': filename,
             'text_length': len(pdf_text),
-            'preview': pdf_text[:200] + "..." if len(pdf_text) > 200 else pdf_text
+            'preview': pdf_text[:300] + "..." if len(pdf_text) > 300 else pdf_text
         })
         
     except Exception as e:
@@ -302,8 +381,11 @@ def summarize_content():
         if not GROQ_AVAILABLE:
             return jsonify({'error': 'AI system not available'}), 500
         
+        # Limit content length
+        content = content[:4000] if len(content) > 4000 else content
+        
         # Generate summary
-        summary_prompt = f"Provide a comprehensive summary of the following content. Include key points, main concepts, and important details in a well-structured format:\n\n{content[:4000]}"
+        summary_prompt = f"Provide a comprehensive summary of the following content. Include key points, main concepts, and important details in a well-structured format:\n\n{content}"
         summary = get_ai_response(summary_prompt, "summarize")
         
         return jsonify({
@@ -323,7 +405,7 @@ def create_flashcards():
     try:
         data = request.get_json()
         source = data.get('source', 'pdf')
-        num_cards = min(int(data.get('num_cards', 10)), 20)  # Max 20 cards
+        num_cards = min(int(data.get('num_cards', 10)), 15)  # Max 15 cards for Railway
         
         if source == 'pdf':
             if not pdf_content_store:
@@ -343,7 +425,7 @@ def create_flashcards():
             return jsonify({'error': 'AI system not available'}), 500
         
         # Generate flashcards
-        flashcards = generate_flashcards(content, num_cards)
+        flashcards = generate_flashcards_simple(content, num_cards)
         
         return jsonify({
             'status': 'success',
@@ -370,6 +452,7 @@ def api_test():
         'message': 'PhenBOT API is working!',
         'groq_status': GROQ_AVAILABLE,
         'pdf_support': True,
+        'environment': 'Railway' if os.environ.get('RAILWAY_ENVIRONMENT') else 'Local',
         'timestamp': os.environ.get('RAILWAY_GIT_COMMIT_SHA', 'unknown')
     })
 
@@ -379,14 +462,24 @@ def not_found(error):
 
 @app.errorhandler(500)
 def internal_error(error):
+    print(f"Internal server error: {error}")
     return jsonify({'error': 'Internal server error'}), 500
 
 @app.errorhandler(413)
 def too_large(error):
     return jsonify({'error': 'File too large. Maximum size is 16MB.'}), 413
 
+# Health check for Railway
+@app.before_first_request
+def startup_check():
+    print("🔍 Performing startup health check...")
+    print(f"✓ Flask app started")
+    print(f"✓ Groq available: {GROQ_AVAILABLE}")
+    print(f"✓ Environment: {os.environ.get('RAILWAY_ENVIRONMENT', 'Local')}")
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('FLASK_ENV') == 'development'
-    print(f"Starting PhenBOT server on port {port} (debug={debug})")
+    print(f"🚀 Starting PhenBOT server on port {port} (debug={debug})")
+    print(f"📁 Static folder: {app.static_folder}")
     app.run(host='0.0.0.0', port=port, debug=debug)
