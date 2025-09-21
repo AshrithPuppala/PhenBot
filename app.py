@@ -1,147 +1,145 @@
+# app.py
 from flask import Flask, request, jsonify, send_from_directory
-import os, sys, traceback
+from flask_cors import CORS
+import os, uuid
+from datetime import datetime
 
-app = Flask(__name__, static_folder='static', static_url_path='')
+app = Flask(__name__, static_folder='static')
+CORS(app)  # optional if frontend is separate
 
-groq_client = None
-GROQ_AVAILABLE = False
-GROQ_ERROR = None
+# ---------------------------
+# Mock Auth
+# ---------------------------
+@app.route('/api/me')
+def me():
+    # Mock user
+    return jsonify({"username": "Ashrith"}), 200
 
-def initialize_groq():
-    global groq_client, GROQ_AVAILABLE, GROQ_ERROR
-    try:
-        from groq import Groq
-    except Exception as e:
-        GROQ_ERROR = f"Groq library not installed: {e}"
-        GROQ_AVAILABLE = False
-        return False
-
-    api_key = os.environ.get("GROQ_API_KEY")
-    if not api_key:
-        GROQ_ERROR = "GROQ_API_KEY environment variable not set"
-        GROQ_AVAILABLE = False
-        return False
-
-    try:
-        groq_client = Groq(api_key=api_key)
-        GROQ_AVAILABLE = True
-        return True
-    except Exception as e:
-        GROQ_ERROR = f"Groq initialization failed: {e}"
-        GROQ_AVAILABLE = False
-        return False
-
-def get_ai_response(question, subject="general"):
-    if not groq_client:
-        return "AI system is not available. Please check server configuration."
-
-    system_prompts = {
-        "math": "You are PhenBOT, a mathematics tutor. Explain step-by-step clearly.",
-        "science": "You are PhenBOT, a science tutor. Explain concepts using analogies and examples.",
-        "english": "You are PhenBOT, an English assistant. Help with grammar and literary analysis.",
-        "history": "You are PhenBOT, a history tutor. Give engaging narratives with causes and effects.",
-        "general": "You are PhenBOT, an AI study assistant. Provide accurate educational answers."
-    }
-    system_prompt = system_prompts.get(subject, system_prompts["general"])
-
-    try:
-        chat_attr = getattr(groq_client, 'chat', None)
-        if chat_attr:
-            if hasattr(chat_attr, 'completions'):
-                response = chat_attr.completions.create(
-                    model="llama-3.1-8b-instant",
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": question}
-                    ],
-                    temperature=0.7,
-                    max_tokens=600,
-                    top_p=0.9
-                )
-                try:
-                    return response.choices[0].message.content
-                except Exception:
-                    return str(response)
-            elif hasattr(chat_attr, 'create'):
-                response = chat_attr.create(
-                    model="llama-3.1-8b-instant",
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": question}
-                    ],
-                    temperature=0.7,
-                    max_tokens=600
-                )
-                if isinstance(response, dict):
-                    return response.get('choices', [{}])[0].get('message', {}).get('content', str(response))
-                try:
-                    return response.choices[0].message.content
-                except Exception:
-                    return str(response)
-        return "Groq client available but SDK interface not recognized."
-    except Exception as e:
-        traceback.print_exc()
-        return f"Error processing question: {e}"
-
-# Initialize Groq
-initialize_groq()
-
-# ----------------- Routes -----------------
-@app.route('/')
-def index():
-    return send_from_directory(app.static_folder, 'index.html')
-
+# ---------------------------
+# Health
+# ---------------------------
 @app.route('/health')
-def health_check():
+def health():
     return jsonify({
-        'status': 'healthy',
-        'groq_available': GROQ_AVAILABLE,
-        'api_key_present': bool(os.environ.get('GROQ_API_KEY')),
-        'error': GROQ_ERROR,
-        'python_version': f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
-        'port': os.environ.get('PORT', 'not set')
+        "groq_available": True,
+        "api_key_present": True
     })
+
+# ---------------------------
+# Chat
+# ---------------------------
+history = []
 
 @app.route('/api/ask', methods=['POST'])
-def api_ask():
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'error': 'No data provided'}), 400
+def ask():
+    data = request.json
+    question = data.get('question', '')
+    subject = data.get('subject', 'general')
+    answer = f"This is a mocked answer for: {question} (subject: {subject})"
+    # save to history
+    hist_entry = {
+        "id": str(uuid.uuid4()),
+        "subject": subject,
+        "question": question,
+        "answer": answer,
+        "created_at": datetime.utcnow().isoformat()
+    }
+    history.insert(0, hist_entry)
+    return jsonify({"answer": answer})
 
-        question = data.get('question', '').strip()
-        subject = data.get('subject', 'general')
-        if not question:
-            return jsonify({'error': 'Question cannot be empty'}), 400
+# ---------------------------
+# History
+# ---------------------------
+@app.route('/api/history')
+def get_history():
+    return jsonify({"history": history})
 
-        if not GROQ_AVAILABLE:
-            return jsonify({'error': f'AI system not available: {GROQ_ERROR or "Groq not initialized"}'}), 500
+# ---------------------------
+# PDFs
+# ---------------------------
+UPLOAD_FOLDER = 'uploads'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+pdf_files = []
 
-        answer = get_ai_response(question, subject)
-        return jsonify({'answer': answer, 'subject': subject, 'status': 'success'})
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({'error': f'Server error: {str(e)}'}), 500
+@app.route('/api/pdfs')
+def list_pdfs():
+    files = [{"name": f["name"], "url": f"/uploads/{f['filename']}"} for f in pdf_files]
+    return jsonify({"files": files})
 
-@app.route('/api/test')
-def api_test():
-    return jsonify({
-        'message': 'PhenBOT API is working!',
-        'groq_status': GROQ_AVAILABLE,
-        'timestamp': os.environ.get('RAILWAY_GIT_COMMIT_SHA', 'unknown')
-    })
+@app.route('/api/upload-pdf', methods=['POST'])
+def upload_pdf():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part"}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
+    filename = f"{uuid.uuid4()}_{file.filename}"
+    path = os.path.join(UPLOAD_FOLDER, filename)
+    file.save(path)
+    pdf_files.append({"name": file.filename, "filename": filename})
+    return jsonify({"message": "Uploaded"}), 201
 
-# Error handlers
-@app.errorhandler(404)
-def not_found(error):
-    return jsonify({'error': 'Endpoint not found'}), 404
+@app.route('/uploads/<path:filename>')
+def uploaded_file(filename):
+    return send_from_directory(UPLOAD_FOLDER, filename)
 
-@app.errorhandler(500)
-def internal_error(error):
-    return jsonify({'error': 'Internal server error'}), 500
+# ---------------------------
+# Flashcards
+# ---------------------------
+flashcards = []
+
+@app.route('/api/flashcards', methods=['GET', 'POST'])
+def handle_flashcards():
+    if request.method == 'GET':
+        return jsonify({"flashcards": flashcards})
+    data = request.json
+    question = data.get('question')
+    answer = data.get('answer')
+    if not question or not answer:
+        return jsonify({"error": "Missing question/answer"}), 400
+    fc = {"id": str(uuid.uuid4()), "question": question, "answer": answer}
+    flashcards.insert(0, fc)
+    return jsonify({"flashcard": fc}), 201
+
+@app.route('/api/flashcards/<fc_id>', methods=['DELETE'])
+def delete_flashcard(fc_id):
+    global flashcards
+    flashcards = [f for f in flashcards if f['id'] != fc_id]
+    return '', 204
+
+# ---------------------------
+# Bookmarks
+# ---------------------------
+bookmarks = []
+
+@app.route('/api/bookmarks', methods=['GET', 'POST'])
+def handle_bookmarks():
+    if request.method == 'GET':
+        return jsonify({"bookmarks": bookmarks})
+    data = request.json
+    title = data.get('title')
+    url = data.get('url')
+    if not title or not url:
+        return jsonify({"error": "Missing title/url"}), 400
+    bm = {"id": str(uuid.uuid4()), "title": title, "url": url}
+    bookmarks.insert(0, bm)
+    return jsonify({"bookmark": bm}), 201
+
+@app.route('/api/bookmarks/<bm_id>', methods=['DELETE'])
+def delete_bookmark(bm_id):
+    global bookmarks
+    bookmarks = [b for b in bookmarks if b['id'] != bm_id]
+    return '', 204
+
+# ---------------------------
+# Serve static SPA
+# ---------------------------
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve(path):
+    if path != "" and os.path.exists(os.path.join('static', path)):
+        return send_from_directory('static', path)
+    return send_from_directory('static', 'index.html')
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    debug = os.environ.get('FLASK_ENV') == 'development'
-    print(f"Server running on port {port} (debug={debug})")
-    app.run(host='0.0.0.0', port=port, debug=debug)
+    app.run(debug=True)
