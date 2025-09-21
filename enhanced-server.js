@@ -651,7 +651,7 @@ function createServer(port) {
 
     // Serve frontend
     if (method === 'GET' && (pathName === '/' || pathName === '/index.html')) {
-      const indexPath = path.join(__dirname, 'frontend.html');
+      const indexPath = path.join(__dirname, 'frontend_new.html');
       fs.readFile(indexPath, 'utf8', (err, data) => {
         if (err) { res.writeHead(500); res.end("Failed to load frontend"); return; }
         res.setHeader('Content-Type', 'text/html');
@@ -1011,4 +1011,6 @@ process.on('SIGINT', () => {
 
 // Start server
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+
 createServer(PORT);
+
