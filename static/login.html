@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Sign In | PhenBOT</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height:100vh; font-family:sans-serif; color:#222; }
+        .login-container { max-width:400px; margin:60px auto; background:white; border-radius:16px; box-shadow:0 4px 32px #0002; padding:32px 32px 24px; }
+        .login-title { text-align:center; font-size:1.7em; margin-bottom:10px; font-weight:bold; color:#4facfe; }
+        .login-desc { text-align:center; color:#64748b; margin-bottom:32px; }
+        form { display:flex; flex-direction:column; gap:18px; }
+        input { padding:12px 14px; border-radius:10px; border:1px solid #eee; font-size:15px; outline:none; }
+        input:focus { border-color:#764ba2; }
+        button { background:var(--accent-color,#4facfe); color:white; font-weight:bold; border:none; padding:13px; border-radius:10px; cursor:pointer; font-size:16px; transition:.1s; }
+        button:hover { background:#764ba2; }
+        .error, .success { text-align:center; color:#ef4444; font-size:15px; margin-top:-12px; }
+        .success { color:#10b981; }
+        .switch-link { color:#764ba2; text-decoration:none; font-size:15px; text-align:center; margin-top:4px; display:block; }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-title">PhenBOT Login</div>
+        <div class="login-desc">Sign in to your study dashboard</div>
+        <form id="loginForm" autocomplete="off">
+            <input id="username" name="username" type="text" placeholder="Username" required minlength="4"/>
+            <input id="password" name="password" type="password" placeholder="Password" required minlength="4"/>
+            <button id="loginBtn" type="submit">Login</button>
+            <div id="loginError" class="error"></div>
+        </form>
+        <a href="/register" class="switch-link">New user? Register here</a>
+    </div>
+    <script>
+        document.getElementById('loginForm').onsubmit = async (e) => {
+            e.preventDefault();
+            document.getElementById('loginError').textContent = '';
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const res = await fetch('/login', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({username, password}),
+            });
+            const data = await res.json();
+            if(data.success){
+                window.location = '/';
+            }else{
+                document.getElementById('loginError').textContent = data.error || 'Login failed';
+            }
+        };
+    </script>
+</body>
+</html>
