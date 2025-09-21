@@ -1,4 +1,3 @@
-# app.py
 from flask import Flask, request, jsonify, send_from_directory
 import os, sys, traceback
 
@@ -9,9 +8,6 @@ GROQ_AVAILABLE = False
 GROQ_ERROR = None
 
 def initialize_groq():
-    """
-    Initialize Groq client without unsupported parameters.
-    """
     global groq_client, GROQ_AVAILABLE, GROQ_ERROR
     try:
         from groq import Groq
@@ -27,7 +23,6 @@ def initialize_groq():
         return False
 
     try:
-        # The current Groq SDK does not take 'proxies' or other kwargs
         groq_client = Groq(api_key=api_key)
         GROQ_AVAILABLE = True
         return True
@@ -37,26 +32,21 @@ def initialize_groq():
         return False
 
 def get_ai_response(question, subject="general"):
-    """
-    Query Groq chat API and return response.
-    """
     if not groq_client:
         return "AI system is not available. Please check server configuration."
 
     system_prompts = {
-        "math": "You are PhenBOT, a mathematics tutor. Provide step-by-step explanations with clear examples.",
-        "science": "You are PhenBOT, a science educator. Explain concepts using analogies and practical examples.",
-        "english": "You are PhenBOT, an English assistant. Help with grammar, writing, and literary analysis.",
-        "history": "You are PhenBOT, a history educator. Provide engaging narratives and explain cause/effect.",
-        "general": "You are PhenBOT, an AI study companion. Provide clear and educational responses."
+        "math": "You are PhenBOT, a mathematics tutor. Explain step-by-step clearly.",
+        "science": "You are PhenBOT, a science tutor. Explain concepts using analogies and examples.",
+        "english": "You are PhenBOT, an English assistant. Help with grammar and literary analysis.",
+        "history": "You are PhenBOT, a history tutor. Give engaging narratives with causes and effects.",
+        "general": "You are PhenBOT, an AI study assistant. Provide accurate educational answers."
     }
     system_prompt = system_prompts.get(subject, system_prompts["general"])
 
     try:
-        # Groq SDK v2+ interface
-        if hasattr(groq_client, 'chat'):
-            chat_attr = getattr(groq_client, 'chat')
-            # Try completions first
+        chat_attr = getattr(groq_client, 'chat', None)
+        if chat_attr:
             if hasattr(chat_attr, 'completions'):
                 response = chat_attr.completions.create(
                     model="llama-3.1-8b-instant",
@@ -72,7 +62,6 @@ def get_ai_response(question, subject="general"):
                     return response.choices[0].message.content
                 except Exception:
                     return str(response)
-            # fallback: chat.create
             elif hasattr(chat_attr, 'create'):
                 response = chat_attr.create(
                     model="llama-3.1-8b-instant",
@@ -89,13 +78,12 @@ def get_ai_response(question, subject="general"):
                     return response.choices[0].message.content
                 except Exception:
                     return str(response)
-        return "Groq client available but SDK interface is not recognized."
+        return "Groq client available but SDK interface not recognized."
     except Exception as e:
         traceback.print_exc()
-        return f"Error processing your question: {str(e)}"
+        return f"Error processing question: {e}"
 
-# Initialize Groq at startup
-print("Starting PhenBOT server...")
+# Initialize Groq
 initialize_groq()
 
 # ----------------- Routes -----------------
@@ -152,7 +140,6 @@ def not_found(error):
 def internal_error(error):
     return jsonify({'error': 'Internal server error'}), 500
 
-# Run server
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('FLASK_ENV') == 'development'
