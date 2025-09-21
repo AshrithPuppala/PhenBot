@@ -101,6 +101,11 @@
             border-radius: 8px;
             font-size: 12px;
             color: #0369a1;
+            display: none;
+        }
+
+        .pdf-status.visible {
+            display: block;
         }
 
         /* Main Content */
@@ -118,6 +123,15 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+        }
+
+        .menu-toggle {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text-primary);
         }
 
         .content-area {
@@ -150,6 +164,26 @@
             height: 70vh;
             display: flex;
             flex-direction: column;
+        }
+
+        .chat-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .pdf-context-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .pdf-context-toggle input[type="checkbox"] {
+            margin: 0;
         }
 
         .chat-messages {
@@ -209,6 +243,13 @@
             border-bottom-right-radius: 6px;
         }
 
+        .pdf-context-indicator {
+            font-size: 12px;
+            color: var(--success-color);
+            margin-top: 8px;
+            font-weight: 500;
+        }
+
         .chat-input-area {
             padding: 20px;
             border-top: 1px solid var(--border-color);
@@ -250,10 +291,16 @@
             align-items: center;
             justify-content: center;
             transition: transform 0.3s ease;
+            font-size: 20px;
         }
 
-        .send-button:hover {
+        .send-button:hover:not(:disabled) {
             transform: scale(1.05);
+        }
+
+        .send-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
 
         /* File Upload */
@@ -274,6 +321,12 @@
         .file-upload-area.dragover {
             border-color: var(--success-color);
             background: rgba(16, 185, 129, 0.05);
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            color: var(--accent-color);
+            margin-bottom: 16px;
         }
 
         /* Tool Cards */
@@ -337,7 +390,6 @@
             position: absolute;
             width: 100%;
             height: 100%;
-            -webkit-backface-visibility: hidden;
             backface-visibility: hidden;
             border-radius: 12px;
             padding: 20px;
@@ -345,6 +397,7 @@
             align-items: center;
             justify-content: center;
             box-shadow: var(--shadow);
+            text-align: center;
         }
 
         .flashcard-front {
@@ -371,13 +424,14 @@
         .calculator-display {
             width: 100%;
             height: 80px;
-            font-size: 32px;
+            font-size: 24px;
             text-align: right;
             padding: 16px;
             margin-bottom: 16px;
             border: 2px solid var(--border-color);
             border-radius: 8px;
             background: #f8f9fa;
+            font-family: 'Courier New', monospace;
         }
 
         .calculator-buttons {
@@ -439,6 +493,7 @@
         .summary-text {
             line-height: 1.6;
             color: var(--text-primary);
+            white-space: pre-wrap;
         }
 
         /* Button Styles */
@@ -451,11 +506,19 @@
             cursor: pointer;
             font-weight: 600;
             transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
         }
 
-        .btn:hover {
+        .btn:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: var(--shadow);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
 
         .btn-success {
@@ -466,8 +529,58 @@
             background: var(--warning-color);
         }
 
-        /* Responsive */
+        /* Loading States */
+        .loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--accent-color);
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Status Messages */
+        .status-message {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin: 16px 0;
+            font-weight: 500;
+        }
+
+        .status-message.success {
+            background: #ecfdf5;
+            color: var(--success-color);
+            border: 1px solid #86efac;
+        }
+
+        .status-message.error {
+            background: #fee2e2;
+            color: var(--error-color);
+            border: 1px solid #fca5a5;
+        }
+
+        .status-message.info {
+            background: #f0f9ff;
+            color: #0369a1;
+            border: 1px solid #7dd3fc;
+        }
+
+        /* Responsive Design */
         @media (max-width: 768px) {
+            .menu-toggle {
+                display: block;
+            }
+
             .sidebar {
                 position: absolute;
                 left: -280px;
@@ -482,29 +595,836 @@
             .tool-grid {
                 grid-template-columns: 1fr;
             }
+
+            .flashcard-container {
+                grid-template-columns: 1fr;
+            }
+
+            .calculator {
+                max-width: 100%;
+            }
         }
 
-        /* Loading States */
-        .loading {
-            opacity: 0.7;
-            pointer-events: none;
+        /* Hidden file input */
+        #pdfFileInput {
+            display: none;
         }
 
-        .spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid var(--accent-color);
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
+        /* Typing indicator */
+        .typing-indicator {
+            display: none;
+            padding: 16px 20px;
+            color: var(--text-secondary);
+            font-style: italic;
         }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .typing-indicator.visible {
+            display: block;
         }
     </style>
 </head>
 <body>
     <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">🤖 PhenBOT</div>
+                <div class="tagline">Advanced Study Companion</div>
+            </div>
+
+            <nav class="nav-tabs">
+                <div class="nav-tab active" data-tab="dashboard">
+                    <span class="nav-tab-icon">📊</span>
+                    Dashboard
+                </div>
+                <div class="nav-tab" data-tab="math">
+                    <span class="nav-tab-icon">🔢</span>
+                    Mathematics
+                </div>
+                <div class="nav-tab" data-tab="science">
+                    <span class="nav-tab-icon">🔬</span>
+                    Science
+                </div>
+                <div class="nav-tab" data-tab="english">
+                    <span class="nav-tab-icon">📚</span>
+                    English
+                </div>
+                <div class="nav-tab" data-tab="history">
+                    <span class="nav-tab-icon">🏛️</span>
+                    History
+                </div>
+                <div class="nav-tab" data-tab="tools">
+                    <span class="nav-tab-icon">🛠️</span>
+                    Study Tools
+                </div>
+                <div class="nav-tab" data-tab="calculator">
+                    <span class="nav-tab-icon">🧮</span>
+                    Calculator
+                </div>
+            </nav>
+
+            <div class="pdf-status" id="pdfStatus">
+                📄 No PDF uploaded yet
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="top-bar">
+                <button class="menu-toggle" id="menuToggle">☰</button>
+                <div id="systemStatus" class="status-message info" style="display: none;">
+                    Checking system status...
+                </div>
+            </div>
+
+            <div class="content-area">
+                <!-- Dashboard Tab -->
+                <div class="tab-content active" id="dashboard">
+                    <h2 style="margin-bottom: 24px; color: var(--text-primary);">Welcome to PhenBOT Dashboard</h2>
+                    
+                    <div class="tool-grid">
+                        <div class="tool-card" onclick="switchTab('tools')">
+                            <h3>📁 Upload PDF</h3>
+                            <p>Upload your study materials and ask questions based on the content</p>
+                        </div>
+
+                        <div class="tool-card" onclick="generateSummary()">
+                            <h3>📄 Summarize</h3>
+                            <p>Get a comprehensive summary of your uploaded PDF</p>
+                        </div>
+
+                        <div class="tool-card" onclick="generateFlashcards()">
+                            <h3>🗂️ Create Flashcards</h3>
+                            <p>Generate interactive flashcards from your study material</p>
+                        </div>
+
+                        <div class="tool-card" onclick="switchTab('calculator')">
+                            <h3>🧮 Calculator</h3>
+                            <p>Use the scientific calculator for mathematical calculations</p>
+                        </div>
+                    </div>
+
+                    <div id="dashboardSummary" class="summary-content" style="display: none;">
+                        <h3>📄 Document Summary</h3>
+                        <div id="summaryText" class="summary-text"></div>
+                    </div>
+
+                    <div id="dashboardFlashcards" class="flashcard-container"></div>
+                </div>
+
+                <!-- Subject-specific tabs -->
+                <div class="tab-content" id="math">
+                    <div class="chat-container">
+                        <div class="chat-header">
+                            <h3>🔢 Mathematics Assistant</h3>
+                            <div class="pdf-context-toggle">
+                                <input type="checkbox" id="mathPdfContext" disabled>
+                                <label for="mathPdfContext">Use PDF context</label>
+                            </div>
+                        </div>
+                        <div class="chat-messages" id="mathMessages">
+                            <div class="message bot">
+                                <div class="message-avatar">🤖</div>
+                                <div class="message-content">
+                                    Welcome to Mathematics! I'm here to help you understand concepts through step-by-step explanations and clear examples. What math topic would you like to explore today?
+                                </div>
+                            </div>
+                        </div>
+                        <div class="typing-indicator" id="mathTyping">PhenBOT is thinking...</div>
+                        <div class="chat-input-area">
+                            <div class="input-container">
+                                <textarea class="message-input" placeholder="Ask a math question..." data-subject="math"></textarea>
+                                <button class="send-button" onclick="sendMessage('math')">➤</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="science">
+                    <div class="chat-container">
+                        <div class="chat-header">
+                            <h3>🔬 Science Assistant</h3>
+                            <div class="pdf-context-toggle">
+                                <input type="checkbox" id="sciencePdfContext" disabled>
+                                <label for="sciencePdfContext">Use PDF context</label>
+                            </div>
+                        </div>
+                        <div class="chat-messages" id="scienceMessages">
+                            <div class="message bot">
+                                <div class="message-avatar">🤖</div>
+                                <div class="message-content">
+                                    Ready to explore Science! I can explain complex concepts using real-world analogies and help you understand the 'why' behind every phenomenon. What scientific concept interests you?
+                                </div>
+                            </div>
+                        </div>
+                        <div class="typing-indicator" id="scienceTyping">PhenBOT is thinking...</div>
+                        <div class="chat-input-area">
+                            <div class="input-container">
+                                <textarea class="message-input" placeholder="Ask a science question..." data-subject="science"></textarea>
+                                <button class="send-button" onclick="sendMessage('science')">➤</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="english">
+                    <div class="chat-container">
+                        <div class="chat-header">
+                            <h3>📚 English Assistant</h3>
+                            <div class="pdf-context-toggle">
+                                <input type="checkbox" id="englishPdfContext" disabled>
+                                <label for="englishPdfContext">Use PDF context</label>
+                            </div>
+                        </div>
+                        <div class="chat-messages" id="englishMessages">
+                            <div class="message bot">
+                                <div class="message-avatar">🤖</div>
+                                <div class="message-content">
+                                    Let's dive into English & Literature! I can help with grammar, essays, poetry analysis, and creative writing. Share what you're working on!
+                                </div>
+                            </div>
+                        </div>
+                        <div class="typing-indicator" id="englishTyping">PhenBOT is thinking...</div>
+                        <div class="chat-input-area">
+                            <div class="input-container">
+                                <textarea class="message-input" placeholder="Ask about English/Literature..." data-subject="english"></textarea>
+                                <button class="send-button" onclick="sendMessage('english')">➤</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="history">
+                    <div class="chat-container">
+                        <div class="chat-header">
+                            <h3>🏛️ History Assistant</h3>
+                            <div class="pdf-context-toggle">
+                                <input type="checkbox" id="historyPdfContext" disabled>
+                                <label for="historyPdfContext">Use PDF context</label>
+                            </div>
+                        </div>
+                        <div class="chat-messages" id="historyMessages">
+                            <div class="message bot">
+                                <div class="message-avatar">🤖</div>
+                                <div class="message-content">
+                                    Welcome to History! I'll help you understand historical events through engaging stories and timelines. What period or event would you like to explore?
+                                </div>
+                            </div>
+                        </div>
+                        <div class="typing-indicator" id="historyTyping">PhenBOT is thinking...</div>
+                        <div class="chat-input-area">
+                            <div class="input-container">
+                                <textarea class="message-input" placeholder="Ask a history question..." data-subject="history"></textarea>
+                                <button class="send-button" onclick="sendMessage('history')">➤</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="tools">
+                    <h2 style="margin-bottom: 24px;">Study Tools & Resources</h2>
+                    
+                    <div class="file-upload-area" onclick="document.getElementById('pdfFileInput').click()">
+                        <div class="upload-icon">📄</div>
+                        <h3>Upload PDF Document</h3>
+                        <p>Upload your study materials, textbooks, or notes to ask questions and generate summaries</p>
+                        <input type="file" id="pdfFileInput" accept=".pdf" onchange="uploadPDF(this)">
+                    </div>
+
+                    <div id="uploadStatus" class="status-message" style="display: none;"></div>
+
+                    <div class="tool-grid">
+                        <div class="tool-card" onclick="generateSummary()">
+                            <h3>📄 Generate Summary</h3>
+                            <p>Create a comprehensive summary of your uploaded PDF</p>
+                            <button class="btn" style="margin-top: 12px;" id="summaryBtn" disabled>Generate Summary</button>
+                        </div>
+                        
+                        <div class="tool-card" onclick="generateFlashcards()">
+                            <h3>🗂️ Create Flashcards</h3>
+                            <p>Generate interactive flashcards from your PDF content</p>
+                            <div style="margin-top: 12px;">
+                                <input type="number" id="numCards" value="10" min="5" max="15" style="width: 60px; padding: 4px; margin-right: 8px;">
+                                <button class="btn" id="flashcardBtn" disabled>Create Cards</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="toolsSummary" class="summary-content" style="display: none;">
+                        <h3>📄 Document Summary</h3>
+                        <div id="toolsSummaryText" class="summary-text"></div>
+                    </div>
+
+                    <div id="toolsFlashcards" class="flashcard-container"></div>
+                </div>
+
+                <div class="tab-content" id="calculator">
+                    <h2 style="margin-bottom: 24px; text-align: center;">Scientific Calculator</h2>
+                    
+                    <div class="calculator">
+                        <input type="text" class="calculator-display" id="calcDisplay" readonly placeholder="0">
+                        
+                        <div class="calculator-buttons">
+                            <!-- Row 1: Functions -->
+                            <button class="calc-btn function" onclick="clearCalculator()">C</button>
+                            <button class="calc-btn function" onclick="clearEntry()">CE</button>
+                            <button class="calc-btn function" onclick="backspace()">⌫</button>
+                            <button class="calc-btn operator" onclick="appendToDisplay('/')">÷</button>
+                            
+                            <!-- Row 2: Functions -->
+                            <button class="calc-btn function" onclick="appendFunction('sin(')">sin</button>
+                            <button class="calc-btn function" onclick="appendFunction('cos(')">cos</button>
+                            <button class="calc-btn function" onclick="appendFunction('tan(')">tan</button>
+                            <button class="calc-btn operator" onclick="appendToDisplay('*')">×</button>
+                            
+                            <!-- Row 3: Functions -->
+                            <button class="calc-btn function" onclick="appendFunction('log(')">log</button>
+                            <button class="calc-btn function" onclick="appendFunction('ln(')">ln</button>
+                            <button class="calc-btn function" onclick="appendToDisplay('^')">x^y</button>
+                            <button class="calc-btn operator" onclick="appendToDisplay('-')">−</button>
+                            
+                            <!-- Row 4: Numbers -->
+                            <button class="calc-btn number" onclick="appendToDisplay('7')">7</button>
+                            <button class="calc-btn number" onclick="appendToDisplay('8')">8</button>
+                            <button class="calc-btn number" onclick="appendToDisplay('9')">9</button>
+                            <button class="calc-btn operator" onclick="appendToDisplay('+')">+</button>
+                            
+                            <!-- Row 5: Numbers -->
+                            <button class="calc-btn number" onclick="appendToDisplay('4')">4</button>
+                            <button class="calc-btn number" onclick="appendToDisplay('5')">5</button>
+                            <button class="calc-btn number" onclick="appendToDisplay('6')">6</button>
+                            <button class="calc-btn function" onclick="appendToDisplay('(')">(</button>
+                            
+                            <!-- Row 6: Numbers -->
+                            <button class="calc-btn number" onclick="appendToDisplay('1')">1</button>
+                            <button class="calc-btn number" onclick="appendToDisplay('2')">2</button>
+                            <button class="calc-btn number" onclick="appendToDisplay('3')">3</button>
+                            <button class="calc-btn function" onclick="appendToDisplay(')')">)</button>
+                            
+                            <!-- Row 7: Numbers -->
+                            <button class="calc-btn number" onclick="appendToDisplay('0')">0</button>
+                            <button class="calc-btn number" onclick="appendToDisplay('.')">.</button>
+                            <button class="calc-btn function" onclick="appendToDisplay('3.14159')">π</button>
+                            <button class="calc-btn equals" onclick="calculateResult()">=</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let currentTab = 'dashboard';
+        let hasPDF = false;
+        let calculatorExpression = '';
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            checkSystemHealth();
+            setupEventListeners();
+            updatePDFStatus();
+        });
+
+        function setupEventListeners() {
+            // Tab switching
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const tabId = tab.dataset.tab;
+                    switchTab(tabId);
+                });
+            });
+
+            // Mobile menu toggle
+            document.getElementById('menuToggle').addEventListener('click', () => {
+                document.getElementById('sidebar').classList.toggle('open');
+            });
+
+            // Enter key handling for message inputs
+            document.querySelectorAll('.message-input').forEach(input => {
+                input.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        const subject = input.dataset.subject;
+                        sendMessage(subject);
+                    }
+                });
+            });
+
+            // File drag and drop
+            const uploadArea = document.querySelector('.file-upload-area');
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                uploadArea.addEventListener(eventName, preventDefaults, false);
+            });
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                uploadArea.addEventListener(eventName, () => uploadArea.classList.add('dragover'), false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                uploadArea.addEventListener(eventName, () => uploadArea.classList.remove('dragover'), false);
+            });
+
+            uploadArea.addEventListener('drop', handleDrop, false);
+        }
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length > 0 && files[0].type === 'application/pdf') {
+                document.getElementById('pdfFileInput').files = files;
+                uploadPDF(document.getElementById('pdfFileInput'));
+            }
+        }
+
+        // System health check
+        async function checkSystemHealth() {
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+                
+                const statusDiv = document.getElementById('systemStatus');
+                statusDiv.style.display = 'block';
+                
+                if (data.groq_available) {
+                    statusDiv.className = 'status-message success';
+                    statusDiv.textContent = 'System ready - AI assistant available';
+                } else {
+                    statusDiv.className = 'status-message error';
+                    statusDiv.textContent = `AI system unavailable: ${data.error || 'Unknown error'}`;
+                }
+                
+                // Hide status after 5 seconds
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 5000);
+                
+            } catch (error) {
+                const statusDiv = document.getElementById('systemStatus');
+                statusDiv.className = 'status-message error';
+                statusDiv.textContent = 'Connection error - please check your internet connection';
+                statusDiv.style.display = 'block';
+            }
+        }
+
+        // Tab switching
+        function switchTab(tabId) {
+            // Update active tab
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+
+            // Update content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(tabId).classList.add('active');
+
+            currentTab = tabId;
+
+            // Close mobile menu
+            document.getElementById('sidebar').classList.remove('open');
+        }
+
+        // PDF upload functionality
+        async function uploadPDF(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            if (file.type !== 'application/pdf') {
+                showStatus('error', 'Please select a PDF file.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('pdf_file', file);
+
+            const uploadStatus = document.getElementById('uploadStatus');
+            uploadStatus.className = 'status-message info';
+            uploadStatus.textContent = 'Uploading and processing PDF...';
+            uploadStatus.style.display = 'block';
+
+            try {
+                const response = await fetch('/api/upload-pdf', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    hasPDF = true;
+                    updatePDFStatus(data.filename, data.text_length);
+                    enablePDFFeatures();
+                    
+                    uploadStatus.className = 'status-message success';
+                    uploadStatus.textContent = `PDF uploaded successfully! Extracted ${data.text_length} characters.`;
+                    
+                    // Show preview
+                    if (data.preview) {
+                        uploadStatus.innerHTML += `<br><br><strong>Preview:</strong><br>${data.preview}`;
+                    }
+                } else {
+                    uploadStatus.className = 'status-message error';
+                    uploadStatus.textContent = data.error || 'Upload failed';
+                }
+            } catch (error) {
+                uploadStatus.className = 'status-message error';
+                uploadStatus.textContent = 'Upload failed: ' + error.message;
+            }
+        }
+
+        function updatePDFStatus(filename = null, textLength = null) {
+            const statusDiv = document.getElementById('pdfStatus');
+            if (filename) {
+                statusDiv.textContent = `📄 ${filename} (${textLength} chars)`;
+                statusDiv.classList.add('visible');
+            } else if (hasPDF) {
+                statusDiv.textContent = '📄 PDF uploaded';
+                statusDiv.classList.add('visible');
+            } else {
+                statusDiv.textContent = '📄 No PDF uploaded';
+                statusDiv.classList.remove('visible');
+            }
+        }
+
+        function enablePDFFeatures() {
+            // Enable PDF context checkboxes
+            document.querySelectorAll('input[id$="PdfContext"]').forEach(checkbox => {
+                checkbox.disabled = false;
+            });
+
+            // Enable summary and flashcard buttons
+            document.getElementById('summaryBtn').disabled = false;
+            document.getElementById('flashcardBtn').disabled = false;
+        }
+
+        // Message sending
+        async function sendMessage(subject) {
+            const input = document.querySelector(`#${subject} .message-input, [data-subject="${subject}"]`);
+            const messagesContainer = document.getElementById(`${subject}Messages`);
+            const typingIndicator = document.getElementById(`${subject}Typing`);
+            const pdfContextCheckbox = document.getElementById(`${subject}PdfContext`);
+            
+            const message = input.value.trim();
+            if (!message) return;
+
+            // Add user message
+            addMessage(messagesContainer, 'user', message);
+            input.value = '';
+
+            // Show typing indicator
+            if (typingIndicator) {
+                typingIndicator.classList.add('visible');
+            }
+
+            const usePdfContext = pdfContextCheckbox ? pdfContextCheckbox.checked : false;
+
+            try {
+                const response = await fetch('/api/ask', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        question: message,
+                        subject: subject,
+                        use_pdf_context: usePdfContext
+                    })
+                });
+
+                const data = await response.json();
+
+                // Hide typing indicator
+                if (typingIndicator) {
+                    typingIndicator.classList.remove('visible');
+                }
+
+                if (data.status === 'success') {
+                    addMessage(messagesContainer, 'bot', data.answer, data.used_pdf_context);
+                } else {
+                    addMessage(messagesContainer, 'bot', `Sorry, I encountered an error: ${data.error}`);
+                }
+            } catch (error) {
+                if (typingIndicator) {
+                    typingIndicator.classList.remove('visible');
+                }
+                addMessage(messagesContainer, 'bot', 'Sorry, I encountered a connection error. Please try again.');
+            }
+        }
+
+        function addMessage(container, type, content, usedPdfContext = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+
+            const avatar = document.createElement('div');
+            avatar.className = 'message-avatar';
+            avatar.textContent = type === 'bot' ? '🤖' : '👤';
+
+            const messageContent = document.createElement('div');
+            messageContent.className = 'message-content';
+            messageContent.textContent = content;
+
+            if (usedPdfContext) {
+                const indicator = document.createElement('div');
+                indicator.className = 'pdf-context-indicator';
+                indicator.textContent = '📄 Answer based on your uploaded PDF';
+                messageContent.appendChild(indicator);
+            }
+
+            if (type === 'bot') {
+                messageDiv.appendChild(avatar);
+                messageDiv.appendChild(messageContent);
+            } else {
+                messageDiv.appendChild(messageContent);
+                messageDiv.appendChild(avatar);
+            }
+
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Summary generation
+        async function generateSummary() {
+            if (!hasPDF) {
+                showStatus('error', 'Please upload a PDF first.');
+                return;
+            }
+
+            const summaryBtn = document.getElementById('summaryBtn');
+            if (summaryBtn) {
+                summaryBtn.innerHTML = '<div class="spinner"></div> Generating...';
+                summaryBtn.disabled = true;
+            }
+
+            try {
+                const response = await fetch('/api/summarize', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        source: 'pdf'
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    displaySummary(data.summary);
+                    showStatus('success', 'Summary generated successfully!');
+                } else {
+                    showStatus('error', data.error || 'Failed to generate summary');
+                }
+            } catch (error) {
+                showStatus('error', 'Error generating summary: ' + error.message);
+            } finally {
+                if (summaryBtn) {
+                    summaryBtn.innerHTML = 'Generate Summary';
+                    summaryBtn.disabled = false;
+                }
+            }
+        }
+
+        function displaySummary(summary) {
+            // Show in dashboard
+            const dashboardSummary = document.getElementById('dashboardSummary');
+            const dashboardText = document.getElementById('summaryText');
+            dashboardText.textContent = summary;
+            dashboardSummary.style.display = 'block';
+
+            // Show in tools tab
+            const toolsSummary = document.getElementById('toolsSummary');
+            const toolsText = document.getElementById('toolsSummaryText');
+            toolsText.textContent = summary;
+            toolsSummary.style.display = 'block';
+        }
+
+        // Flashcard generation
+        async function generateFlashcards() {
+            if (!hasPDF) {
+                showStatus('error', 'Please upload a PDF first.');
+                return;
+            }
+
+            const numCards = document.getElementById('numCards')?.value || 10;
+            const flashcardBtn = document.getElementById('flashcardBtn');
+            
+            if (flashcardBtn) {
+                flashcardBtn.innerHTML = '<div class="spinner"></div> Creating...';
+                flashcardBtn.disabled = true;
+            }
+
+            try {
+                const response = await fetch('/api/generate-flashcards', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        source: 'pdf',
+                        num_cards: parseInt(numCards)
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success' && data.flashcards.length > 0) {
+                    displayFlashcards(data.flashcards);
+                    showStatus('success', `Generated ${data.flashcards.length} flashcards!`);
+                } else {
+                    showStatus('error', data.error || 'Failed to generate flashcards');
+                }
+            } catch (error) {
+                showStatus('error', 'Error generating flashcards: ' + error.message);
+            } finally {
+                if (flashcardBtn) {
+                    flashcardBtn.innerHTML = 'Create Cards';
+                    flashcardBtn.disabled = false;
+                }
+            }
+        }
+
+        function displayFlashcards(flashcards) {
+            const containers = [
+                document.getElementById('dashboardFlashcards'),
+                document.getElementById('toolsFlashcards')
+            ];
+
+            containers.forEach(container => {
+                if (!container) return;
+                
+                container.innerHTML = '';
+                
+                flashcards.forEach((card, index) => {
+                    const flashcardDiv = document.createElement('div');
+                    flashcardDiv.className = 'flashcard';
+                    flashcardDiv.onclick = () => flipCard(flashcardDiv);
+
+                    flashcardDiv.innerHTML = `
+                        <div class="flashcard-inner">
+                            <div class="flashcard-front">
+                                <h4>Question ${index + 1}</h4>
+                                <p>${card.question}</p>
+                            </div>
+                            <div class="flashcard-back">
+                                <h4>Answer</h4>
+                                <p>${card.answer}</p>
+                            </div>
+                        </div>
+                    `;
+                    
+                    container.appendChild(flashcardDiv);
+                });
+            });
+        }
+
+        function flipCard(cardElement) {
+            cardElement.classList.toggle('flipped');
+        }
+
+        // Calculator functions
+        function appendToDisplay(value) {
+            const display = document.getElementById('calcDisplay');
+            if (display.value === '0' && value !== '.') {
+                display.value = value;
+            } else {
+                display.value += value;
+            }
+        }
+
+        function appendFunction(func) {
+            const display = document.getElementById('calcDisplay');
+            if (display.value === '0') {
+                display.value = func;
+            } else {
+                display.value += func;
+            }
+        }
+
+        function clearCalculator() {
+            document.getElementById('calcDisplay').value = '0';
+        }
+
+        function clearEntry() {
+            document.getElementById('calcDisplay').value = '0';
+        }
+
+        function backspace() {
+            const display = document.getElementById('calcDisplay');
+            if (display.value.length > 1) {
+                display.value = display.value.slice(0, -1);
+            } else {
+                display.value = '0';
+            }
+        }
+
+        function calculateResult() {
+            const display = document.getElementById('calcDisplay');
+            const expression = display.value;
+
+            try {
+                // Replace display symbols with JavaScript operators
+                let jsExpression = expression
+                    .replace(/×/g, '*')
+                    .replace(/÷/g, '/')
+                    .replace(/−/g, '-')
+                    .replace(/\^/g, '**')
+                    .replace(/sin\(/g, 'Math.sin(')
+                    .replace(/cos\(/g, 'Math.cos(')
+                    .replace(/tan\(/g, 'Math.tan(')
+                    .replace(/log\(/g, 'Math.log10(')
+                    .replace(/ln\(/g, 'Math.log(')
+                    .replace(/π/g, 'Math.PI');
+
+                const result = eval(jsExpression);
+                display.value = result.toString();
+            } catch (error) {
+                display.value = 'Error';
+                setTimeout(() => {
+                    display.value = '0';
+                }, 2000);
+            }
+        }
+
+        // Utility functions
+        function showStatus(type, message) {
+            const statusDiv = document.getElementById('uploadStatus') || document.getElementById('systemStatus');
+            if (statusDiv) {
+                statusDiv.className = `status-message ${type}`;
+                statusDiv.textContent = message;
+                statusDiv.style.display = 'block';
+                
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        // Check PDF status on load
+        async function checkPDFStatus() {
+            try {
+                const response = await fetch('/api/pdf-status');
+                const data = await response.json();
+                
+                if (data.has_pdf) {
+                    hasPDF = true;
+                    updatePDFStatus();
+                    enablePDFFeatures();
+                }
+            } catch (error) {
+                console.error('Error checking PDF status:', error);
+            }
+        }
+
+        // Initialize PDF status check
+        checkPDFStatus();
+    </script>
+</body>
+</html>
