@@ -2,18 +2,20 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from utils import *
 import os
 
-app = Flask(__name__)
-app.secret_key = 'supersecretkey'  # Replace with a strong key in production
+app = Flask(__name__, static_folder="static", template_folder="templates")
+app.secret_key = os.environ.get("SECRET_KEY", "supersecretkey")
+
+# Ensure data folders exist
+for folder in ["data/flashcards", "data/history", "data/uploads"]:
+    os.makedirs(folder, exist_ok=True)
 
 # ---------------- ROUTES ----------------
-
 @app.route('/')
 def home():
     if 'email' in session:
         return redirect(url_for('dashboard'))
     return render_template('index.html')
 
-# ---------- REGISTER ----------
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
@@ -25,7 +27,6 @@ def register():
             return redirect(url_for('login'))
     return render_template('register.html')
 
-# ---------- LOGIN ----------
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -38,7 +39,6 @@ def login():
         flash("Invalid credentials")
     return render_template('login.html')
 
-# ---------- DASHBOARD ----------
 @app.route('/dashboard')
 def dashboard():
     if 'email' not in session:
@@ -48,13 +48,11 @@ def dashboard():
     history = load_history(email)
     return render_template('dashboard.html', flashcards=flashcards, history=history)
 
-# ---------- LOGOUT ----------
 @app.route('/logout')
 def logout():
     session.pop('email', None)
     return redirect(url_for('home'))
 
-# ---------- CREATE FLASHCARD ----------
 @app.route('/flashcard/create', methods=['POST'])
 def create_flashcard_route():
     if 'email' not in session:
@@ -67,7 +65,6 @@ def create_flashcard_route():
     flash("Flashcard created!")
     return redirect(url_for('dashboard'))
 
-# ---------- UPLOAD PDF ----------
 @app.route('/upload', methods=['POST'])
 def upload_pdf():
     if 'email' not in session:
@@ -84,17 +81,16 @@ def upload_pdf():
         flash("Invalid file type")
     return redirect(url_for('dashboard'))
 
-# ---------- AI QUERY (OPTIONAL) ----------
 @app.route('/ask', methods=['POST'])
 def ask_ai():
     if 'email' not in session:
         return redirect(url_for('login'))
     question = request.form['question']
-    # Here you integrate OpenAI API or your AI backend
-    answer = f"Simulated AI answer for: {question}"
+    answer = f"Simulated AI answer: {question}"
     update_history(session['email'], questions_asked=1)
     flash(answer)
     return redirect(url_for('dashboard'))
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
