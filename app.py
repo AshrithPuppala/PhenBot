@@ -26,7 +26,6 @@ os.makedirs(INSTANCE_DIR, exist_ok=True)
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 app = Flask(__name__, static_folder='static', static_url_path='/static')
-
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', uuid.uuid4().hex)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(INSTANCE_DIR, 'app.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -54,8 +53,8 @@ class Flashcard(db.Model):
 class PDFFile(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    filename = db.Column(db.String(300), nullable=False)          # stored filename
-    original_name = db.Column(db.String(300), nullable=False)     # uploaded original
+    filename = db.Column(db.String(300), nullable=False)
+    original_name = db.Column(db.String(300), nullable=False)
     uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Bookmark(db.Model):
@@ -73,12 +72,11 @@ class QAHistory(db.Model):
     subject = db.Column(db.String(80), default='general')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-# Create DB tables
 with app.app_context():
     db.create_all()
 
 # --------------------
-# Groq (AI) init - don't crash app if missing
+# Groq (AI) init
 # --------------------
 groq_client = None
 GROQ_AVAILABLE = False
@@ -103,16 +101,19 @@ def initialize_groq():
         groq_client = Groq(api_key=api_key)
         GROQ_AVAILABLE = True
         return True
+    except TypeError as e:
+        GROQ_ERROR = f"Groq initialization TypeError: {e}"
+        GROQ_AVAILABLE = False
+        return False
     except Exception as e:
         GROQ_ERROR = f"Groq initialization failed: {e}"
         GROQ_AVAILABLE = False
         return False
 
-# initialize at startup (safe)
 initialize_groq()
 
 def get_ai_response(question, subject='general'):
-    if not groq_client:
+    if not GROQ_AVAILABLE or not groq_client:
         return "AI system not available on server. Check GROQ_API_KEY and Groq SDK installation."
 
     system_prompts = {
@@ -125,7 +126,6 @@ def get_ai_response(question, subject='general'):
     system_prompt = system_prompts.get(subject, system_prompts["general"])
 
     try:
-        # try the common SDK method variants
         if hasattr(groq_client, 'chat') and hasattr(groq_client.chat, 'completions'):
             response = groq_client.chat.completions.create(
                 model="llama-3.1-8b-instant",
@@ -140,27 +140,9 @@ def get_ai_response(question, subject='general'):
             try:
                 return response.choices[0].message.content
             except Exception:
-                try:
-                    return response['choices'][0]['message']['content']
-                except Exception:
-                    return str(response)
-
-        if hasattr(groq_client, 'chat') and hasattr(groq_client.chat, 'create'):
-            response = groq_client.chat.create(
-                model="llama-3.1-8b-instant",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": question}
-                ],
-                temperature=0.7,
-                max_tokens=600
-            )
-            try:
-                return response.choices[0].message.content
-            except Exception:
                 return str(response)
-
-        return "Groq client interface not recognized."
+        else:
+            return "Groq client interface not recognized."
     except Exception as e:
         traceback.print_exc()
         return f"Error fetching AI response: {str(e)}"
@@ -186,7 +168,7 @@ def login_required_page(f):
     return decorated
 
 # --------------------
-# HTML routes (login/register + SPA entry)
+# HTML routes
 # --------------------
 @app.route('/')
 def root():
@@ -197,7 +179,6 @@ def root():
 @app.route('/app')
 @login_required_page
 def app_ui():
-    # serve SPA index (static)
     return send_from_directory(app.static_folder, 'index.html')
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -259,7 +240,6 @@ def health_check():
         'python_version': f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     })
 
-# AI ask - save QA history
 @app.route('/api/ask', methods=['POST'])
 @login_required_json
 def api_ask():
@@ -271,7 +251,6 @@ def api_ask():
     if not GROQ_AVAILABLE:
         return jsonify({'error': f'AI not available: {GROQ_ERROR or "Groq not initialized"}'}), 503
     answer = get_ai_response(question, subject)
-    # save to history
     try:
         history = QAHistory(user_id=session['user_id'], question=question, answer=answer, subject=subject)
         db.session.add(history)
@@ -280,7 +259,6 @@ def api_ask():
         db.session.rollback()
     return jsonify({'answer': answer, 'subject': subject})
 
-# QA history retrieval
 @app.route('/api/history', methods=['GET'])
 @login_required_json
 def api_history():
@@ -290,7 +268,7 @@ def api_history():
     return jsonify({'history': out})
 
 # --------------------
-# PDF upload/list (per-user)
+# PDF upload/list
 # --------------------
 ALLOWED_EXT = {'pdf'}
 def allowed_file(filename):
@@ -307,7 +285,6 @@ def upload_pdf():
     if not allowed_file(f.filename):
         return jsonify({'error': 'Only PDF allowed (extension .pdf)'}), 400
     original = secure_filename(f.filename)
-    # store with uid prefix for safety / separation
     unique_name = f"{session['user_id']}_{uuid.uuid4().hex}_{original}"
     save_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_name)
     f.save(save_path)
@@ -326,7 +303,7 @@ def list_pdfs():
     return jsonify({'files': out})
 
 # --------------------
-# Flashcards (per-user)
+# Flashcards
 # --------------------
 @app.route('/api/flashcards', methods=['GET', 'POST'])
 @login_required_json
@@ -358,7 +335,7 @@ def flashcard_delete(card_id):
     return jsonify({'message': 'Deleted'}), 200
 
 # --------------------
-# Bookmarks (per-user)
+# Bookmarks
 # --------------------
 @app.route('/api/bookmarks', methods=['GET', 'POST'])
 @login_required_json
@@ -390,7 +367,7 @@ def bookmark_delete(bookmark_id):
     return jsonify({'message': 'Deleted'}), 200
 
 # --------------------
-# Fallback 404 -> SPA (when logged in)
+# Fallback 404 -> SPA
 # --------------------
 @app.errorhandler(404)
 def page_not_found(e):
