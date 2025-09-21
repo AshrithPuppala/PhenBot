@@ -1,22 +1,7 @@
-{% extends "base.html" %}
-{% block content %}
-<div class="auth-card">
-  <h2>Welcome back to <span class="brand">PhenBOT</span></h2>
-  <p class="muted">Log in to access your personalized study dashboard.</p>
-
-  <form method="POST" class="auth-form">
-    <label>Username</label>
-    <input name="username" required placeholder="Choose a username" />
-
-    <label>Password</label>
-    <input name="password" type="password" required placeholder="Your password" />
-
-    <div style="display:flex; gap:8px; margin-top:12px;">
-      <button type="submit" class="btn-primary">Login</button>
-      <a class="btn-ghost" href="{{ url_for('register') }}">Create account</a>
-    </div>
-  </form>
-
-  <p class="small muted" style="margin-top:12px;">Tip: Use the Register page if you haven't created an account.</p>
-</div>
-{% endblock %}
+<h1>Login</h1>
+<form method="post">
+    Email: <input type="email" name="email" required><br>
+    Secret Code: <input type="password" name="secret_code" required><br>
+    <button type="submit">Login</button>
+</form>
+<a href="{{ url_for('register') }}">Register</a>
