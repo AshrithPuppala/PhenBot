@@ -77,17 +77,18 @@ def get_ai_response(question, subject):
         return f"Error calling Groq API: {e}"
 
 # -----------------------------------
-# Authentication Helpers
+# Authentication helpers
 
 def logged_in():
     return 'username' in session
 
 def require_login(func):
+    from functools import wraps
+    @wraps(func)
     def wrapper(*args, **kwargs):
         if not logged_in():
             return jsonify({'error': 'Authentication required'}), 401
         return func(*args, **kwargs)
-    wrapper.__name__ = func.__name__
     return wrapper
 
 # -----------------------------------
@@ -106,6 +107,8 @@ def login():
         return redirect(url_for('index'))
     if request.method == 'POST':
         data = request.form or request.get_json()
+        if not data:
+            return 'Invalid request', 400
         username = data.get('username', '').strip()
         password = data.get('password', '')
         users = load_users()
@@ -122,14 +125,16 @@ def register():
         return redirect(url_for('index'))
     if request.method == 'POST':
         data = request.form or request.get_json()
+        if not data:
+            return 'Invalid request', 400
         username = data.get('username', '').strip()
         password = data.get('password', '')
-        if username == '' or password == '' or len(password) < 4:
+        if not username or not password or len(password) < 4:
             return 'Invalid username or password', 400
         users = load_users()
         if username in users:
             return 'User already exists', 400
-        users[username] = generate_password_hash(password)
+        users[username] = generate_password_hash(password).decode('utf-8')
         save_users(users)
         return redirect(url_for('login'))
     return send_from_directory(app.static_folder, 'register.html')
@@ -150,6 +155,8 @@ def dashboard():
 def api_ask():
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid request'}), 400
         question = data.get('question', '').strip()
         subject = data.get('subject', 'general')
         if question == '':
@@ -158,7 +165,7 @@ def api_ask():
             return jsonify({'error': f'AI system unavailable: {GROQ_ERROR}'}), 503
         answer = get_ai_response(question, subject)
         return jsonify({'answer': answer})
-    except Exception as e:
+    except Exception:
         traceback.print_exc()
         return jsonify({'error': 'Server error'}), 500
 
@@ -171,12 +178,12 @@ def health():
         'error': GROQ_ERROR
     })
 
-# Static Files (including login, register html)
+# Static file serving
 @app.route('/static/<path:path>')
 def static_files(path):
     return send_from_directory(app.static_folder, path)
 
-# Error handlers - return JSON 
+# Error handlers
 @app.errorhandler(404)
 def not_found(e):
     return jsonify({'error': 'Not Found'}), 404
@@ -185,6 +192,7 @@ def not_found(e):
 def internal_error(e):
     return jsonify({'error': 'Internal Server Error'}), 500
 
-# Run
+# Run app
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=False)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
