@@ -1,0 +1,28 @@
+<h1>Dashboard</h1>
+<a href="{{ url_for('logout') }}">Logout</a>
+
+<h2>Create Flashcard</h2>
+<form method="post" action="{{ url_for('create_flashcard_route') }}">
+    Question: <input type="text" name="question" required><br>
+    Answer: <input type="text" name="answer" required><br>
+    Subject: <input type="text" name="subject" required><br>
+    <button type="submit">Add</button>
+</form>
+
+<h2>Upload PDF</h2>
+<form method="post" enctype="multipart/form-data" action="{{ url_for('upload_pdf') }}">
+    <input type="file" name="pdf" required>
+    <button type="submit">Upload</button>
+</form>
+
+<h2>Your Flashcards</h2>
+<ul>
+    {% for card in flashcards %}
+        <li><strong>{{ card.subject }}</strong>: {{ card.question }} - {{ card.answer }}</li>
+    {% endfor %}
+</ul>
+
+<h2>Interaction History</h2>
+<p>Questions Asked: {{ history.questions_asked }}</p>
+<p>Concepts Learned: {{ history.concepts_learned }}</p>
+<p>Study Time (min): {{ history.study_time }}</p>
