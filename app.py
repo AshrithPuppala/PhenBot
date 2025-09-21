@@ -184,4 +184,78 @@ from user_auth import auth, bcrypt, login_manager
 login_manager.init_app(app)
 bcrypt.init_app(app)
 app.register_blueprint(auth)
+from flask import Flask, request, jsonify, send_from_directory, render_template_string, redirect, url_for, session
+from flask_login import LoginManager, login_user, logout_user, login_required, UserMixin, current_user
+from flask_bcrypt import Bcrypt
+import os
+
+app = Flask(__name__, static_folder='static', static_url_path='')
+app.secret_key = os.environ.get("SECRET_KEY", "phenbot_secret")
+
+login_manager = LoginManager()
+login_manager.init_app(app)
+bcrypt = Bcrypt(app)
+
+# In-memory DB (replace with persistent SQL for real app)
+USERS = {}
+
+class User(UserMixin):
+    def __init__(self, username):
+        self.id = username
+        self.username = username
+        self.data = USERS.get(username, {})
+
+@login_manager.user_loader
+def load_user(username):
+    if username in USERS:
+        return User(username)
+    return None
+
+# --- Registration ---
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        data = request.get_json() if request.is_json else request.form
+        username = data.get("username", "").strip()
+        password = data.get("password", "")
+        if not username or not password or username in USERS:
+            return jsonify({"error": "Invalid or duplicate username"}), 400
+        hashpw = bcrypt.generate_password_hash(password).decode('utf-8')
+        USERS[username] = {"password": hashpw, "profile": {"dashboard_data": {}, "history": []}}
+        return jsonify({"success": True})
+    return send_from_directory(app.static_folder, "login.html")
+
+# --- Login ---
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        data = request.get_json() if request.is_json else request.form
+        username = data.get("username", "").strip()
+        password = data.get("password", "")
+        user = USERS.get(username)
+        if not user or not bcrypt.check_password_hash(user["password"], password):
+            return jsonify({"error": "Invalid credentials"}), 401
+        login_user(User(username))
+        return jsonify({"success": True})
+    return send_from_directory(app.static_folder, "login.html")
+
+@app.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    return redirect("/login")
+
+# --- Protected Main App ---
+@app.route("/")
+@login_required
+def root_or_ui():
+    return send_from_directory(app.static_folder, "index.html")
+
+@app.route("/api/ask", methods=["POST"])
+@login_required
+def api_ask():
+    # Use current_user.username for personalization
+    # ... (insert your Groq API logic here as before)
+    return jsonify({"answer": f"Personal reply to {current_user.username}"})
+
 
