@@ -3,17 +3,30 @@ import os
 import json
 import sys
 
-app = Flask(__name__, static_folder="static")
-app.secret_key = "supersecretkey"  # ⚠️ change in production
+app = Flask(__name__, static_folder="static", template_folder="templates")
+app.secret_key = os.environ.get("SECRET_KEY", "supersecretkey")  # Use env var
 
 USERS_FILE = "users.json"
+
+# Ensure users.json exists and is a valid JSON dict
+def ensure_users_file():
+    if not os.path.exists(USERS_FILE):
+        with open(USERS_FILE, "w") as f:
+            json.dump({}, f)
+    else:
+        # If file exists but is invalid, reset
+        try:
+            with open(USERS_FILE, "r") as f:
+                json.load(f)
+        except Exception:
+            with open(USERS_FILE, "w") as f:
+                json.dump({}, f)
 
 # ----------------------------
 # Helpers
 # ----------------------------
 def load_users():
-    if not os.path.exists(USERS_FILE):
-        return {}
+    ensure_users_file()
     with open(USERS_FILE, "r") as f:
         return json.load(f)
 
@@ -32,6 +45,7 @@ def home():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    ensure_users_file()
     if request.method == "POST":
         username = request.form.get("username")
         password = request.form.get("password")
@@ -44,6 +58,7 @@ def login():
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
+    ensure_users_file()
     if request.method == "POST":
         username = request.form.get("username")
         password = request.form.get("password")
@@ -88,5 +103,6 @@ def server_error(e):
 # Run
 # ----------------------------
 if __name__ == "__main__":
+    ensure_users_file()
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
