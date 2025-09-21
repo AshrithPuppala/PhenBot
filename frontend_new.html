@@ -1745,49 +1745,53 @@ document.getElementById('pdfModal').style.display = 'flex';
 }
 
 function closePDFModal() {
-document.getElementById('pdfModal').style.display = 'none';
-document.getElementById('pdfFileInput').value = '';
+    document.getElementById('pdfModal').style.display = 'none';
+    document.getElementById('pdfFileInput').value = '';
 }
 
 async function uploadPDFFile() {
-const fileInput = document.getElementById('pdfFileInput');
-const file = fileInput.files[0];
+    const fileInput = document.getElementById('pdfFileInput');
+    const file = fileInput.files[0];
 
-if (!file) {
-showNotification('Please select a PDF file', 'error');
-return;
+    if (!file) {
+        showNotification('Please select a PDF file', 'error');
+        return;
+    }
+
+    if (file.type !== 'application/pdf') {
+        showNotification('Please select a valid PDF file', 'error');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('pdf', file);
+    // ✅ CHANGE 1: Attach the current user's ID to the request.
+    formData.append('userId', currentUser.userId);
+
+    try {
+        showNotification('Processing your cosmic document...', 'info');
+        closePDFModal();
+
+        // ✅ CHANGE 2: Correct the endpoint from '/upload-pdf' to '/upload.pdf'
+        const response = await fetch('/upload.pdf', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${sessionToken}` },
+            body: formData
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            showNotification(`${file.name} uploaded successfully!`, 'success');
+            await loadUserPDFs();
+        } else {
+            showNotification(data.error || 'PDF upload failed', 'error');
+        }
+    } catch (error) {
+        console.error('PDF upload error:', error);
+        showNotification('PDF upload failed. Please try again.', 'error');
+    }
 }
 
-if (file.type !== 'application/pdf') {
-showNotification('Please select a valid PDF file', 'error');
-return;
-}
-
-const formData = new FormData();
-formData.append('pdf', file);
-
-try {
-showNotification('Processing your cosmic document...', 'info');
-closePDFModal();
-
-const response = await fetch('/upload-pdf', {
-method: 'POST',
-headers: { 'Authorization': `Bearer ${sessionToken}` },
-body: formData
-});
-const data = await response.json();
-
-if (data.success) {
-showNotification(`${file.name} uploaded successfully!`, 'success');
-await loadUserPDFs();
-} else {
-showNotification(data.error || 'PDF upload failed', 'error');
-}
-} catch (error) {
-console.error('PDF upload error:', error);
-showNotification('PDF upload failed. Please try again.', 'error');
-}
-}
 
 // ===== FLASHCARD MANAGEMENT =====
 async function loadUserFlashcards() {
@@ -2273,3 +2277,4 @@ flashcardTypeEl.style.textDecoration = 'underline';
 </script>
 </body>
 </html>
+
