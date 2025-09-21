@@ -835,7 +835,7 @@ function createServer(port) {
     }
 
     // --- PDF Upload endpoint ---
-if (method === 'POST' && pathName === '/upload-pdf') {
+if (method === 'POST' && pathName === '/upload.pdf') {
   const form = new formidable.IncomingForm();
 
   // Ensure temp directory exists
@@ -863,35 +863,35 @@ if (method === 'POST' && pathName === '/upload-pdf') {
     }
 
     try {
-      // Ensure user dirs exist for safety
-      const pdfDir = path.join(USERS_DIR, userId, 'pdfs');
-      const extractedTextDir = path.join(USERS_DIR, userId, 'extracted-text');
-      if (!fs.existsSync(pdfDir)) fs.mkdirSync(pdfDir, { recursive: true });
-      if (!fs.existsSync(extractedTextDir)) fs.mkdirSync(extractedTextDir, { recursive: true });
+      // Ensure user directories exist
+      const pdfDir = path.join(USERS_DIR, file.userId, 'pdfs');
+      const extractedDir = path.join(USERS_DIR, file.userId, 'extracted-text');
+      if (!fs.existsSync(pdfDir)) fs.mkdirSync(pdfDir, {recursive: true});
+      if (!fs.existsSync(extractedDir)) fs.mkdirSync(extractedDir, {recursive: true});
 
+      // Read file buffer
       const fileData = {
         buffer: fs.readFileSync(filePath),
         originalFilename: file.originalFilename || file.name,
         size: file.size
       };
 
-      const result = await processPDF(userId, fileData);
+      // Process PDF with existing logic
+      const result = await processPDF(file.userId, fileData);
 
+      // Remove temp file
       fs.unlinkSync(filePath);
 
-      res.setHeader('Content-Type', 'application/json');
-      res.writeHead(result.success ? 200 : 400);
+      res.writeHead(result.success ? 200 : 400, {'Content-Type': 'application/json'});
       res.end(JSON.stringify(result));
-    } catch (error) {
-      console.error('PDF upload error:', error);
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: false, error: 'PDF processing failed' }));
+    } catch(e) {
+      console.error('Error in PDF upload:', e);
+      res.writeHead(500, {'Content-Type': 'application/json'});
+      return res.end(JSON.stringify({success:false, error:'PDF processing failed'}));
     }
   });
   return;
 }
-
-
 
     // --- Get user PDFs ---
     if (method === 'GET' && pathName === '/user-pdfs') {
@@ -1030,6 +1030,8 @@ process.on('SIGINT', () => {
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
 createServer(PORT);
+
+
 
 
 
