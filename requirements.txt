@@ -2,3 +2,8 @@ flask==3.0.3
 gunicorn==21.2.0
 groq
 httpx<0.28
+Flask
+flask-bcrypt
+flask-login
+
+
