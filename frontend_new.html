@@ -2226,34 +2226,38 @@ showNotification('Study summary feature in development!', 'info');
 }
 
 // Handle PDF upload through hidden input (fallback)
+// Handle PDF upload through hidden input (fallback)
 async function handlePDFUpload(event) {
-const file = event.target.files[0];
-if (!file) return;
+    const file = event.target.files[0];
+    if (!file) return;
 
-const formData = new FormData();
-formData.append('pdf', file);
+    const formData = new FormData();
+    formData.append('pdf', file);
+    // ✅ FIX: Add the user's ID to the form data
+    formData.append('userId', currentUser.userId);
 
-try {
-showNotification('Processing your cosmic document...', 'info');
+    try {
+        showNotification('Processing your cosmic document...', 'info');
 
-const response = await fetch('/upload-pdf', {
-method: 'POST',
-headers: { 'Authorization': `Bearer ${sessionToken}` },
-body: formData
-});
-const data = await response.json();
+        const response = await fetch('/upload.pdf', { // Also ensure this URL is correct
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${sessionToken}` },
+            body: formData
+        });
+        const data = await response.json();
 
-if (data.success) {
-showNotification(`${file.name} uploaded successfully!`, 'success');
-await loadUserPDFs();
-} else {
-showNotification(data.error || 'PDF upload failed', 'error');
+        if (data.success) {
+            showNotification(`${file.name} uploaded successfully!`, 'success');
+            await loadUserPDFs();
+        } else {
+            showNotification(data.error || 'PDF upload failed', 'error');
+        }
+    } catch (error) {
+        console.error('PDF upload error:', error);
+        showNotification('PDF upload failed. Please try again.', 'error');
+    }
 }
-} catch (error) {
-console.error('PDF upload error:', error);
-showNotification('PDF upload failed. Please try again.', 'error');
-}
-}
+
 
 // Initialize timer display and other components
 updateTimerDisplay();
@@ -2277,4 +2281,7 @@ flashcardTypeEl.style.textDecoration = 'underline';
 </script>
 </body>
 </html>
+
+
+
 
