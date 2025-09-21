@@ -1,462 +1,498 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>PhenBOT - Advanced Study Companion</title>
-    <style>
-        /* (I preserved your original CSS with slight layout niceties) */
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        :root{
-            --primary-gradient: linear-gradient(135deg,#667eea 0%,#764ba2 100%);
-            --secondary-gradient: linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);
-            --accent-color: #4facfe;
-            --success-color: #10b981;
-            --warning-color: #f59e0b;
-            --error-color: #ef4444;
-            --card-bg: #ffffff;
-            --text-primary: #1e293b;
-            --text-secondary: #64748b;
-            --border-color: #e2e8f0;
-            --shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
-            --shadow-lg: 0 20px 25px -5px rgba(0,0,0,0.1);
-        }
-        body{
-            font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-            background: var(--primary-gradient);
-            min-height: 100vh;
-            color: var(--text-primary);
-        }
-        .app-container{ display:flex; height:100vh; overflow:hidden; }
-        .sidebar{ width:280px; background:var(--card-bg); border-right:1px solid var(--border-color); display:flex; flex-direction:column; transition: transform .3s ease; }
-        .sidebar-header{ padding:20px; background:var(--secondary-gradient); color:white; }
-        .logo{ font-size:24px; font-weight:700; margin-bottom:5px; }
-        .tagline{ font-size:14px; opacity:.9; }
-        .nav-tabs{ padding:20px 0; flex:1; overflow:auto; }
-        .nav-tab{ display:flex; align-items:center; padding:12px 20px; color:var(--text-secondary); text-decoration:none; border-left:3px solid transparent; cursor:pointer; background:none; border:none; width:100%; text-align:left; font-size:14px; }
-        .nav-tab:hover, .nav-tab.active{ background: rgba(79,172,254,0.08); color:var(--accent-color); border-left-color:var(--accent-color); }
-        .nav-tab-icon{ margin-right:12px; font-size:16px; width:20px; text-align:center; }
-        .streak-section{ margin:20px; padding:20px; background:linear-gradient(135deg,#fef3c7,#fbbf24); border-radius:12px; text-align:center; }
-        .streak-counter{ font-size:32px; font-weight:700; color:#92400e; }
-        .streak-label{ font-size:14px; color:#92400e; margin-top:5px; }
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>PhenBOT - App</title>
+<style>
+/* compacted CSS for SPA; main global CSS sits in static/style.css */
+:root{--accent:#4facfe;--secondary:#667eea;--card:#fff;--muted:#64748b}
+*{box-sizing:border-box}body{font-family:Inter,system-ui,Arial;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);margin:0;color:#111}
+.app-container{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:280px;background:var(--card);border-right:1px solid rgba(0,0,0,0.06);display:flex;flex-direction:column}
+.sidebar-header{padding:20px;background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);color:white}
+.logo{font-weight:700;font-size:20px}
+.tagline{font-size:12px;opacity:0.9}
+.nav-tabs{padding:12px 0;flex:1;overflow:auto}
+.nav-tab{display:flex;align-items:center;padding:12px 20px;color:var(--muted);border-left:3px solid transparent;cursor:pointer}
+.nav-tab.active{background:rgba(79,172,254,0.08);color:var(--accent);border-left-color:var(--accent)}
+.streak-section{padding:18px;margin:16px;border-radius:12px;background:linear-gradient(135deg,#fef3c7,#fbbf24);text-align:center}
+.streak-counter{font-size:28px;font-weight:700;color:#92400e}
 
-        .main-content{ flex:1; display:flex; flex-direction:column; overflow:hidden; }
-        .top-bar{ background:var(--card-bg); padding:16px 24px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; gap:12px; }
-        .system-status{ display:flex; align-items:center; gap:8px; padding:6px 12px; border-radius:20px; font-size:12px; font-weight:600; cursor:pointer; transition:transform .2s; }
-        .system-status:hover{ transform:scale(1.03); }
-        .system-status.online{ background:var(--success-color); color:white; }
-        .system-status.offline{ background:var(--error-color); color:white; }
-        .system-status.checking{ background:var(--warning-color); color:white; }
-        .user-info{ display:flex; align-items:center; gap:12px; }
-        .accuracy-meter, .pomodoro-timer{ display:flex; align-items:center; gap:8px; padding:8px 16px; border-radius:20px; font-weight:600; font-size:12px; }
-        .accuracy-meter{ background:var(--success-color); color:white; }
-        .pomodoro-timer{ background:var(--warning-color); color:white; }
+/* main */
+.main-content{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.top-bar{background:var(--card);padding:12px 20px;border-bottom:1px solid rgba(0,0,0,0.06);display:flex;align-items:center;justify-content:space-between}
+.system-status{padding:6px 12px;border-radius:20px;font-weight:600}
+.system-status.online{background:#10b981;color:white}
+.system-status.offline{background:#ef4444;color:white}
+.user-info{display:flex;gap:12px;align-items:center}
+.accuracy-meter,.pomodoro-timer{padding:8px 12px;border-radius:20px;font-weight:600;color:white}
+.accuracy-meter{background:#10b981}
+.pomodoro-timer{background:#f59e0b}
 
-        .content-area{ flex:1; padding:24px; overflow-y:auto; background: rgba(255,255,255,0.05); }
+/* content */
+.content-area{padding:20px;overflow:auto;flex:1;background:linear-gradient(180deg,rgba(255,255,255,0.04), rgba(255,255,255,0));}
+.dashboard-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+.dashboard-card{background:var(--card);padding:18px;border-radius:12px;box-shadow:0 6px 20px rgba(2,6,23,0.06)}
+.card-title{font-weight:600;margin-bottom:8px}
 
-        .tab-content{ display:none; animation: fadeIn .25s ease; }
-        .tab-content.active{ display:block; }
-        @keyframes fadeIn{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:translateY(0); } }
+/* chat */
+.chat-container{display:flex;flex-direction:column;height:60vh;border-radius:12px;overflow:hidden}
+.chat-messages{flex:1;padding:12px;overflow:auto;background:#f8fafc}
+.message{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px}
+.message.user{flex-direction:row-reverse}
+.message-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700}
+.message.bot .message-avatar{background:linear-gradient(135deg,#4facfe,#00f2fe);color:white}
+.message.user .message-avatar{background:linear-gradient(135deg,#667eea,#764ba2);color:white}
+.message-content{padding:12px;border-radius:12px;max-width:75%}
+.message.bot .message-content{background:#fff;color:#111}
+.message.user .message-content{background:var(--accent);color:white}
 
-        .chat-container{ background:var(--card-bg); border-radius:16px; box-shadow:var(--shadow-lg); height:65vh; display:flex; flex-direction:column; overflow:hidden; }
-        .chat-messages{ flex:1; padding:20px; overflow-y:auto; scroll-behavior:smooth; }
-        .message{ margin-bottom:20px; display:flex; align-items:flex-start; gap:12px; animation: slideIn .25s ease; }
-        .message.user{ flex-direction:row-reverse; }
-        @keyframes slideIn{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:translateY(0); } }
-        .message-avatar{ width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; font-weight:600; }
-        .message.bot .message-avatar{ background:var(--secondary-gradient); color:white; }
-        .message.user .message-avatar{ background:var(--primary-gradient); color:white; }
-        .message-content{ max-width:75%; padding:16px 20px; border-radius:18px; line-height:1.6; word-wrap:break-word; white-space:pre-wrap; }
-        .message.bot .message-content{ background:#f1f5f9; border-bottom-left-radius:6px; color:var(--text-primary); }
-        .message.user .message-content{ background:var(--accent-color); color:white; border-bottom-right-radius:6px; }
-        .loading .message-content{ opacity:.75; font-style:italic; }
+/* input */
+.chat-input-area{padding:12px;border-top:1px solid rgba(0,0,0,0.06);display:flex;gap:12px;align-items:flex-end}
+.message-input{flex:1;padding:12px;border-radius:20px;border:2px solid rgba(0,0,0,0.06);min-height:48px;resize:none}
 
-        .chat-input-area{ padding:20px; border-top:1px solid var(--border-color); }
-        .input-container{ display:flex; gap:12px; align-items:flex-end; }
-        .message-input{ flex:1; min-height:50px; max-height:120px; padding:15px 20px; border:2px solid var(--border-color); border-radius:25px; outline:none; font-size:16px; font-family:inherit; resize:none; transition:border-color .2s; }
-        .message-input:focus{ border-color:var(--accent-color); box-shadow:0 0 0 3px rgba(79,172,254,0.08); }
-        .send-button{ background:var(--secondary-gradient); color:white; border:none; border-radius:50%; width:50px; height:50px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:18px; transition:transform .15s; }
-        .send-button:hover:not(:disabled){ transform:scale(1.05); }
-        .send-button:disabled{ opacity:.6; cursor:not-allowed; transform:none; }
+/* pdf + flashcards + bookmarks */
+.pdf-upload{display:flex;gap:8px;align-items:center}
+.pdf-list{margin-top:10px;display:flex;flex-direction:column;gap:10px}
+.pdf-item{background:#fff;padding:10px;border-radius:8px;display:flex;justify-content:space-between}
 
-        .dashboard-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:24px; margin-bottom:24px; }
-        .dashboard-card{ background:var(--card-bg); border-radius:16px; padding:24px; box-shadow:var(--shadow); transition:transform .2s; }
-        .dashboard-card:hover{ transform:translateY(-4px); box-shadow:var(--shadow-lg); }
-        .card-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
-        .card-title{ font-size:18px; font-weight:600; color:var(--text-primary); }
-        .card-icon{ font-size:24px; color:var(--accent-color); }
-        .progress-bar{ width:100%; height:8px; background:var(--border-color); border-radius:4px; overflow:hidden; margin:12px 0; }
-        .progress-fill{ height:100%; background:var(--secondary-gradient); border-radius:4px; transition:width .3s; }
-
-        .sidebar-toggle{ display:none; background:var(--border-color); border:none; padding:12px; border-radius:8px; cursor:pointer; }
-        .sidebar-toggle:hover{ background:var(--accent-color); color:white; }
-        @media (max-width:768px){
-            .app-container{ flex-direction:column; }
-            .sidebar{ position:fixed; left:-280px; z-index:1000; height:100vh; width:280px; }
-            .sidebar.open{ transform:translateX(280px); }
-            .main-content{ width:100%; }
-            .dashboard-grid{ grid-template-columns:1fr; }
-            .chat-container{ height:70vh; }
-            .sidebar-toggle{ display:block; }
-        }
-
-    </style>
+/* small */
+.small{font-size:13px;color:#6b7280}
+.tool-btn{background:var(--accent);color:white;border:none;padding:8px 10px;border-radius:8px;cursor:pointer}
+</style>
 </head>
 <body>
-    <div class="app-container">
-        <!-- Sidebar -->
-        <div class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-                <div class="logo">🤖 PhenBOT</div>
-                <div class="tagline">Advanced Study Companion</div>
-            </div>
-
-            <nav class="nav-tabs" id="navTabs">
-                <button class="nav-tab active" data-tab="dashboard" type="button">
-                    <span class="nav-tab-icon">📊</span>Dashboard
-                </button>
-                <button class="nav-tab" data-tab="math" type="button">
-                    <span class="nav-tab-icon">🔢</span>Mathematics
-                </button>
-                <button class="nav-tab" data-tab="science" type="button">
-                    <span class="nav-tab-icon">🔬</span>Science
-                </button>
-                <button class="nav-tab" data-tab="english" type="button">
-                    <span class="nav-tab-icon">📚</span>English
-                </button>
-                <button class="nav-tab" data-tab="history" type="button">
-                    <span class="nav-tab-icon">🏛️</span>History
-                </button>
-                <button class="nav-tab" data-tab="tools" type="button">
-                    <span class="nav-tab-icon">🛠️</span>Study Tools
-                </button>
-                <button class="nav-tab" data-tab="bookmarks" type="button">
-                    <span class="nav-tab-icon">📖</span>Bookmarks
-                </button>
-                <button class="nav-tab" data-tab="analytics" type="button">
-                    <span class="nav-tab-icon">📈</span>Analytics
-                </button>
-            </nav>
-
-            <div class="streak-section">
-                <div class="streak-counter" id="streakCounter">7</div>
-                <div class="streak-label">Day Streak 🔥</div>
-            </div>
-        </div>
-
-        <!-- Main Content -->
-        <div class="main-content">
-            <div class="top-bar">
-                <button id="sidebarToggle" class="sidebar-toggle" type="button">☰</button>
-                <div id="systemStatus" class="system-status checking">🔄 Checking...</div>
-                <div class="user-info">
-                    <div class="accuracy-meter">
-                        <span>Accuracy: 92%</span>
-                    </div>
-                    <div class="pomodoro-timer" id="pomodoroTimer">🍅 25:00</div>
-                </div>
-            </div>
-
-            <div class="content-area">
-                <!-- Dashboard Tab -->
-                <div class="tab-content active" id="dashboard">
-                    <div class="dashboard-grid">
-                        <div class="dashboard-card">
-                            <div class="card-header">
-                                <div class="card-title">Today's Progress</div>
-                                <div class="card-icon">📅</div>
-                            </div>
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="width:65%"></div>
-                            </div>
-                            <p>65% of daily goals completed</p>
-                        </div>
-
-                        <div class="dashboard-card">
-                            <div class="card-header">
-                                <div class="card-title">Recent Activity</div>
-                                <div class="card-icon">⚡</div>
-                            </div>
-                            <ul id="recentActivity">
-                                <li>✅ System initialized</li>
-                                <li>🤖 AI assistant ready</li>
-                                <li>🔄 Checking connections...</li>
-                            </ul>
-                        </div>
-
-                        <div class="dashboard-card">
-                            <div class="card-header">
-                                <div class="card-title">AI Status</div>
-                                <div class="card-icon">🤖</div>
-                            </div>
-                            <div id="aiStatusDetails">
-                                <p id="groqStatus">Checking AI connection...</p>
-                                <p id="apiKeyStatus">Verifying API key...</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Math tab (chat) -->
-                <div class="tab-content" id="math">
-                    <div class="chat-container">
-                        <div class="chat-messages" id="mathMessages">
-                            <div class="message bot">
-                                <div class="message-avatar">🤖</div>
-                                <div class="message-content">Welcome to Mathematics! Ask anything — I'll explain step-by-step.</div>
-                            </div>
-                        </div>
-
-                        <div class="chat-input-area">
-                            <div class="input-container">
-                                <textarea class="message-input" placeholder="Ask a math question..." data-subject="math"></textarea>
-                                <button class="send-button" type="button" title="Send">➤</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Science tab -->
-                <div class="tab-content" id="science">
-                    <div class="chat-container">
-                        <div class="chat-messages" id="scienceMessages">
-                            <div class="message bot">
-                                <div class="message-avatar">🤖</div>
-                                <div class="message-content">Ready to explore Science! Ask a question to begin.</div>
-                            </div>
-                        </div>
-
-                        <div class="chat-input-area">
-                            <div class="input-container">
-                                <textarea class="message-input" placeholder="Ask a science question..." data-subject="science"></textarea>
-                                <button class="send-button" type="button">➤</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- English tab -->
-                <div class="tab-content" id="english">
-                    <div class="chat-container">
-                        <div class="chat-messages" id="englishMessages">
-                            <div class="message bot">
-                                <div class="message-avatar">🤖</div>
-                                <div class="message-content">Let's dive into English & Literature! Ask away.</div>
-                            </div>
-                        </div>
-
-                        <div class="chat-input-area">
-                            <div class="input-container">
-                                <textarea class="message-input" placeholder="Ask about English/Literature..." data-subject="english"></textarea>
-                                <button class="send-button" type="button">➤</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- History tab -->
-                <div class="tab-content" id="history">
-                    <div class="chat-container">
-                        <div class="chat-messages" id="historyMessages">
-                            <div class="message bot">
-                                <div class="message-avatar">🤖</div>
-                                <div class="message-content">Welcome to History! I'm here to help unpack events and causes.</div>
-                            </div>
-                        </div>
-
-                        <div class="chat-input-area">
-                            <div class="input-container">
-                                <textarea class="message-input" placeholder="Ask a history question..." data-subject="history"></textarea>
-                                <button class="send-button" type="button">➤</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Placeholder tabs for other pages -->
-                <div class="tab-content" id="tools">
-                    <div class="dashboard-card">
-                        <div class="card-title">Study Tools</div>
-                        <p>Tool modules go here (flashcards, quizzes, calculators...)</p>
-                    </div>
-                </div>
-
-                <div class="tab-content" id="bookmarks">
-                    <div class="dashboard-card">
-                        <div class="card-title">Bookmarks</div>
-                        <p>Saved notes, links and highlights will appear here.</p>
-                    </div>
-                </div>
-
-                <div class="tab-content" id="analytics">
-                    <div class="dashboard-card">
-                        <div class="card-title">Analytics</div>
-                        <p>Your study stats and performance graphs will be shown here.</p>
-                    </div>
-                </div>
-
-            </div>
-        </div>
+<div class="app-container">
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">🤖 PhenBOT</div>
+      <div class="tagline">Advanced Study Companion</div>
     </div>
 
-    <!-- JS: tabs, chat send, health polling -->
-    <script>
-    (function () {
-        // Tab switching
-        const navTabs = document.querySelectorAll('.nav-tab');
-        const tabContents = document.querySelectorAll('.tab-content');
-        navTabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                const name = tab.dataset.tab;
-                if (!name) return;
-                navTabs.forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                tabContents.forEach(c => c.classList.remove('active'));
-                const target = document.getElementById(name);
-                if (target) target.classList.add('active');
-                // close mobile sidebar if open
-                document.getElementById('sidebar').classList.remove('open');
-            });
+    <nav class="nav-tabs">
+      <div class="nav-tab active" data-tab="dashboard">📊 Dashboard</div>
+      <div class="nav-tab" data-tab="math">🔢 Mathematics</div>
+      <div class="nav-tab" data-tab="science">🔬 Science</div>
+      <div class="nav-tab" data-tab="english">📚 English</div>
+      <div class="nav-tab" data-tab="history">🏛 History</div>
+      <div class="nav-tab" data-tab="tools">🛠 Tools</div>
+    </nav>
+
+    <div class="streak-section">
+      <div class="streak-counter" id="streakCounter">7</div>
+      <div class="small">Day Streak 🔥</div>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <div class="top-bar">
+      <div id="systemStatus" class="system-status offline">Checking...</div>
+      <div class="user-info">
+        <div class="accuracy-meter" id="accuracyMeter">Accuracy: 92%</div>
+        <div class="pomodoro-timer" id="pomWrap">
+          <span id="pomLabel">🍅</span> <strong id="pomTime">25:00</strong>
+          <button id="pomStart" class="tool-btn" style="margin-left:10px;padding:6px 8px">Start</button>
+          <button id="pomPause" class="tool-btn" style="background:#f3f4f6;color:#111;padding:6px 8px">Pause</button>
+          <button id="pomReset" class="tool-btn" style="background:#ef4444">Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="content-area">
+      <!-- Dashboard -->
+      <div class="tab-content active" id="dashboard">
+        <div class="dashboard-grid">
+          <div class="dashboard-card">
+            <div class="card-title">Today's Progress</div>
+            <div class="small">School goals, streaks, badges</div>
+          </div>
+
+          <div class="dashboard-card">
+            <div class="card-title">Recent Activity</div>
+            <ul id="recentActivity">
+              <li>✅ System initialized</li>
+            </ul>
+          </div>
+
+          <div class="dashboard-card">
+            <div class="card-title">AI Status</div>
+            <div id="aiStatusDetails"><div id="groqStatus" class="small">Checking AI connection...</div><div id="apiKeyStatus" class="small"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat tabs -->
+      <div class="tab-content" id="math">
+        <div class="chat-container">
+          <div class="chat-messages" id="mathMessages">
+            <div class="message bot"><div class="message-avatar">🤖</div><div class="message-content">Ask me math questions.</div></div>
+          </div>
+          <div class="chat-input-area">
+            <textarea class="message-input" data-subject="math" placeholder="Ask a math question..."></textarea>
+            <button class="tool-btn send-button">➤</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-content" id="science">
+        <div class="chat-container">
+          <div class="chat-messages" id="scienceMessages">
+            <div class="message bot"><div class="message-avatar">🤖</div><div class="message-content">Ask me science questions.</div></div>
+          </div>
+          <div class="chat-input-area">
+            <textarea class="message-input" data-subject="science" placeholder="Ask a science question..."></textarea>
+            <button class="tool-btn send-button">➤</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-content" id="english">
+        <div class="chat-container">
+          <div class="chat-messages" id="englishMessages">
+            <div class="message bot"><div class="message-avatar">🤖</div><div class="message-content">Ask about English & literature.</div></div>
+          </div>
+          <div class="chat-input-area">
+            <textarea class="message-input" data-subject="english" placeholder="Ask about English..."></textarea>
+            <button class="tool-btn send-button">➤</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-content" id="history">
+        <div class="chat-container">
+          <div class="chat-messages" id="historyMessages">
+            <div class="message bot"><div class="message-avatar">🤖</div><div class="message-content">Welcome to History.</div></div>
+          </div>
+          <div class="chat-input-area">
+            <textarea class="message-input" data-subject="history" placeholder="Ask about history..."></textarea>
+            <button class="tool-btn send-button">➤</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tools: PDF upload, flashcards, bookmarks -->
+      <div class="tab-content" id="tools">
+        <div class="dashboard-card">
+          <div class="card-title">Upload PDF</div>
+          <div class="pdf-upload">
+            <input type="file" id="pdfFile" accept="application/pdf" />
+            <button id="uploadPdfBtn" class="tool-btn">Upload</button>
+            <span id="uploadStatus" class="small"></span>
+          </div>
+          <div id="pdfList" class="pdf-list"></div>
+
+          <hr style="margin:12px 0" />
+
+          <div class="card-title">Flashcards</div>
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <input id="fcQuestion" placeholder="Question" style="flex:1;padding:8px;border-radius:8px" />
+            <input id="fcAnswer" placeholder="Answer" style="flex:1;padding:8px;border-radius:8px" />
+            <button id="addFlashcardBtn" class="tool-btn">Add</button>
+          </div>
+          <div id="flashcardsList"></div>
+
+          <hr style="margin:12px 0" />
+
+          <div class="card-title">Bookmarks</div>
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <input id="bmTitle" placeholder="Title" style="flex:1;padding:8px;border-radius:8px" />
+            <input id="bmUrl" placeholder="https://..." style="flex:1;padding:8px;border-radius:8px" />
+            <button id="addBMBtn" class="tool-btn">Add</button>
+          </div>
+          <div id="bmList"></div>
+
+          <hr style="margin:12px 0" />
+
+          <div class="card-title">AI History</div>
+          <div id="historyList" class="small"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(async function(){
+  // Auth check: the /app route already restricts access; double-check current user
+  try {
+    const me = await fetch('/api/me', { credentials: 'same-origin' });
+    if (!me.ok) {
+      // not authenticated - redirect to login
+      window.location.href = '/login';
+      return;
+    }
+  } catch (e) {
+    console.error('Auth check failed', e);
+    window.location.href = '/login';
+    return;
+  }
+
+  // Tab switching
+  const navTabs = document.querySelectorAll('.nav-tab');
+  const tabContents = document.querySelectorAll('.tab-content');
+  navTabs.forEach(tab => tab.addEventListener('click', ()=> {
+    navTabs.forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    const name = tab.dataset.tab;
+    tabContents.forEach(c=>c.classList.remove('active'));
+    document.getElementById(name).classList.add('active');
+  }));
+
+  // System health
+  const systemStatusEl = document.getElementById('systemStatus');
+  async function updateHealth(){
+    try {
+      systemStatusEl.textContent = 'Checking...';
+      const res = await fetch('/health', { credentials: 'same-origin' });
+      if (!res.ok) { systemStatusEl.textContent = 'Health check failed'; return; }
+      const d = await res.json();
+      if (d.groq_available) {
+        systemStatusEl.textContent = 'Online';
+        systemStatusEl.classList.remove('offline'); systemStatusEl.classList.add('online');
+        document.getElementById('groqStatus').textContent = 'AI connected';
+        document.getElementById('apiKeyStatus').textContent = d.api_key_present ? 'API Key present' : 'API Key missing';
+      } else {
+        systemStatusEl.textContent = 'AI unavailable';
+        systemStatusEl.classList.remove('online'); systemStatusEl.classList.add('offline');
+        document.getElementById('groqStatus').textContent = d.error || 'AI not available';
+        document.getElementById('apiKeyStatus').textContent = d.api_key_present ? 'API Key present' : 'API Key missing';
+      }
+    } catch(e) {
+      console.error(e);
+      systemStatusEl.textContent = 'Error';
+      systemStatusEl.classList.remove('online'); systemStatusEl.classList.add('offline');
+    }
+  }
+  updateHealth();
+  setInterval(updateHealth, 15000);
+
+  // Chat send
+  function createMessageEl(text, role='user') {
+    const msg = document.createElement('div'); msg.className = 'message ' + role;
+    const avatar = document.createElement('div'); avatar.className = 'message-avatar';
+    avatar.textContent = role === 'user' ? 'A' : '🤖';
+    const content = document.createElement('div'); content.className = 'message-content'; content.textContent = text;
+    msg.appendChild(avatar); msg.appendChild(content); return msg;
+  }
+
+  async function sendQuestion(question, subject, chatMessagesEl) {
+    const userMsg = createMessageEl(question, 'user'); chatMessagesEl.appendChild(userMsg); chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+    const botPlaceholder = createMessageEl('Thinking...', 'bot'); botPlaceholder.classList.add('loading'); chatMessagesEl.appendChild(botPlaceholder); chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+
+    try {
+      const res = await fetch('/api/ask', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question, subject })
+      });
+      const data = await res.json();
+      botPlaceholder.classList.remove('loading');
+      if (!res.ok) {
+        botPlaceholder.querySelector('.message-content').textContent = 'Error: ' + (data.error || res.statusText);
+        return;
+      }
+      botPlaceholder.querySelector('.message-content').textContent = data.answer || 'No answer';
+      // refresh history
+      loadHistory();
+    } catch (e) {
+      botPlaceholder.classList.remove('loading');
+      botPlaceholder.querySelector('.message-content').textContent = 'Network error: ' + e.message;
+    } finally { chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight; }
+  }
+
+  // Wire send buttons per chat tab
+  document.querySelectorAll('.tab-content').forEach(tab => {
+    const sendBtn = tab.querySelector('.send-button');
+    const textarea = tab.querySelector('.message-input');
+    const chatMessages = tab.querySelector('.chat-messages');
+    if (sendBtn && textarea && chatMessages) {
+      sendBtn.addEventListener('click', ()=> {
+        const q = textarea.value.trim(); if (!q) return;
+        const subject = textarea.dataset.subject || tab.id || 'general'; textarea.value=''; sendQuestion(q, subject, chatMessages);
+      });
+      textarea.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendBtn.click(); }});
+    }
+  });
+
+  // ---------- Pomodoro (client only) ----------
+  const pomTimeEl = document.getElementById('pomTime');
+  const pomStart = document.getElementById('pomStart');
+  const pomPause = document.getElementById('pomPause');
+  const pomReset = document.getElementById('pomReset');
+  const DEFAULT = 25*60;
+  let seconds = DEFAULT;
+  let timer = null;
+  let running = false;
+  function loadPom(){
+    try {
+      const raw = localStorage.getItem('phenbot_pom');
+      if (raw) {
+        const obj = JSON.parse(raw);
+        seconds = typeof obj.seconds === 'number' ? obj.seconds : DEFAULT;
+        running = !!obj.running;
+      }
+    } catch(e){}
+    updatePom();
+    if (running) startPom();
+  }
+  function savePom(){ localStorage.setItem('phenbot_pom', JSON.stringify({ seconds, running })); }
+  function formatTime(s){ const m=Math.floor(s/60).toString().padStart(2,'0'); const sec=(s%60).toString().padStart(2,'0'); return `${m}:${sec}`; }
+  function updatePom(){ pomTimeEl.textContent = formatTime(seconds); }
+  function tick(){ if (seconds>0){ seconds--; updatePom(); savePom(); } else { pausePom(); alert('Pomodoro finished!'); } }
+  function startPom(){ if (running) return; running=true; timer = setInterval(tick,1000); savePom(); }
+  function pausePom(){ running=false; if (timer) clearInterval(timer); timer=null; savePom(); }
+  function resetPom(){ pausePom(); seconds = DEFAULT; updatePom(); savePom(); }
+  pomStart.addEventListener('click', startPom); pomPause.addEventListener('click', pausePom); pomReset.addEventListener('click', resetPom);
+  loadPom();
+
+  // ---------- PDF upload/list ----------
+  const pdfInput = document.getElementById('pdfFile');
+  const uploadBtn = document.getElementById('uploadPdfBtn');
+  const uploadStatus = document.getElementById('uploadStatus');
+  const pdfListEl = document.getElementById('pdfList');
+
+  async function fetchPdfList(){
+    pdfListEl.innerHTML = 'Loading...';
+    try {
+      const res = await fetch('/api/pdfs', { credentials: 'same-origin' });
+      const d = await res.json();
+      pdfListEl.innerHTML = '';
+      if (d.files && d.files.length){
+        d.files.forEach(f => {
+          const div = document.createElement('div'); div.className = 'pdf-item';
+          const left = document.createElement('div'); left.textContent = f.name;
+          const right = document.createElement('div'); const a = document.createElement('a'); a.href = f.url; a.target = '_blank'; a.textContent = 'Preview';
+          right.appendChild(a); div.appendChild(left); div.appendChild(right); pdfListEl.appendChild(div);
         });
+      } else { pdfListEl.innerHTML = '<div class="small">No PDFs uploaded yet.</div>'; }
+    } catch(e){ pdfListEl.innerHTML = '<div class="small">Error loading PDFs</div>'; }
+  }
 
-        // Sidebar toggle (mobile)
-        const sidebarToggle = document.getElementById('sidebarToggle');
-        const sidebar = document.getElementById('sidebar');
-        sidebarToggle.addEventListener('click', () => sidebar.classList.toggle('open'));
+  uploadBtn.addEventListener('click', async ()=> {
+    uploadStatus.textContent = '';
+    if (!pdfInput.files || pdfInput.files.length === 0) { uploadStatus.textContent = 'Select a PDF.'; return; }
+    const file = pdfInput.files[0];
+    if (file.type !== 'application/pdf') { uploadStatus.textContent = 'Only PDF allowed.'; return; }
+    const form = new FormData(); form.append('file', file);
+    uploadBtn.disabled = true; uploadStatus.textContent = 'Uploading...';
+    try {
+      const res = await fetch('/api/upload-pdf', { method:'POST', body: form, credentials:'same-origin' });
+      const d = await res.json();
+      uploadBtn.disabled = false;
+      if (res.status === 201) { uploadStatus.textContent = 'Uploaded ✔'; pdfInput.value=''; fetchPdfList(); }
+      else { uploadStatus.textContent = 'Upload failed: ' + (d.error||res.statusText); }
+    } catch(e){ uploadBtn.disabled=false; uploadStatus.textContent = 'Network error'; }
+  });
 
-        // Helper: create a message element
-        function createMessageEl(text, role='user') {
-            const msg = document.createElement('div');
-            msg.className = 'message ' + role;
-            const avatar = document.createElement('div');
-            avatar.className = 'message-avatar';
-            avatar.textContent = role === 'user' ? 'A' : '🤖';
-            const content = document.createElement('div');
-            content.className = 'message-content';
-            content.textContent = text;
-            msg.appendChild(avatar);
-            msg.appendChild(content);
-            return msg;
-        }
+  fetchPdfList();
 
-        // Send question (append user msg, show placeholder, call backend)
-        async function sendQuestion(question, subject, chatMessagesEl) {
-            // append user message
-            const userMsg = createMessageEl(question, 'user');
-            chatMessagesEl.appendChild(userMsg);
-            chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+  // ---------- Flashcards ----------
+  const fcQ = document.getElementById('fcQuestion'), fcA = document.getElementById('fcAnswer'), addFcBtn = document.getElementById('addFlashcardBtn'), fcListEl = document.getElementById('flashcardsList');
+  let flashcards = [];
+  async function loadFlashcards(){
+    fcListEl.innerHTML = 'Loading...';
+    try {
+      const res = await fetch('/api/flashcards', { credentials:'same-origin' });
+      const d = await res.json();
+      flashcards = d.flashcards || [];
+      renderFlashcards();
+    } catch(e){ fcListEl.innerHTML = 'Error loading flashcards'; }
+  }
+  function renderFlashcards(){
+    fcListEl.innerHTML = '';
+    if (!flashcards.length) { fcListEl.innerHTML = '<div class="small">No flashcards yet.</div>'; return; }
+    flashcards.forEach(card => {
+      const div = document.createElement('div'); div.className='pdf-item';
+      const left = document.createElement('div'); left.innerHTML = `<strong>Q:</strong> ${card.question}<br/><small><strong>A:</strong> ${card.answer}</small>`;
+      const right = document.createElement('div'); const del = document.createElement('button'); del.textContent='Delete'; del.className='tool-btn'; del.style.background='#ef4444';
+      del.addEventListener('click', ()=> deleteFlashcard(card.id));
+      right.appendChild(del); div.appendChild(left); div.appendChild(right); fcListEl.appendChild(div);
+    });
+  }
+  addFcBtn.addEventListener('click', async ()=> {
+    const q = fcQ.value.trim(), a = fcA.value.trim(); if (!q||!a){ alert('Both required'); return; }
+    addFcBtn.disabled = true;
+    try {
+      const res = await fetch('/api/flashcards', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body: JSON.stringify({question:q,answer:a})});
+      const d = await res.json(); addFcBtn.disabled=false;
+      if (res.status===201){ flashcards.unshift(d.flashcard); fcQ.value=''; fcA.value=''; renderFlashcards(); }
+      else { alert('Error: '+(d.error||res.statusText)); }
+    } catch(e){ addFcBtn.disabled=false; alert('Network error'); }
+  });
+  async function deleteFlashcard(id){
+    if (!confirm('Delete this flashcard?')) return;
+    try {
+      const res = await fetch('/api/flashcards/'+encodeURIComponent(id), { method:'DELETE', credentials:'same-origin' });
+      if (res.ok) { flashcards = flashcards.filter(c=>c.id!==id); renderFlashcards(); }
+      else { const d = await res.json().catch(()=>({})); alert('Delete failed: '+(d.error||res.statusText)); }
+    } catch(e){ alert('Network error'); }
+  }
+  loadFlashcards();
 
-            // bot placeholder
-            const botPlaceholder = createMessageEl('Thinking...', 'bot');
-            botPlaceholder.classList.add('loading');
-            chatMessagesEl.appendChild(botPlaceholder);
-            chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+  // ---------- Bookmarks ----------
+  const bmTitle = document.getElementById('bmTitle'), bmUrl = document.getElementById('bmUrl'), addBMBtn = document.getElementById('addBMBtn'), bmList = document.getElementById('bmList');
+  let bookmarks = [];
+  async function loadBookmarks(){
+    bmList.innerHTML = 'Loading...';
+    try {
+      const res = await fetch('/api/bookmarks', { credentials:'same-origin' });
+      const d = await res.json(); bookmarks = d.bookmarks || [];
+      renderBookmarks();
+    } catch(e){ bmList.innerHTML = 'Error'; }
+  }
+  function renderBookmarks(){
+    bmList.innerHTML = '';
+    if (!bookmarks.length){ bmList.innerHTML = '<div class="small">No bookmarks yet.</div>'; return; }
+    bookmarks.forEach(b=>{
+      const div = document.createElement('div'); div.className='pdf-item';
+      const left = document.createElement('div'); left.innerHTML = `<a href="${b.url}" target="_blank">${b.title}</a>`;
+      const right = document.createElement('div'); const del = document.createElement('button'); del.textContent='Delete'; del.className='tool-btn'; del.style.background='#ef4444';
+      del.addEventListener('click', ()=> deleteBookmark(b.id));
+      right.appendChild(del); div.appendChild(left); div.appendChild(right); bmList.appendChild(div);
+    });
+  }
+  addBMBtn.addEventListener('click', async ()=>{
+    const title = bmTitle.value.trim(), url = bmUrl.value.trim();
+    if (!title||!url){ alert('Title and URL required'); return; }
+    addBMBtn.disabled = true;
+    try {
+      const res = await fetch('/api/bookmarks', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify({title,url})});
+      const d = await res.json(); addBMBtn.disabled=false;
+      if (res.status===201){ bookmarks.unshift(d.bookmark); bmTitle.value=''; bmUrl.value=''; renderBookmarks(); } else { alert('Error: '+(d.error||res.statusText)); }
+    } catch(e){ addBMBtn.disabled=false; alert('Network error'); }
+  });
+  async function deleteBookmark(id){
+    if (!confirm('Delete this bookmark?')) return;
+    try {
+      const res = await fetch('/api/bookmarks/'+encodeURIComponent(id), { method:'DELETE', credentials:'same-origin' });
+      if (res.ok) { bookmarks = bookmarks.filter(b=>b.id!==id); renderBookmarks(); } else { const d=await res.json().catch(()=>({})); alert('Delete failed: '+(d.error||res.statusText)); }
+    } catch(e){ alert('Network error'); }
+  }
+  loadBookmarks();
 
-            try {
-                const res = await fetch('/api/ask', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ question, subject })
-                });
-
-                if (!res.ok) {
-                    const errBody = await res.json().catch(()=>({ error: res.statusText }));
-                    botPlaceholder.classList.remove('loading');
-                    botPlaceholder.querySelector('.message-content').textContent = 'Error: ' + (errBody.error || res.statusText);
-                    return;
-                }
-
-                const data = await res.json();
-                botPlaceholder.classList.remove('loading');
-
-                if (data.answer) {
-                    // replace placeholder with real answer text
-                    botPlaceholder.querySelector('.message-content').textContent = data.answer;
-                } else if (data.error) {
-                    botPlaceholder.querySelector('.message-content').textContent = 'Error: ' + data.error;
-                } else {
-                    botPlaceholder.querySelector('.message-content').textContent = 'No response from AI.';
-                }
-
-            } catch (err) {
-                botPlaceholder.classList.remove('loading');
-                botPlaceholder.querySelector('.message-content').textContent = 'Network error: ' + err.message;
-            } finally {
-                chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
-                const activity = document.getElementById('recentActivity');
-                if (activity) {
-                    const li = document.createElement('li');
-                    li.textContent = `Asked "${question.length>60?question.slice(0,57)+'...':question}" (${subject})`;
-                    activity.insertBefore(li, activity.firstChild);
-                }
-            }
-        }
-
-        // Wire send buttons and textareas inside each chat tab
-        document.querySelectorAll('.tab-content').forEach(tab => {
-            const sendBtn = tab.querySelector('.send-button');
-            const textarea = tab.querySelector('.message-input');
-            const chatMessages = tab.querySelector('.chat-messages');
-            if (sendBtn && textarea && chatMessages) {
-                sendBtn.addEventListener('click', () => {
-                    const question = textarea.value.trim();
-                    if (!question) return;
-                    const subject = tab.id || textarea.dataset.subject || 'general';
-                    textarea.value = '';
-                    sendQuestion(question, subject, chatMessages);
-                });
-                // Enter (without Shift) to send
-                textarea.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        sendBtn.click();
-                    }
-                });
-            }
+  // ---------- History (AI Q/A) ----------
+  const historyList = document.getElementById('historyList');
+  async function loadHistory(){
+    historyList.innerHTML = 'Loading...';
+    try {
+      const res = await fetch('/api/history', { credentials:'same-origin' });
+      const d = await res.json();
+      historyList.innerHTML = '';
+      if (d.history && d.history.length){
+        d.history.forEach(h => {
+          const div = document.createElement('div'); div.style.marginBottom='8px';
+          div.innerHTML = `<strong>${h.subject}</strong> — <small>${(new Date(h.created_at)).toLocaleString()}</small><div style="margin-top:4px">${h.question}</div><div style="margin-top:6px;color:#374151">${h.answer}</div>`;
+          historyList.appendChild(div);
         });
+      } else historyList.innerHTML = '<div class="small">No history yet.</div>';
+    } catch(e){ historyList.innerHTML = 'Error loading history'; }
+  }
+  loadHistory();
 
-        // Health polling & status update
-        const systemStatusEl = document.getElementById('systemStatus');
-        async function updateHealth(){
-            try {
-                systemStatusEl.textContent = '🔄 Checking...';
-                systemStatusEl.classList.remove('online','offline','checking');
-                systemStatusEl.classList.add('checking');
-
-                const res = await fetch('/health');
-                if (!res.ok) {
-                    systemStatusEl.textContent = '⚠️ Health check failed';
-                    systemStatusEl.classList.remove('checking');
-                    systemStatusEl.classList.add('offline');
-                    return;
-                }
-                const data = await res.json();
-                const groqAvailable = !!data.groq_available;
-                const apiKeyPresent = !!data.api_key_present;
-                if (groqAvailable) {
-                    systemStatusEl.textContent = '🟢 Online';
-                    systemStatusEl.classList.remove('checking','offline');
-                    systemStatusEl.classList.add('online');
-                    document.getElementById('groqStatus').textContent = 'AI connected';
-                    document.getElementById('apiKeyStatus').textContent = apiKeyPresent ? 'API Key present' : 'API Key missing';
-                } else {
-                    systemStatusEl.textContent = '🔴 AI unavailable';
-                    systemStatusEl.classList.remove('checking','online');
-                    systemStatusEl.classList.add('offline');
-                    document.getElementById('groqStatus').textContent = data.error || 'AI not available';
-                    document.getElementById('apiKeyStatus').textContent = apiKeyPresent ? 'API Key present' : 'API Key missing';
-                }
-            } catch (err) {
-                systemStatusEl.textContent = '⚠️ Error';
-                systemStatusEl.classList.remove('checking');
-                systemStatusEl.classList.add('offline');
-            }
-        }
-
-        // initial health check and periodic polling
-        updateHealth();
-        setInterval(updateHealth, 15000);
-    })();
-    </script>
+})();
+</script>
 </body>
 </html>
