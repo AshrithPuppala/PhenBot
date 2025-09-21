@@ -1,19 +1,24 @@
 {% extends "base.html" %}
+
 {% block content %}
 <div class="auth-card">
-  <h2>Create a new PhenBOT account</h2>
-  <form method="POST" class="auth-form">
-    <label>Username</label>
-    <input name="username" required placeholder="Pick a username" />
-
-    <label>Password</label>
-    <input name="password" type="password" required placeholder="Choose a secure password" />
-
-    <div style="margin-top:12px;">
-      <button class="btn-primary" type="submit">Register</button>
-    </div>
-  </form>
-
-  <p class="small muted" style="margin-top:12px;">Already have an account? <a href="{{ url_for('login') }}">Login here</a>.</p>
+    <h2>Create a new <span class="brand">PhenBOT</span> account</h2>
+    <p class="muted">Join thousands of students improving their grades with AI-powered study help.</p>
+    
+    <form method="POST" class="auth-form">
+        <label for="username">Username</label>
+        <input name="username" id="username" type="text" required placeholder="Choose a username (minimum 3 characters)" value="{{ request.form.get('username', '') }}">
+        
+        <label for="password">Password</label>
+        <input name="password" id="password" type="password" required placeholder="Choose a secure password (minimum 6 characters)">
+        
+        <div style="margin-top: 12px;">
+            <button class="btn-primary" type="submit">Create Account</button>
+        </div>
+    </form>
+    
+    <p class="small muted" style="margin-top: 12px;">
+        Already have an account? <a href="{{ url_for('login') }}" style="color: var(--accent-color);">Login here</a>
+    </p>
 </div>
 {% endblock %}
