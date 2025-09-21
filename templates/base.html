@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>PhenBOT</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand-wrap">
+      <div class="logo">🤖 PhenBOT</div>
+      <div class="tag">Advanced Study Companion</div>
+    </div>
+    <nav class="topnav">
+      <a href="{{ url_for('root') }}">Home</a>
+      {% if session.get('user_id') %}
+        <a href="{{ url_for('app_ui') }}">App</a>
+        <a href="{{ url_for('logout') }}" class="muted">Logout ({{ session.get('username') }})</a>
+      {% else %}
+        <a href="{{ url_for('login') }}">Login</a>
+        <a href="{{ url_for('register') }}">Register</a>
+      {% endif %}
+    </nav>
+  </header>
+
+  <main class="page">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul class="flashes">
+          {% for category, message in messages %}
+            <li class="{{ category }}">{{ message }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
