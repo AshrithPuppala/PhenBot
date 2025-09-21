@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block content %}
+    <h2>Hello, {{ user.username }} 👋</h2>
+    <p>{{ personalized_content }}</p>
+    <a href="{{ url_for('feature') }}">Try a Feature</a>
+{% endblock %}
