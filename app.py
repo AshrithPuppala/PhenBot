@@ -78,6 +78,9 @@ with app.app_context():
 # --------------------
 # Groq (AI) init
 # --------------------
+# --------------------
+# Groq (AI) init - FIXED
+# --------------------
 groq_client = None
 GROQ_AVAILABLE = False
 GROQ_ERROR = None
@@ -98,17 +101,15 @@ def initialize_groq():
         return False
 
     try:
+        # Only pass api_key; DO NOT use proxies
         groq_client = Groq(api_key=api_key)
         GROQ_AVAILABLE = True
         return True
-    except TypeError as e:
-        GROQ_ERROR = f"Groq initialization TypeError: {e}"
-        GROQ_AVAILABLE = False
-        return False
     except Exception as e:
         GROQ_ERROR = f"Groq initialization failed: {e}"
         GROQ_AVAILABLE = False
         return False
+
 
 initialize_groq()
 
@@ -386,3 +387,4 @@ if __name__ == '__main__':
     debug = os.environ.get('FLASK_ENV') == 'development'
     print(f"Starting PhenBOT server on port {port} (debug={debug})")
     app.run(host='0.0.0.0', port=port, debug=debug)
+
