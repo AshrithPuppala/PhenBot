@@ -779,6 +779,25 @@
                 addUploadedFile('Laravel_Bengaluru-_PES.pdf');
             }, 1000);
         });
+        @app.route("/debug/database-info")
+def debug_database_info():
+    """Debug route to check database structure"""
+    try:
+        inspector = db.inspect(db.engine)
+        tables = inspector.get_table_names()
+        
+        table_info = {}
+        for table in tables:
+            columns = inspector.get_columns(table)
+            table_info[table] = [col['name'] for col in columns]
+        
+        return jsonify({
+            "database_exists": os.path.exists(os.path.join(INSTANCE_DIR, "app.db")),
+            "tables": table_info,
+            "database_path": app.config["SQLALCHEMY_DATABASE_URI"]
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
     </script>
 </body>
 </html>
