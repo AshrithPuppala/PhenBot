@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="dashboard-grid">
+  <div class="card">
+    <h3>Today's Progress</h3>
+    <p>Welcome, {{ username }} — use the tabs to access AI chat, upload PDFs, flashcards, and bookmarks.</p>
+  </div>
+
+  <div class="card">
+    <h3>AI Chat</h3>
+    <div id="aiStatus">Checking AI status...</div>
+    <div id="chatArea">
+      <div id="messages" style="max-height:280px; overflow:auto; background:#f7fafc; padding:10px; border-radius:8px;"></div>
+      <textarea id="q" placeholder="Ask a question..." style="width:100%; margin-top:8px;"></textarea>
+      <div style="margin-top:8px;">
+        <select id="subject">
+          <option value="general">General</option>
+          <option value="math">Mathematics</option>
+          <option value="science">Science</option>
+          <option value="english">English</option>
+          <option value="history">History</option>
+        </select>
+        <button id="askBtn" class="btn-primary">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Upload PDF</h3>
+    <input type="file" id="pdfFile" accept="application/pdf"/>
+    <button id="uploadPdf" class="btn-primary">Upload</button>
+    <div id="pdfResult"></div>
+    <div id="pdfList"></div>
+  </div>
+
+  <div class="card">
+    <h3>Pomodoro</h3>
+    <div id="pomTime" style="font-size:28px; font-weight:700;">25:00</div>
+    <div style="margin-top:8px;">
+      <button id="pomStart" class="btn-primary">Start</button>
+      <button id="pomPause" class="btn-ghost">Pause</button>
+      <button id="pomReset" class="btn-ghost">Reset</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>AI History</h3>
+    <div id="historyList" class="small"></div>
+  </div>
+</div>
+
+<script>
+(async function(){
+  // Health check for Groq
+  async function updateHealth(){
+    try {
+      const res = await fetch('/health', { credentials: 'same-origin' });
+      const d = await res.json();
+      const el = document.getElementById('aiStatus');
+      if (d.groq_available){
+        el.innerText = 'AI connected';
+        el.style.color = 'green';
+      } else {
+        el.innerText = 'AI unavailable: ' + (d.error || 'no API key');
+        el.style.color = 'red';
+      }
+    } catch (e) {
+      document.getElementById('aiStatus').innerText = 'Health check failed';
+    }
+  }
+  updateHealth();
+
+  // chat
+  const messagesEl = document.getElementById('messages');
+  function appendMsg(role, text){
+    const div = document.createElement('div');
+    div.style.marginBottom='8px';
+    div.innerHTML = `<strong>${role}:</strong> <div>${text.replace(/\n/g,'<br/>')}</div>`;
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  document.getElementById('askBtn').addEventListener('click', async ()=>{
+    const q = document.getElementById('q').value.trim();
+    const subject = document.getElementById('subject').value;
+    if (!q) return;
+    appendMsg('You', q);
+    appendMsg('Bot','Thinking...');
+    try {
+      const res = await fetch('/api/ask', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: q, subject })
+      });
+      const data = await res.json();
+      // replace last bot placeholder
+      const children = messagesEl.children;
+      const lastBot = children[children.length-1];
+      if (res.ok && data.answer){
+        lastBot.innerHTML = `<strong>Bot:</strong> <div>${data.answer.replace(/\n/g,'<br/>')}</div>`;
+      } else {
+        lastBot.innerHTML = `<strong>Bot:</strong> <div style="color:red">${data.error || 'No response'}</div>`;
+      }
+      loadHistory();
+    } catch (e){
+      appendMsg('Bot','Network error');
+    }
+    document.getElementById('q').value = '';
+  });
+
+  // PDFs
+  async function fetchPdfs(){
+    const res = await fetch('/api/pdfs', { credentials: 'same-origin' });
+    if (!res.ok) { document.getElementById('pdfList').innerText = 'Unable to load PDFs'; return; }
+    const d = await res.json();
+    const el = document.getElementById('pdfList');
+    el.innerHTML = '';
+    d.files.forEach(f => {
+      const a = document.createElement('a');
+      a.href = f.url; a.textContent = f.name; a.target = '_blank';
+      const div = document.createElement('div'); div.appendChild(a);
+      el.appendChild(div);
+    });
+  }
+  document.getElementById('uploadPdf').addEventListener('click', async ()=>{
+    const fileInput = document.getElementById('pdfFile');
+    if (!fileInput.files || !fileInput.files[0]) { document.getElementById('pdfResult').innerText = 'Select a PDF'; return; }
+    const form = new FormData(); form.append('file', fileInput.files[0]);
+    try {
+      const res = await fetch('/api/upload-pdf', { method: 'POST', body: form, credentials: 'same-origin' });
+      const d = await res.json();
+      if (res.status === 201) { document.getElementById('pdfResult').innerText = 'Uploaded'; fetchPdfs(); }
+      else document.getElementById('pdfResult').innerText = 'Upload failed: ' + (d.error || res.statusText);
+    } catch (e){ document.getElementById('pdfResult').innerText = 'Network error'; }
+  });
+  fetchPdfs();
+
+  // Pomodoro (client-side localStorage)
+  const POM_DEFAULT = 25*60;
+  let seconds = POM_DEFAULT; let timer=null;
+  function formatTime(s){ return Math.floor(s/60).toString().padStart(2,'0') + ':' + (s%60).toString().padStart(2,'0'); }
+  function updatePom(){ document.getElementById('pomTime').innerText = formatTime(seconds); }
+  function savePom(){ localStorage.setItem('phenbot_pom', JSON.stringify({ seconds, running: !!timer })); }
+  function loadPom(){
+    try {
+      const raw = localStorage.getItem('phenbot_pom'); if (raw){ const obj = JSON.parse(raw); if (typeof obj.seconds === 'number') seconds = obj.seconds; }
+    } catch(e){}
+    updatePom();
+  }
+  function startPom(){ if (timer) return; timer = setInterval(()=>{ if (seconds>0){ seconds--; updatePom(); savePom(); } else { clearInterval(timer); timer=null; alert('Pomodoro finished!'); } },1000); savePom(); }
+  function pausePom(){ if (timer) { clearInterval(timer); timer=null; savePom(); } }
+  function resetPom(){ pausePom(); seconds = POM_DEFAULT; updatePom(); savePom(); }
+  document.getElementById('pomStart').addEventListener('click', startPom);
+  document.getElementById('pomPause').addEventListener('click', pausePom);
+  document.getElementById('pomReset').addEventListener('click', resetPom);
+  loadPom();
+
+  // History
+  async function loadHistory(){
+    const res = await fetch('/api/history', { credentials: 'same-origin' });
+    if (!res.ok) { document.getElementById('historyList').innerText = 'No history'; return; }
+    const d = await res.json();
+    const el = document.getElementById('historyList'); el.innerHTML = '';
+    d.history.forEach(h => {
+      const div = document.createElement('div');
+      div.innerHTML = `<strong>${h.subject}</strong> <small>${new Date(h.created_at).toLocaleString()}</small><div>${h.question}</div><div style="color:#333">${h.answer}</div><hr/>`;
+      el.appendChild(div);
+    });
+  }
+  loadHistory();
+
+})();
+</script>
+{% endblock %}
