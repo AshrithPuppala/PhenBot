@@ -62,14 +62,23 @@ class QAHistory(db.Model):
     subject = db.Column(db.String(80), default="general")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-# Create DB
+# Create DB - FIXED: Handle existing database properly
 with app.app_context():
-    db.create_all()
-    # Add email column if it doesn't exist (for existing databases)
+    # Check if we need to add the email column to existing database
     try:
-        db.engine.execute('ALTER TABLE user ADD COLUMN email VARCHAR(150)')
-    except:
-        pass  # Column already exists or other error
+        # Try to query for email column - if it fails, we need to add it
+        db.engine.execute('SELECT email FROM user LIMIT 1')
+    except Exception as e:
+        print("Adding email column to existing database...")
+        try:
+            db.engine.execute('ALTER TABLE user ADD COLUMN email VARCHAR(150)')
+            print("Email column added successfully")
+        except Exception as alter_error:
+            print(f"Could not add email column: {alter_error}")
+    
+    # Create all tables (will create new ones and skip existing ones)
+    db.create_all()
+    print("Database initialized successfully")
 
 # ------------------------
 # Groq initialization (safe)
@@ -298,6 +307,8 @@ def register():
             db.session.add(user)
             db.session.commit()
             
+            print(f"User created successfully: username={username}, email={email}")
+            
             if request.is_json:
                 return jsonify({"success": True, "message": "Account created successfully"})
             else:
@@ -306,6 +317,7 @@ def register():
                 
         except Exception as e:
             db.session.rollback()
+            print(f"Error creating user: {e}")
             error_msg = "An error occurred during registration"
             if request.is_json:
                 return jsonify({"success": False, "error": error_msg}), 500
@@ -330,6 +342,8 @@ def login():
         username = (data.get("username") or "").strip()
         password = data.get("password") or ""
         
+        print(f"Login attempt: username/email={username}")
+        
         if not username or not password:
             error_msg = "Please fill in all fields"
             if request.is_json:
@@ -338,36 +352,62 @@ def login():
                 flash(error_msg, "danger")
                 return render_template("login.html")
         
+        # FIXED: Search for user by username OR email
+        user = None
+        
         # Check if username is actually an email
         if validate_email(username):
+            print("Searching by email...")
             user = User.query.filter_by(email=username).first()
         else:
+            print("Searching by username...")
             user = User.query.filter_by(username=username).first()
-            
-        if user and check_password_hash(user.password_hash, password):
-            session["user_id"] = user.id
-            session["username"] = user.username
-            session["email"] = user.email
-            
-            if request.is_json:
-                return jsonify({"success": True, "message": "Login successful"})
+        
+        # ADDITIONAL FIX: If not found by the initial method, try the other way
+        if not user:
+            print("User not found by initial method, trying alternative...")
+            if validate_email(username):
+                # If we searched by email and didn't find, try username
+                user = User.query.filter_by(username=username).first()
             else:
-                flash("Logged in", "success")
-                return redirect(url_for("dashboard"))
+                # If we searched by username and didn't find, try email
+                user = User.query.filter_by(email=username).first()
+        
+        if user:
+            print(f"User found: id={user.id}, username={user.username}, email={user.email}")
+            
+            # FIXED: Check password hash properly
+            if check_password_hash(user.password_hash, password):
+                print("Password verified successfully")
+                session["user_id"] = user.id
+                session["username"] = user.username
+                session["email"] = user.email or ""
+                
+                if request.is_json:
+                    return jsonify({"success": True, "message": "Login successful"})
+                else:
+                    flash("Logged in successfully!", "success")
+                    return redirect(url_for("dashboard"))
+            else:
+                print("Password verification failed")
+                error_msg = "Invalid username/email or password"
         else:
+            print("User not found in database")
             error_msg = "Invalid username/email or password"
-            if request.is_json:
-                return jsonify({"success": False, "error": error_msg}), 400
-            else:
-                flash(error_msg, "danger")
-                return render_template("login.html")
+            
+        # If we reach here, login failed
+        if request.is_json:
+            return jsonify({"success": False, "error": error_msg}), 400
+        else:
+            flash(error_msg, "danger")
+            return render_template("login.html")
     
     return render_template("login.html")
 
 @app.route("/logout")
 def logout():
     session.clear()
-    flash("Logged out", "info")
+    flash("Logged out successfully", "info")
     return redirect(url_for("login"))
 
 @app.route("/dashboard")
@@ -375,6 +415,28 @@ def logout():
 def dashboard():
     # Renders the SPA/dashboard template (client will call /api/* endpoints)
     return render_template("dashboard.html", username=session.get("username"))
+
+# ------------------------
+# Debug route to check users in database
+# ------------------------
+@app.route("/debug/users")
+def debug_users():
+    """Debug route to see all users in database - REMOVE IN PRODUCTION"""
+    if not app.debug:
+        return "Not available in production", 404
+    
+    users = User.query.all()
+    user_list = []
+    for user in users:
+        user_list.append({
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "password_hash": user.password_hash[:20] + "...",  # Only show first 20 chars for security
+            "created_at": user.created_at.isoformat()
+        })
+    
+    return jsonify({"users": user_list, "count": len(user_list)})
 
 # ------------------------
 # Health & system info
