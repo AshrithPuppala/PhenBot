@@ -1,953 +1,658 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PhenBOT - Advanced Study Companion</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        :root {
-            --primary-bg: #0f0f23;
-            --secondary-bg: #1a1a2e;
-            --tertiary-bg: #16213e;
-            --card-bg: rgba(30, 41, 59, 0.85);
-            --card-border: rgba(71, 85, 105, 0.3);
-            --primary-blue: #4f46e5;
-            --primary-purple: #7c3aed;
-            --primary-green: #10b981;
-            --primary-cyan: #06b6d4;
-            --primary-orange: #f59e0b;
-            --primary-red: #ef4444;
-            --text-primary: #f8fafc;
-            --text-secondary: #e2e8f0;
-            --text-muted: #94a3b8;
-            --text-disabled: #64748b;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, var(--primary-bg) 0%, var(--secondary-bg) 50%, var(--tertiary-bg) 100%);
-            color: var(--text-secondary);
-            min-height: 100vh;
-            overflow-x: hidden;
-        }
-
-        .app-container {
-            display: flex;
-            min-height: 100vh;
-        }
-
-        /* Sidebar */
-        .sidebar {
-            width: 300px;
-            background: var(--card-bg);
-            backdrop-filter: blur(20px);
-            border-right: 1px solid var(--card-border);
-            display: flex;
-            flex-direction: column;
-            transition: transform 0.3s ease;
-            z-index: 100;
-        }
-
-        .sidebar-header {
-            padding: 1.5rem;
-            background: linear-gradient(135deg, var(--primary-blue), var(--primary-purple));
-            color: white;
-        }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin-bottom: 0.5rem;
-        }
-
-        .logo i {
-            margin-right: 0.5rem;
-            font-size: 1.8rem;
-        }
-
-        .tagline {
-            font-size: 0.85rem;
-            opacity: 0.9;
-        }
-
-        .sidebar-nav {
-            flex: 1;
-            padding: 1rem 0;
-            overflow-y: auto;
-        }
-
-        .nav-item {
-            display: flex;
-            align-items: center;
-            padding: 1rem 1.5rem;
-            color: var(--text-muted);
-            text-decoration: none;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            border-left: 3px solid transparent;
-        }
-
-        .nav-item:hover, .nav-item.active {
-            background: rgba(79, 70, 229, 0.1);
-            color: var(--primary-blue);
-            border-left-color: var(--primary-blue);
-        }
-
-        .nav-item i {
-            width: 24px;
-            margin-right: 0.75rem;
-            font-size: 1.1rem;
-        }
-
-        .user-info {
-            padding: 1rem 1.5rem;
-            border-top: 1px solid var(--card-border);
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .user-avatar {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan));
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 600;
-        }
-
-        /* Main Content */
-        .main-content {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        .top-bar {
-            background: var(--card-bg);
-            backdrop-filter: blur(20px);
-            border-bottom: 1px solid var(--card-border);
-            padding: 1rem 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .top-bar-left {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .page-title {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
-        .status-badge {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            background: rgba(16, 185, 129, 0.2);
-            color: var(--primary-green);
-            border-radius: 50px;
-            font-size: 0.85rem;
-            font-weight: 500;
-        }
-
-        .top-bar-right {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .pomodoro-mini {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            background: rgba(245, 158, 11, 0.2);
-            color: var(--primary-orange);
-            border-radius: 50px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            cursor: pointer;
-        }
-
-        .logout-btn {
-            background: rgba(239, 68, 68, 0.2);
-            color: var(--primary-red);
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 500;
-            transition: all 0.3s ease;
-        }
-
-        .logout-btn:hover {
-            background: rgba(239, 68, 68, 0.3);
-        }
-
-        /* Content Area */
-        .content-area {
-            flex: 1;
-            padding: 2rem;
-            overflow-y: auto;
-        }
-
-        .tab-content {
-            display: none;
-            animation: fadeIn 0.3s ease;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* AI Chat Section */
-        .ai-chat-container {
-            background: var(--card-bg);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--card-border);
-            border-radius: 20px;
-            height: calc(100vh - 200px);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        .chat-header {
-            padding: 1.5rem 2rem;
-            background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan));
-            color: white;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .chat-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-        }
-
-        .chat-controls {
-            display: flex;
-            gap: 1rem;
-            align-items: center;
-        }
-
-        .mode-selector, .length-selector {
-            background: rgba(255, 255, 255, 0.2);
-            border: none;
-            border-radius: 8px;
-            padding: 0.5rem 1rem;
-            color: white;
-            font-size: 0.85rem;
-            cursor: pointer;
-        }
-
-        .mode-selector option, .length-selector option {
-            background: var(--secondary-bg);
-            color: var(--text-secondary);
-        }
-
-        .voice-btn {
-            background: rgba(255, 255, 255, 0.2);
-            border: none;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            color: white;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s ease;
-        }
-
-        .voice-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
-
-        .voice-btn.recording {
-            background: var(--primary-red);
-            animation: pulse 1s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-        }
-
-        .chat-messages {
-            flex: 1;
-            padding: 2rem;
-            overflow-y: auto;
-            scroll-behavior: smooth;
-        }
-
-        .message {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-            animation: slideIn 0.3s ease;
-        }
-
-        .message.user {
-            flex-direction: row-reverse;
-        }
-
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .message-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 600;
-            font-size: 0.9rem;
-            flex-shrink: 0;
-        }
-
-        .message.user .message-avatar {
-            background: linear-gradient(135deg, var(--primary-blue), var(--primary-purple));
-            color: white;
-        }
-
-        .message.bot .message-avatar {
-            background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan));
-            color: white;
-        }
-
-        .message-content {
-            max-width: 70%;
-            padding: 1rem 1.5rem;
-            border-radius: 18px;
-            line-height: 1.6;
-            font-size: 0.95rem;
-        }
-
-        .message.user .message-content {
-            background: linear-gradient(135deg, var(--primary-blue), var(--primary-purple));
-            color: white;
-            border-bottom-right-radius: 8px;
-        }
-
-        .message.bot .message-content {
-            background: rgba(71, 85, 105, 0.3);
-            color: var(--text-secondary);
-            border-bottom-left-radius: 8px;
-            border-left: 3px solid var(--primary-green);
-        }
-
-        .typing-indicator {
-            display: flex;
-            gap: 4px;
-            padding: 1rem 1.5rem;
-        }
-
-        .typing-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--text-muted);
-            animation: typing 1.4s infinite ease-in-out;
-        }
-
-        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
-        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
-
-        @keyframes typing {
-            0%, 60%, 100% { transform: translateY(0); }
-            30% { transform: translateY(-10px); }
-        }
-
-        .chat-input-area {
-            padding: 1.5rem 2rem;
-            border-top: 1px solid var(--card-border);
-            background: rgba(15, 23, 42, 0.5);
-        }
-
-        .input-container {
-            display: flex;
-            gap: 1rem;
-            align-items: flex-end;
-        }
-
-        .chat-input {
-            flex: 1;
-            background: rgba(15, 23, 42, 0.8);
-            border: 1px solid var(--card-border);
-            border-radius: 25px;
-            padding: 1rem 1.5rem;
-            color: var(--text-secondary);
-            font-size: 0.95rem;
-            resize: none;
-            min-height: 50px;
-            max-height: 120px;
-            transition: all 0.3s ease;
-        }
-
-        .chat-input:focus {
-            outline: none;
-            border-color: var(--primary-blue);
-            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-        }
-
-        .chat-input::placeholder {
-            color: var(--text-disabled);
-        }
-
-        .send-btn {
-            background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan));
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.1rem;
-            transition: all 0.3s ease;
-        }
-
-        .send-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
-        }
-
-        .send-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        /* PDF Upload Section */
-        .upload-container {
-            background: var(--card-bg);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--card-border);
-            border-radius: 20px;
-            padding: 2rem;
-            margin-bottom: 2rem;
-        }
-
-        .upload-header {
-            display: flex;
-            align-items: center;
-            margin-bottom: 1.5rem;
-        }
-
-        .upload-icon {
-            width: 60px;
-            height: 60px;
-            background: linear-gradient(135deg, var(--primary-cyan), var(--primary-blue));
-            border-radius: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 1.5rem;
-            margin-right: 1rem;
-        }
-
-        .upload-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
-        .upload-area {
-            border: 2px dashed var(--card-border);
-            border-radius: 15px;
-            padding: 3rem 2rem;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-bottom: 1.5rem;
-        }
-
-        .upload-area:hover, .upload-area.dragover {
-            border-color: var(--primary-blue);
-            background: rgba(79, 70, 229, 0.05);
-        }
-
-        .upload-area i {
-            font-size: 3rem;
-            color: var(--primary-blue);
-            margin-bottom: 1rem;
-            display: block;
-        }
-
-        .file-input {
-            display: none;
-        }
-
-        .pdf-actions {
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-            margin-top: 1rem;
-        }
-
-        .action-btn {
-            background: linear-gradient(135deg, var(--primary-blue), var(--primary-purple));
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 12px;
-            cursor: pointer;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .action-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(79, 70, 229, 0.4);
-        }
-
-        .action-btn.secondary {
-            background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan));
-        }
-
-        .uploaded-files {
-            margin-top: 1.5rem;
-        }
-
-        .file-item {
-            background: rgba(15, 23, 42, 0.8);
-            border-radius: 12px;
-            padding: 1rem;
-            margin-bottom: 0.75rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .file-info {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .file-info i {
-            color: var(--primary-red);
-            font-size: 1.5rem;
-        }
-
-        .file-details h4 {
-            color: var(--text-primary);
-            font-size: 0.95rem;
-            margin-bottom: 0.25rem;
-        }
-
-        .file-details p {
-            color: var(--text-muted);
-            font-size: 0.8rem;
-        }
-
-        .file-actions {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .icon-btn {
-            width: 36px;
-            height: 36px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s ease;
-        }
-
-        .icon-btn.primary {
-            background: rgba(79, 70, 229, 0.2);
-            color: var(--primary-blue);
-        }
-
-        .icon-btn.success {
-            background: rgba(16, 185, 129, 0.2);
-            color: var(--primary-green);
-        }
-
-        .icon-btn.danger {
-            background: rgba(239, 68, 68, 0.2);
-            color: var(--primary-red);
-        }
-
-        .icon-btn:hover {
-            transform: translateY(-1px);
-        }
-
-        /* Flashcards Section */
-        .flashcards-container {
-            background: var(--card-bg);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--card-border);
-            border-radius: 20px;
-            padding: 2rem;
-        }
-
-        .flashcard-controls {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-        }
-
-        .flashcard-nav {
-            display: flex;
-            gap: 1rem;
-            align-items: center;
-        }
-
-        .flashcard {
-            background: linear-gradient(135deg, rgba(79, 70, 229, 0.1), rgba(124, 58, 237, 0.1));
-            border: 1px solid var(--card-border);
-            border-radius: 20px;
-            height: 300px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            position: relative;
-            perspective: 1000px;
-            margin-bottom: 2rem;
-        }
-
-        .flashcard-inner {
-            width: 100%;
-            height: 100%;
-            position: relative;
-            transform-style: preserve-3d;
-            transition: transform 0.3s ease;
-            border-radius: 20px;
-        }
-
-        .flashcard.flipped .flashcard-inner {
-            transform: rotateY(180deg);
-        }
-
-        .flashcard-front, .flashcard-back {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            backface-visibility: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 2rem;
-            border-radius: 20px;
-        }
-
-        .flashcard-back {
-            transform: rotateY(180deg);
-            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(6, 182, 212, 0.1));
-        }
-
-        .flashcard-content {
-            font-size: 1.1rem;
-            line-height: 1.6;
-            color: var(--text-secondary);
-        }
-
-        /* Pomodoro Timer */
-        .pomodoro-container {
-            background: var(--card-bg);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--card-border);
-            border-radius: 20px;
-            padding: 2rem;
-            text-align: center;
-        }
-
-        .timer-display {
-            font-size: 4rem;
-            font-weight: 700;
-            color: var(--primary-orange);
-            margin: 2rem 0;
-            text-shadow: 0 0 30px rgba(245, 158, 11, 0.3);
-        }
-
-        .timer-controls {
-            display: flex;
-            justify-content: center;
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
-
-        .timer-btn {
-            background: rgba(71, 85, 105, 0.3);
-            color: var(--text-secondary);
-            border: 1px solid var(--card-border);
-            padding: 0.75rem 1.5rem;
-            border-radius: 12px;
-            cursor: pointer;
-            font-weight: 500;
-            transition: all 0.3s ease;
-        }
-
-        .timer-btn:hover {
-            background: rgba(71, 85, 105, 0.5);
-            transform: translateY(-2px);
-        }
-
-        .timer-btn.primary {
-            background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan));
-            color: white;
-            border-color: var(--primary-green);
-        }
-
-        .timer-settings {
-            display: flex;
-            justify-content: center;
-            gap: 2rem;
-            margin-top: 1.5rem;
-        }
-
-        .setting-item {
-            text-align: center;
-        }
-
-        .setting-item label {
-            display: block;
-            color: var(--text-muted);
-            font-size: 0.85rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .setting-input {
-            background: rgba(15, 23, 42, 0.8);
-            border: 1px solid var(--card-border);
-            border-radius: 8px;
-            padding: 0.5rem;
-            color: var(--text-secondary);
-            width: 80px;
-            text-align: center;
-        }
-
-        /* Responsive Design */
-        @media (max-width: 1024px) {
-            .sidebar {
-                position: fixed;
-                left: -300px;
-                height: 100vh;
-                z-index: 1000;
-            }
-
-            .sidebar.open {
-                left: 0;
-            }
-
-            .main-content {
-                width: 100%;
-            }
-
-            .sidebar-toggle {
-                display: block;
-                background: none;
-                border: none;
-                color: var(--text-secondary);
-                font-size: 1.2rem;
-                cursor: pointer;
-                padding: 0.5rem;
-            }
-        }
-
-        @media (max-width: 768px) {
-            .content-area {
-                padding: 1rem;
-            }
-
-            .chat-controls {
-                flex-direction: column;
-                gap: 0.5rem;
-            }
-
-            .mode-selector, .length-selector {
-                width: 100%;
-            }
-
-            .pdf-actions {
-                flex-direction: column;
-            }
-
-            .flashcard-nav {
-                flex-direction: column;
-                gap: 0.5rem;
-            }
-
-            .timer-settings {
-                flex-direction: column;
-                gap: 1rem;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="app-container">
-        <!-- Sidebar -->
-        <div class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-                <div class="logo">
-                    <i class="fas fa-brain"></i>
-                    PhenBOT
-                </div>
-                <div class="tagline">Advanced Study Companion</div>
-            </div>
-
-            <nav class="sidebar-nav">
-                <div class="nav-item active" data-tab="ai-chat">
-                    <i class="fas fa-comments"></i>
-                    AI Chat Assistant
-                </div>
-                <div class="nav-item" data-tab="pdf-tools">
-                    <i class="fas fa-file-pdf"></i>
-                    PDF Tools
-                </div>
-                <div class="nav-item" data-tab="flashcards">
-                    <i class="fas fa-layer-group"></i>
-                    Flashcards
-                </div>
-                <div class="nav-item" data-tab="pomodoro">
-                    <i class="fas fa-clock"></i>
-                    Pomodoro Timer
-                </div>
-                <div class="nav-item" data-tab="analytics">
-                    <i class="fas fa-chart-line"></i>
-                    Analytics
-                </div>
-                <div class="nav-item" data-tab="settings">
-                    <i class="fas fa-cog"></i>
-                    Settings
-                </div>
-            </nav>
-
-            <div class="user-info">
-                <div class="user-avatar">
-                    {{ username[0].upper() if username else 'A' }}
-                </div>
-                <div>
-                    <div style="font-weight: 600; color: var(--text-primary);">{{ username or 'ashrith07' }}</div>
-                    <div style="font-size: 0.8rem; color: var(--text-muted);">Premium User</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Main Content -->
-        <div class="main-content">
-            <!-- Top Bar -->
-            <div class="top-bar">
-                <div class="top-bar-left">
-                    <button class="sidebar-toggle" id="sidebarToggle" style="display: none;">
-                        <i class="fas fa-bars"></i>
-                    </button>
-                    <div class="page-title" id="pageTitle">AI Chat Assistant</div>
-                    <div class="status-badge">
-                        <i class="fas fa-circle"></i>
-                        <span id="aiStatus">AI Online</span>
-                    </div>
-                </div>
-                <div class="top-bar-right">
-                    <div class="pomodoro-mini" id="pomodoroMini">
-                        <i class="fas fa-clock"></i>
-                        <span id="miniTimer">25:00</span>
-                    </div>
-                    <button class="logout-btn" onclick="logout()">
-                        <i class="fas fa-sign-out-alt"></i>
-                        Logout
-                    </button>
-                </div>
-            </div>
-
-            <!-- Content Area -->
-            <div class="content-area">
-                <!-- AI Chat Tab -->
-                <div class="tab-content active" id="ai-chat">
-                    <div class="ai-chat-container">
-                        <div class="chat-header">
-                            <div class="chat-title">AI Study Assistant</div>
-                            <div class="chat-controls">
-                                <select class="mode-selector" id="chatMode">
-                                    <option value="normal">Normal Chat</option>
-                                    <option value="analogy">Analogy Mode</option>
-                                    <option value="quiz">Quiz Mode</option>
-                                    <option value="teach">Teaching Mode</option>
-                                    <option value="socratic">Socratic Method</option>
-                                    <option value="explain">ELI5 Mode</option>
-                                </select>
-                                <select class="length-selector" id="responseLength">
-                                    <option value="short">Short</option>
-                                    <option value="normal">Normal</option>
-                                    <option value="detailed">Detailed</option>
-                                </select>
-                                <button class="voice-btn" id="voiceBtn" title="Voice Chat">
-                                    <i class="fas fa-microphone"></i>
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <div class="chat-messages" id="chatMessages">
-                            <div class="message bot">
-                                <div class="message-avatar">
-                                    <i class="fas fa-robot"></i>
-                                </div>
-                                <div class="message-content">
-                                    Hello! I'm PhenBOT, your advanced study companion. I can help you in different modes:
-                                    <br><br>
-                                    📚 <strong>Normal:</strong> Regular conversation and help<br>
-                                    🎭 <strong>Analogy:</strong> Explain concepts using analogies<br>
-                                    ❓ <strong>Quiz:</strong> Test your knowledge<br>
-                                    🎓 <strong>Teaching:</strong> Step-by-step explanations<br>
-                                    🤔 <strong>Socratic:</strong> Learn through questioning<br>
-                                    🌟 <strong>ELI5:</strong> Simple explanations<br><br>
-                                    What would you like to learn today?
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="chat-input-area">
-                            <div class="input-container">
-                                <textarea class="chat-input" id="chatInput" placeholder="Ask me anything..." rows="1"></textarea>
-                                <button class="send-btn" id="sendBtn">
-                                    <i class="fas fa-paper-plane"></i>
-                                </button>
-                            </div>
-                        </div>
+import os
+import sys
+import uuid
+import traceback
+from functools import wraps
+from datetime import datetime
+from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
+import re
+
+from flask import (
+    Flask, request, jsonify, render_template, redirect, url_for, flash, session
+)
+from flask_sqlalchemy import SQLAlchemy
+
+# ------------------------
+# Config
+# ------------------------
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+INSTANCE_DIR = os.path.join(BASE_DIR, "instance")
+UPLOAD_DIR = os.path.join(BASE_DIR, "static", "uploads")
+os.makedirs(INSTANCE_DIR, exist_ok=True)
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+app = Flask(
+    __name__,
+    static_folder=os.path.join(BASE_DIR, "static"),
+    static_url_path="/static"
+)
+
+# IMPORTANT: set SECRET_KEY in env while deploying. Fallback to random for dev.
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", uuid.uuid4().hex)
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///" + os.path.join(INSTANCE_DIR, "app.db")
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["UPLOAD_FOLDER"] = UPLOAD_DIR
+app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024  # 32 MB
+
+db = SQLAlchemy(app)
+
+# ------------------------
+# Models
+# ------------------------
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(150), unique=True, nullable=False)
+    email = db.Column(db.String(150), unique=True, nullable=True)
+    password_hash = db.Column(db.String(256), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<User {self.username}>'
+
+class PDFFile(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    filename = db.Column(db.String(400), nullable=False)
+    original_name = db.Column(db.String(400), nullable=False)
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class QAHistory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    question = db.Column(db.Text, nullable=False)
+    answer = db.Column(db.Text, nullable=False)
+    subject = db.Column(db.String(80), default="general")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+# Database initialization with proper error handling
+def init_database():
+    """Initialize database with proper migration handling"""
+    with app.app_context():
+        try:
+            # Create all tables
+            db.create_all()
+            print("Database tables created successfully")
+            
+            # Check if email column exists and add if missing
+            inspector = db.inspect(db.engine)
+            columns = [col['name'] for col in inspector.get_columns('user')]
+            
+            if 'email' not in columns:
+                print("Adding email column to user table...")
+                with db.engine.connect() as conn:
+                    conn.execute(db.text('ALTER TABLE user ADD COLUMN email VARCHAR(150)'))
+                    conn.commit()
+                print("Email column added successfully")
+            
+            return True
+        except Exception as e:
+            print(f"Database initialization error: {e}")
+            traceback.print_exc()
+            return False
+
+# Initialize database
+init_database()
+
+# ------------------------
+# Groq initialization (safe)
+# ------------------------
+groq_client = None
+GROQ_AVAILABLE = False
+GROQ_ERROR = None
+
+try:
+    from groq import Groq
+except Exception as e:
+    Groq = None
+    GROQ_ERROR = "Groq SDK not installed"
+
+def initialize_groq():
+    global groq_client, GROQ_AVAILABLE, GROQ_ERROR
+    if Groq is None:
+        GROQ_ERROR = GROQ_ERROR or "Groq SDK not available"
+        GROQ_AVAILABLE = False
+        return False
+    api_key = os.environ.get("GROQ_API_KEY")
+    if not api_key:
+        GROQ_ERROR = "GROQ_API_KEY not set"
+        GROQ_AVAILABLE = False
+        return False
+    try:
+        groq_client = Groq(api_key=api_key)
+        GROQ_AVAILABLE = True
+        return True
+    except Exception as e:
+        GROQ_ERROR = f"Groq initialization failed: {e}"
+        GROQ_AVAILABLE = False
+        return False
+
+initialize_groq()
+
+def get_ai_response(question, subject="general"):
+    if not groq_client or not GROQ_AVAILABLE:
+        return "AI system not available on server. Check GROQ_API_KEY and Groq SDK installation."
+    system_prompts = {
+        "math": "You are PhenBOT, a mathematics tutor. Provide step-by-step explanations.",
+        "science": "You are PhenBOT, a science educator. Explain concepts with analogies.",
+        "english": "You are PhenBOT, an English tutor. Help with grammar and writing.",
+        "history": "You are PhenBOT, a history educator. Explain context and causes.",
+        "general": "You are PhenBOT, an advanced study companion."
+    }
+    system_prompt = system_prompts.get(subject, system_prompts["general"])
+    try:
+        if hasattr(groq_client, "chat") and hasattr(groq_client.chat, "completions"):
+            response = groq_client.chat.completions.create(
+                model="llama-3.1-8b-instant",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": question}
+                ],
+                temperature=0.7,
+                max_tokens=600,
+                top_p=0.9
+            )
+            try:
+                return response.choices[0].message.content
+            except Exception:
+                try:
+                    return response["choices"][0]["message"]["content"]
+                except Exception:
+                    return str(response)
+        return "Groq client interface not recognized"
+    except Exception as e:
+        traceback.print_exc()
+        return f"Error calling Groq: {e}"
+
+# ------------------------
+# Helper functions
+# ------------------------
+def login_required_json(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if "user_id" not in session:
+            return jsonify({"error": "Authentication required"}), 401
+        return f(*args, **kwargs)
+    return decorated
+
+def login_required_page(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if "user_id" not in session:
+            flash("Please log in", "warning")
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return decorated
+
+def validate_email(email):
+    """Simple email validation"""
+    if not email:
+        return False
+    pattern = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
+    return re.match(pattern, email) is not None
+
+def validate_password_strength(password):
+    """Check password strength and return score and feedback"""
+    if not password:
+        return 0, "Password is required"
+    
+    score = 0
+    feedback = []
+    
+    if len(password) >= 8:
+        score += 25
+    else:
+        feedback.append("At least 8 characters")
+        
+    if len(password) >= 12:
+        score += 15
+        
+    if re.search(r'[A-Z]', password):
+        score += 20
+    else:
+        feedback.append("At least one uppercase letter")
+        
+    if re.search(r'[a-z]', password):
+        score += 15
+    else:
+        feedback.append("At least one lowercase letter")
+        
+    if re.search(r'[0-9]', password):
+        score += 15
+    else:
+        feedback.append("At least one number")
+        
+    if re.search(r'[^A-Za-z0-9]', password):
+        score += 10
+    else:
+        feedback.append("At least one special character")
+    
+    if score < 40:
+        return score, "Weak password. " + ", ".join(feedback)
+    elif score < 70:
+        return score, "Medium strength password"
+    else:
+        return score, "Strong password"
+
+# ------------------------
+# Routes (HTML)
+# ------------------------
+@app.route("/")
+def home():
+    if "user_id" in session:
+        return redirect(url_for("dashboard"))
+    return redirect(url_for("login"))
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if "user_id" in session:
+        return redirect(url_for("dashboard"))
+    
+    if request.method == "POST":
+        try:
+            # Handle both JSON and form data
+            if request.is_json:
+                data = request.get_json()
+            else:
+                data = request.form
+                
+            username = (data.get("username") or "").strip().lower()  # Normalize username
+            email = (data.get("email") or "").strip().lower()  # Normalize email
+            password = data.get("password") or ""
+            confirm_password = data.get("confirmPassword") or ""
+            
+            print(f"Registration attempt: username='{username}', email='{email}'")
+            
+            # Validation
+            errors = []
+            
+            if not username or len(username) < 3:
+                errors.append("Username must be at least 3 characters long")
+                
+            if not email or not validate_email(email):
+                errors.append("Please enter a valid email address")
+                
+            if not password or len(password) < 8:
+                errors.append("Password must be at least 8 characters long")
+                
+            if password != confirm_password:
+                errors.append("Passwords do not match")
+                
+            # Check password strength
+            strength, strength_msg = validate_password_strength(password)
+            if strength < 40:
+                errors.append("Password is too weak. Please choose a stronger password")
+            
+            # Check if user exists
+            existing_username = User.query.filter_by(username=username).first()
+            existing_email = User.query.filter_by(email=email).first()
+            
+            if existing_username:
+                errors.append("Username already exists")
+            if existing_email:
+                errors.append("Email already registered")
+            
+            if errors:
+                print(f"Registration errors: {errors}")
+                if request.is_json:
+                    return jsonify({"success": False, "errors": errors}), 400
+                else:
+                    for error in errors:
+                        flash(error, "danger")
+                    return render_template("register.html")
+            
+            # Create user
+            hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
+            user = User(username=username, email=email, password_hash=hashed_password)
+            
+            db.session.add(user)
+            db.session.commit()
+            
+            print(f"User created successfully: id={user.id}, username={user.username}, email={user.email}")
+            print(f"Password hash: {user.password_hash[:50]}...")
+            
+            if request.is_json:
+                return jsonify({"success": True, "message": "Account created successfully"})
+            else:
+                flash("Account created successfully! Please log in.", "success")
+                return redirect(url_for("login"))
+                
+        except Exception as e:
+            db.session.rollback()
+            print(f"Registration error: {e}")
+            traceback.print_exc()
+            error_msg = "An error occurred during registration. Please try again."
+            if request.is_json:
+                return jsonify({"success": False, "error": error_msg}), 500
+            else:
+                flash(error_msg, "danger")
+                return render_template("register.html")
+    
+    return render_template("register.html")
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if "user_id" in session:
+        return redirect(url_for("dashboard"))
+    
+    if request.method == "POST":
+        try:
+            # Handle both JSON and form data
+            if request.is_json:
+                data = request.get_json()
+            else:
+                data = request.form
+                
+            username_or_email = (data.get("username") or "").strip().lower()  # Normalize input
+            password = data.get("password") or ""
+            
+            print(f"Login attempt: input='{username_or_email}', password_length={len(password)}")
+            
+            if not username_or_email or not password:
+                error_msg = "Please fill in all fields"
+                print("Missing username/email or password")
+                if request.is_json:
+                    return jsonify({"success": False, "error": error_msg}), 400
+                else:
+                    flash(error_msg, "danger")
+                    return render_template("login.html")
+            
+            # Find user by username or email
+            user = None
+            
+            # First try to find by email
+            if validate_email(username_or_email):
+                print(f"Input looks like email, searching by email: {username_or_email}")
+                user = User.query.filter(User.email == username_or_email).first()
+                if user:
+                    print(f"Found user by email: {user.username}")
+            
+            # If not found by email, try username
+            if not user:
+                print(f"Searching by username: {username_or_email}")
+                user = User.query.filter(User.username == username_or_email).first()
+                if user:
+                    print(f"Found user by username: {user.username}")
+            
+            if not user:
+                print("User not found in database")
+                # List all users for debugging (remove in production)
+                all_users = User.query.all()
+                print(f"All users in database: {[(u.username, u.email) for u in all_users]}")
+                
+                error_msg = "Invalid username/email or password"
+                if request.is_json:
+                    return jsonify({"success": False, "error": error_msg}), 400
+                else:
+                    flash(error_msg, "danger")
+                    return render_template("login.html")
+            
+            # Verify password
+            print(f"Verifying password for user: {user.username}")
+            print(f"Stored hash: {user.password_hash[:50]}...")
+            
+            password_valid = check_password_hash(user.password_hash, password)
+            print(f"Password verification result: {password_valid}")
+            
+            if password_valid:
+                print("Login successful, setting session")
+                session.clear()  # Clear any existing session data
+                session["user_id"] = user.id
+                session["username"] = user.username
+                session["email"] = user.email or ""
+                session.permanent = True  # Make session permanent
+                
+                print(f"Session set: user_id={session.get('user_id')}, username={session.get('username')}")
+                
+                if request.is_json:
+                    return jsonify({
+                        "success": True, 
+                        "message": "Login successful",
+                        "redirect": url_for("dashboard")
+                    })
+                else:
+                    flash("Login successful!", "success")
+                    return redirect(url_for("dashboard"))
+            else:
+                print("Password verification failed")
+                error_msg = "Invalid username/email or password"
+                if request.is_json:
+                    return jsonify({"success": False, "error": error_msg}), 400
+                else:
+                    flash(error_msg, "danger")
+                    return render_template("login.html")
+                    
+        except Exception as e:
+            print(f"Login error: {e}")
+            traceback.print_exc()
+            error_msg = "An error occurred during login. Please try again."
+            if request.is_json:
+                return jsonify({"success": False, "error": error_msg}), 500
+            else:
+                flash(error_msg, "danger")
+                return render_template("login.html")
+    
+    return render_template("login.html")
+
+@app.route("/logout")
+def logout():
+    print(f"Logging out user: {session.get('username')}")
+    session.clear()
+    flash("Logged out successfully", "info")
+    return redirect(url_for("login"))
+
+@app.route("/dashboard")
+@login_required_page
+def dashboard():
+    print(f"Dashboard accessed by user: {session.get('username')} (ID: {session.get('user_id')})")
+    return render_template("dashboard.html", username=session.get("username"))
+
+# ------------------------
+# Debug routes (remove in production)
+# ------------------------
+@app.route("/debug/users")
+def debug_users():
+    """Debug route to see all users in database"""
+    try:
+        users = User.query.all()
+        user_list = []
+        for user in users:
+            user_list.append({
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "password_hash": user.password_hash[:50] + "...",
+                "created_at": user.created_at.isoformat() if user.created_at else None
+            })
+        
+        return jsonify({
+            "users": user_list, 
+            "count": len(user_list),
+            "database_path": app.config["SQLALCHEMY_DATABASE_URI"]
+        })
+    except Exception as e:
+        return jsonify({"error": str(e), "traceback": traceback.format_exc()}), 500
+
+@app.route("/debug/session")
+def debug_session():
+    """Debug route to check session data"""
+    return jsonify({
+        "session_data": dict(session),
+        "session_keys": list(session.keys()),
+        "user_logged_in": "user_id" in session
+    })
+
+@app.route("/debug/test-hash")
+def debug_test_hash():
+    """Test password hashing"""
+    test_password = "TestPassword123"
+    hashed = generate_password_hash(test_password, method='pbkdf2:sha256')
+    verification = check_password_hash(hashed, test_password)
+    
+    return jsonify({
+        "original_password": test_password,
+        "hashed_password": hashed,
+        "verification_result": verification
+    })
+
+# ------------------------
+# Health check
+# ------------------------
+@app.route("/health")
+def health():
+    return jsonify({
+        "status": "ok",
+        "groq_available": GROQ_AVAILABLE,
+        "api_key_present": bool(os.environ.get("GROQ_API_KEY")),
+        "error": GROQ_ERROR,
+        "python": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+        "database_path": app.config["SQLALCHEMY_DATABASE_URI"]
+    })
+
+# ------------------------
+# API endpoints
+# ------------------------
+@app.route("/api/ask", methods=["POST"])
+@login_required_json
+def api_ask():
+    data = request.get_json() or {}
+    question = (data.get("question") or "").strip()
+    subject = data.get("subject", "general")
+    if not question:
+        return jsonify({"error": "Question required"}), 400
+    if not GROQ_AVAILABLE:
+        return jsonify({"error": f"AI not available: {GROQ_ERROR or 'Groq not initialized'}"}), 503
+    answer = get_ai_response(question, subject)
+    try:
+        hist = QAHistory(user_id=session["user_id"], question=question, answer=answer, subject=subject)
+        db.session.add(hist)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    return jsonify({"answer": answer})
+
+@app.route("/api/chat", methods=["POST"])
+@login_required_json
+def api_chat():
+    data = request.get_json() or {}
+    message = (data.get("message") or "").strip()
+    if not message:
+        return jsonify({"error": "Message required"}), 400
+    
+    if GROQ_AVAILABLE:
+        response = get_ai_response(message, "general")
+    else:
+        response = f"I received your message: '{message}'. AI service is currently unavailable, but I'm here to help!"
+    
+    try:
+        hist = QAHistory(user_id=session["user_id"], question=message, answer=response, subject="general")
+        db.session.add(hist)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    
+    return jsonify({
+        "response": response,
+        "timestamp": datetime.now().isoformat()
+    })
+
+# PDF upload functionality
+ALLOWED_EXT = {"pdf"}
+def allowed_file(filename):
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXT
+
+@app.route("/api/upload-pdf", methods=["POST"])
+@login_required_json
+def upload_pdf():
+    if "file" not in request.files:
+        return jsonify({"error": "No file part"}), 400
+    f = request.files["file"]
+    if f.filename == "":
+        return jsonify({"error": "No file selected"}), 400
+    if not allowed_file(f.filename):
+        return jsonify({"error": "Only .pdf allowed"}), 400
+    original = secure_filename(f.filename)
+    unique = f"{session['user_id']}_{uuid.uuid4().hex}_{original}"
+    save_path = os.path.join(app.config["UPLOAD_FOLDER"], unique)
+    f.save(save_path)
+    rec = PDFFile(user_id=session["user_id"], filename=unique, original_name=original)
+    db.session.add(rec)
+    db.session.commit()
+    url = url_for("static", filename=f"uploads/{unique}")
+    return jsonify({"message": "Uploaded successfully", "filename": original, "url": url}), 201
+
+@app.route("/api/upload", methods=["POST"])
+@login_required_json
+def api_upload():
+    if "file" not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+    
+    file = request.files["file"]
+    if file.filename == "":
+        return jsonify({"error": "No file selected"}), 400
+    
+    if file and file.filename.lower().endswith('.pdf'):
+        original = secure_filename(file.filename)
+        unique = f"{session['user_id']}_{uuid.uuid4().hex}_{original}"
+        save_path = os.path.join(app.config["UPLOAD_FOLDER"], unique)
+        file.save(save_path)
+        
+        rec = PDFFile(user_id=session["user_id"], filename=unique, original_name=original)
+        db.session.add(rec)
+        db.session.commit()
+        
+        url = url_for("static", filename=f"uploads/{unique}")
+        return jsonify({
+            "success": True,
+            "filename": original,
+            "message": "File uploaded successfully",
+            "url": url
+        })
+    
+    return jsonify({"error": "Invalid file type. Only PDF files are allowed."}), 400
+
+@app.route("/api/pdfs", methods=["GET"])
+@login_required_json
+def list_pdfs():
+    uid = session["user_id"]
+    files = PDFFile.query.filter_by(user_id=uid).order_by(PDFFile.uploaded_at.desc()).all()
+    out = [{"id": p.id, "name": p.original_name, "url": url_for("static", filename=f"uploads/{p.filename}"), "uploaded_at": p.uploaded_at.isoformat()} for p in files]
+    return jsonify({"files": out})
+
+@app.route("/api/history", methods=["GET"])
+@login_required_json
+def get_history():
+    uid = session["user_id"]
+    rows = QAHistory.query.filter_by(user_id=uid).order_by(QAHistory.created_at.desc()).limit(50).all()
+    out = [{"id": r.id, "question": r.question, "answer": r.answer, "subject": r.subject, "created_at": r.created_at.isoformat()} for r in rows]
+    return jsonify({"history": out})
+
+# ------------------------
+# Error handlers
+# ------------------------
+@app.errorhandler(404)
+def handle_404(e):
+    if request.path.startswith('/api/'):
+        return jsonify({"error": "Endpoint not found"}), 404
+    flash("Page not found", "error")
+    return redirect(url_for("login"))
+
+@app.errorhandler(500)
+def handle_500(e):
+    if request.path.startswith('/api/'):
+        return jsonify({"error": "Internal server error"}), 500
+    flash("An error occurred", "error")
+    return redirect(url_for("login"))
+
+# ------------------------
+# Run
+# ------------------------
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    debug = os.environ.get("FLASK_ENV") == "development"
+    print(f"Starting PhenBOT on port {port} (debug={debug})")
+    print(f"Database: {app.config['SQLALCHEMY_DATABASE_URI']}")
+    print(f"Groq AI available: {GROQ_AVAILABLE}")
+    if not GROQ_AVAILABLE:
+        print(f"Groq error: {GROQ_ERROR}")
+    app.run(host="0.0.0.0", port=port, debug=debug)
