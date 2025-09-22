@@ -2,19 +2,19 @@ import os
 import json
 import traceback
 from functools import wraps
-from flask import Flask, request, jsonify, session, redirect, url_for, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, session, redirect, url_for
 from flask_bcrypt import generate_password_hash, check_password_hash
 
 app = Flask(__name__, static_folder="static", static_url_path="")
 app.secret_key = os.environ.get("SECRET_KEY", "supersecretkey")
 USERS_FILE = os.path.join(os.path.dirname(__file__), "users.json")
 
-# --- User helpers ---
 def load_users():
     if not os.path.exists(USERS_FILE):
         return {}
     with open(USERS_FILE, "r") as f:
         return json.load(f)
+
 def save_users(users):
     with open(USERS_FILE, "w") as f:
         json.dump(users, f, indent=4)
@@ -30,7 +30,6 @@ def require_login(func):
         return func(*args, **kwargs)
     return wrapper
 
-# --- Groq Setup ---
 try:
     from groq import Groq
 except ImportError:
@@ -38,7 +37,6 @@ except ImportError:
 groq_client = None
 GROQ_AVAILABLE = False
 GROQ_ERROR = None
-
 def initialize_groq():
     global groq_client, GROQ_AVAILABLE, GROQ_ERROR
     if Groq is None:
@@ -56,7 +54,6 @@ def initialize_groq():
     except Exception as e:
         GROQ_ERROR = str(e)
         GROQ_AVAILABLE = False
-
 initialize_groq()
 
 def get_ai_response(question, subject):
@@ -75,17 +72,16 @@ def get_ai_response(question, subject):
             model="llama-3.1-instant",
             messages=[
                 {"role": "system", "content": prompt},
-                {"role": "user", "content": question},
+                {"role": "user", "content": question}
             ],
             temperature=0.7,
-            max_tokens=500,
+            max_tokens=500
         )
         return response.choices[0].message.content
     except Exception as e:
+        # Log actual error for debugging
         print(f"Groq API error: {e}")
         return f"Error calling Groq API: {e}"
-
-# --- Routes ---
 
 @app.route("/")
 def index():
@@ -142,19 +138,15 @@ def dashboard():
 @app.route("/api/ask", methods=["POST"])
 @require_login
 def api_ask():
-    try:
-        data = request.get_json(force=True, silent=True)
-        question = data.get("question", "").strip()
-        subject = data.get("subject", "general")
-        if question == "":
-            return jsonify({"error": "Empty question"}), 400
-        if not GROQ_AVAILABLE:
-            return jsonify({"error": f"AI system unavailable: {GROQ_ERROR}"}), 503
-        answer = get_ai_response(question, subject)
-        return jsonify({"answer": answer})
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({"error": f"Server error: {e}"}), 500
+    data = request.get_json(force=True, silent=True)
+    question = data.get("question", "").strip()
+    subject = data.get("subject", "general")
+    if question == "":
+        return jsonify({"error": "Empty question"}), 400
+    if not GROQ_AVAILABLE:
+        return jsonify({"error": f"AI system unavailable: {GROQ_ERROR}"}), 503
+    answer = get_ai_response(question, subject)
+    return jsonify({"answer": answer})
 
 @app.route("/health")
 def health():
@@ -166,9 +158,6 @@ def health():
 
 @app.route("/static/<path:path>")
 def static_files(path):
-    static_path = os.path.join(app.static_folder, path)
-    if not os.path.exists(static_path):
-        return jsonify({"error": "Static file not found"}), 404
     return send_from_directory(app.static_folder, path)
 
 @app.errorhandler(404)
