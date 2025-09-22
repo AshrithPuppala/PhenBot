@@ -1,3 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="dashboard-grid">
+  <div class="card">
+    <h3>Today's Progress</h3>
+    <p>Welcome, {{ username }} — use the tabs to access AI chat, upload PDFs, flashcards, and bookmarks.</p>
+  </div>
+
+  <div class="card">
+    <h3>AI Chat</h3>
+    <div id="aiStatus">Checking AI status...</div>
+    <div id="chatArea">
+      <div id="messages" style="max-height:280px; overflow:auto; background:#f7fafc; padding:10px; border-radius:8px;"></div>
+      <textarea id="q" placeholder="Ask a question..." style="width:100%; margin-top:8px;"></textarea>
+      <div style="margin-top:8px;">
+        <select id="subject">
+          <option value="general">General</option>
+          <option value="math">Mathematics</option>
+          <option value="science">Science</option>
+          <option value="english">English</option>
+          <option value="history">History</option>
+        </select>
+        <button id="askBtn" class="btn-primary">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Upload PDF</h3>
+    <input type="file" id="pdfFile" accept="application/pdf"/>
+    <button id="uploadPdf" class="btn-primary">Upload</button>
+    <div id="pdfResult"></div>
+    <div id="pdfList"></div>
+  </div>
+
+  <div class="card">
+    <h3>Pomodoro</h3>
+    <div id="pomTime" style="font-size:28px; font-weight:700;">25:00</div>
+    <div style="margin-top:8px;">
+      <button id="pomStart" class="btn-primary">Start</button>
+      <button id="pomPause" class="btn-ghost">Pause</button>
+      <button id="pomReset" class="btn-ghost">Reset</button>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -13,53 +55,31 @@
             box-sizing: border-box;
         }
 
-        :root {
-            --primary-bg: #0f0f23;
-            --secondary-bg: #1a1a2e;
-            --tertiary-bg: #16213e;
-            --card-bg: rgba(30, 41, 59, 0.85);
-            --card-border: rgba(71, 85, 105, 0.3);
-            --primary-blue: #4f46e5;
-            --primary-purple: #7c3aed;
-            --primary-green: #10b981;
-            --primary-cyan: #06b6d4;
-            --primary-orange: #f59e0b;
-            --primary-red: #ef4444;
-            --text-primary: #f8fafc;
-            --text-secondary: #e2e8f0;
-            --text-muted: #94a3b8;
-            --text-disabled: #64748b;
-        }
-
         body {
             font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, var(--primary-bg) 0%, var(--secondary-bg) 50%, var(--tertiary-bg) 100%);
-            color: var(--text-secondary);
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+            color: #e2e8f0;
             min-height: 100vh;
             overflow-x: hidden;
         }
 
-        .app-container {
-            display: flex;
-            min-height: 100vh;
-        }
-
-        /* Sidebar */
-        .sidebar {
-            width: 300px;
-            background: var(--card-bg);
+        .navbar {
+            background: rgba(15, 15, 35, 0.95);
             backdrop-filter: blur(20px);
-            border-right: 1px solid var(--card-border);
-            display: flex;
-            flex-direction: column;
-            transition: transform 0.3s ease;
-            z-index: 100;
+            border-bottom: 1px solid rgba(79, 70, 229, 0.2);
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
         }
 
-        .sidebar-header {
-            padding: 1.5rem;
-            background: linear-gradient(135deg, var(--primary-blue), var(--primary-purple));
-            color: white;
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 2rem;
         }
 
         .logo {
@@ -67,132 +87,30 @@
             align-items: center;
             font-size: 1.5rem;
             font-weight: 700;
-            margin-bottom: 0.5rem;
+            color: #818cf8;
         }
 
         .logo i {
             margin-right: 0.5rem;
-            font-size: 1.8rem;
+            color: #4f46e5;
         }
 
-        .tagline {
-            font-size: 0.85rem;
-            opacity: 0.9;
-        }
-
-        .sidebar-nav {
-            flex: 1;
-            padding: 1rem 0;
-            overflow-y: auto;
-        }
-
-        .nav-item {
+        .nav-actions {
             display: flex;
             align-items: center;
-            padding: 1rem 1.5rem;
-            color: var(--text-muted);
-            text-decoration: none;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            border-left: 3px solid transparent;
-        }
-
-        .nav-item:hover, .nav-item.active {
-            background: rgba(79, 70, 229, 0.1);
-            color: var(--primary-blue);
-            border-left-color: var(--primary-blue);
-        }
-
-        .nav-item i {
-            width: 24px;
-            margin-right: 0.75rem;
-            font-size: 1.1rem;
+            gap: 1rem;
         }
 
         .user-info {
-            padding: 1rem 1.5rem;
-            border-top: 1px solid var(--card-border);
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .user-avatar {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan));
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 600;
-        }
-
-        /* Main Content */
-        .main-content {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        .top-bar {
-            background: var(--card-bg);
-            backdrop-filter: blur(20px);
-            border-bottom: 1px solid var(--card-border);
-            padding: 1rem 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .top-bar-left {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .page-title {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
-        .status-badge {
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            background: rgba(16, 185, 129, 0.2);
-            color: var(--primary-green);
-            border-radius: 50px;
-            font-size: 0.85rem;
-            font-weight: 500;
-        }
-
-        .top-bar-right {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .pomodoro-mini {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            background: rgba(245, 158, 11, 0.2);
-            color: var(--primary-orange);
-            border-radius: 50px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            cursor: pointer;
+            color: #94a3b8;
         }
 
         .logout-btn {
-            background: rgba(239, 68, 68, 0.2);
-            color: var(--primary-red);
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
             border: none;
             padding: 0.5rem 1rem;
             border-radius: 8px;
@@ -202,522 +120,304 @@
         }
 
         .logout-btn:hover {
-            background: rgba(239, 68, 68, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(239, 68, 68, 0.3);
         }
 
-        /* Content Area */
-        .content-area {
-            flex: 1;
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
             padding: 2rem;
-            overflow-y: auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: auto 1fr;
+            gap: 2rem;
+            min-height: calc(100vh - 100px);
         }
 
-        .tab-content {
-            display: none;
-            animation: fadeIn 0.3s ease;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* AI Chat Section */
-        .ai-chat-container {
-            background: var(--card-bg);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--card-border);
+        .welcome-section {
+            grid-column: 1 / -1;
+            background: linear-gradient(135deg, rgba(79, 70, 229, 0.1), rgba(139, 92, 246, 0.1));
+            border: 1px solid rgba(79, 70, 229, 0.2);
             border-radius: 20px;
-            height: calc(100vh - 200px);
-            display: flex;
-            flex-direction: column;
+            padding: 2rem;
+            text-align: center;
+            position: relative;
             overflow: hidden;
         }
 
-        .chat-header {
-            padding: 1.5rem 2rem;
-            background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan));
-            color: white;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .chat-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-        }
-
-        .chat-controls {
-            display: flex;
-            gap: 1rem;
-            align-items: center;
-        }
-
-        .mode-selector, .length-selector {
-            background: rgba(255, 255, 255, 0.2);
-            border: none;
-            border-radius: 8px;
-            padding: 0.5rem 1rem;
-            color: white;
-            font-size: 0.85rem;
-            cursor: pointer;
-        }
-
-        .mode-selector option, .length-selector option {
-            background: var(--secondary-bg);
-            color: var(--text-secondary);
-        }
-
-        .voice-btn {
-            background: rgba(255, 255, 255, 0.2);
-            border: none;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            color: white;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s ease;
-        }
-
-        .voice-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
-
-        .voice-btn.recording {
-            background: var(--primary-red);
-            animation: pulse 1s infinite;
+        .welcome-section::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(79, 70, 229, 0.05) 0%, transparent 70%);
+            animation: pulse 4s ease-in-out infinite;
         }
 
         @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.1); }
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 0.8; }
         }
 
-        .chat-messages {
-            flex: 1;
-            padding: 2rem;
-            overflow-y: auto;
-            scroll-behavior: smooth;
+        .welcome-content {
+            position: relative;
+            z-index: 2;
         }
 
-        .message {
-            display: flex;
-            gap: 1rem;
+        .welcome-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #818cf8, #a78bfa);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 1rem;
+        }
+
+        .welcome-subtitle {
+            font-size: 1.1rem;
+            color: #94a3b8;
             margin-bottom: 1.5rem;
-            animation: slideIn 0.3s ease;
         }
 
-        .message.user {
-            flex-direction: row-reverse;
+        .feature-pills {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
         }
 
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        .pill {
+            background: rgba(79, 70, 229, 0.2);
+            border: 1px solid rgba(79, 70, 229, 0.3);
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            color: #c7d2fe;
         }
 
-        .message-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
+        .card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(71, 85, 105, 0.3);
+            border-radius: 20px;
+            padding: 2rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #4f46e5, #7c3aed, #ec4899);
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            border-color: rgba(79, 70, 229, 0.5);
+        }
+
+        .card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .card-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 15px;
             display: flex;
             align-items: center;
             justify-content: center;
+            font-size: 1.5rem;
+            margin-right: 1rem;
+        }
+
+        .ai-chat .card-icon {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+        }
+
+        .upload-section .card-icon {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+        }
+
+        .pomodoro .card-icon {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+        }
+
+        .card-title {
+            font-size: 1.3rem;
             font-weight: 600;
-            font-size: 0.9rem;
-            flex-shrink: 0;
+            color: #f8fafc;
         }
 
-        .message.user .message-avatar {
-            background: linear-gradient(135deg, var(--primary-blue), var(--primary-purple));
-            color: white;
-        }
-
-        .message.bot .message-avatar {
-            background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan));
-            color: white;
-        }
-
-        .message-content {
-            max-width: 70%;
-            padding: 1rem 1.5rem;
-            border-radius: 18px;
-            line-height: 1.6;
-            font-size: 0.95rem;
-        }
-
-        .message.user .message-content {
-            background: linear-gradient(135deg, var(--primary-blue), var(--primary-purple));
-            color: white;
-            border-bottom-right-radius: 8px;
-        }
-
-        .message.bot .message-content {
-            background: rgba(71, 85, 105, 0.3);
-            color: var(--text-secondary);
-            border-bottom-left-radius: 8px;
-            border-left: 3px solid var(--primary-green);
-        }
-
-        .typing-indicator {
+        .status-indicator {
             display: flex;
-            gap: 4px;
-            padding: 1rem 1.5rem;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
         }
 
-        .typing-dot {
+        .status-dot {
             width: 8px;
             height: 8px;
             border-radius: 50%;
-            background: var(--text-muted);
-            animation: typing 1.4s infinite ease-in-out;
+            background: #10b981;
         }
 
-        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
-        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
-
-        @keyframes typing {
-            0%, 60%, 100% { transform: translateY(0); }
-            30% { transform: translateY(-10px); }
+        .chat-container {
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 15px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            max-height: 300px;
+            overflow-y: auto;
         }
 
-        .chat-input-area {
-            padding: 1.5rem 2rem;
-            border-top: 1px solid var(--card-border);
-            background: rgba(15, 23, 42, 0.5);
+        .chat-message {
+            margin-bottom: 1rem;
         }
 
-        .input-container {
+        .message-user {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: white;
+            padding: 0.8rem 1rem;
+            border-radius: 15px 15px 5px 15px;
+            margin-left: 2rem;
+            font-size: 0.9rem;
+        }
+
+        .message-bot {
+            background: rgba(71, 85, 105, 0.5);
+            color: #e2e8f0;
+            padding: 0.8rem 1rem;
+            border-radius: 15px 15px 15px 5px;
+            margin-right: 2rem;
+            font-size: 0.9rem;
+            border-left: 3px solid #10b981;
+        }
+
+        .chat-input-container {
             display: flex;
-            gap: 1rem;
-            align-items: flex-end;
+            gap: 0.5rem;
+            margin-top: 1rem;
         }
 
         .chat-input {
             flex: 1;
             background: rgba(15, 23, 42, 0.8);
-            border: 1px solid var(--card-border);
-            border-radius: 25px;
-            padding: 1rem 1.5rem;
-            color: var(--text-secondary);
-            font-size: 0.95rem;
-            resize: none;
-            min-height: 50px;
-            max-height: 120px;
-            transition: all 0.3s ease;
+            border: 1px solid rgba(71, 85, 105, 0.3);
+            border-radius: 12px;
+            padding: 0.8rem 1rem;
+            color: #e2e8f0;
+            font-size: 0.9rem;
         }
 
         .chat-input:focus {
             outline: none;
-            border-color: var(--primary-blue);
+            border-color: #4f46e5;
             box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
         }
 
         .chat-input::placeholder {
-            color: var(--text-disabled);
+            color: #64748b;
         }
 
         .send-btn {
-            background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan));
+            background: linear-gradient(135deg, #10b981, #059669);
             color: white;
             border: none;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
+            border-radius: 12px;
+            padding: 0.8rem 1rem;
             cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.1rem;
             transition: all 0.3s ease;
         }
 
         .send-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
-        }
-
-        .send-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        /* PDF Upload Section */
-        .upload-container {
-            background: var(--card-bg);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--card-border);
-            border-radius: 20px;
-            padding: 2rem;
-            margin-bottom: 2rem;
-        }
-
-        .upload-header {
-            display: flex;
-            align-items: center;
-            margin-bottom: 1.5rem;
-        }
-
-        .upload-icon {
-            width: 60px;
-            height: 60px;
-            background: linear-gradient(135deg, var(--primary-cyan), var(--primary-blue));
-            border-radius: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 1.5rem;
-            margin-right: 1rem;
-        }
-
-        .upload-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: var(--text-primary);
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3);
         }
 
         .upload-area {
-            border: 2px dashed var(--card-border);
+            border: 2px dashed rgba(59, 130, 246, 0.3);
             border-radius: 15px;
-            padding: 3rem 2rem;
+            padding: 2rem;
             text-align: center;
-            cursor: pointer;
             transition: all 0.3s ease;
-            margin-bottom: 1.5rem;
+            cursor: pointer;
         }
 
-        .upload-area:hover, .upload-area.dragover {
-            border-color: var(--primary-blue);
-            background: rgba(79, 70, 229, 0.05);
+        .upload-area:hover {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.05);
         }
 
-        .upload-area i {
-            font-size: 3rem;
-            color: var(--primary-blue);
-            margin-bottom: 1rem;
-            display: block;
+        .upload-area.dragover {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.1);
         }
 
         .file-input {
             display: none;
         }
 
-        .pdf-actions {
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-            margin-top: 1rem;
-        }
-
-        .action-btn {
-            background: linear-gradient(135deg, var(--primary-blue), var(--primary-purple));
+        .upload-btn {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
             color: white;
             border: none;
-            padding: 0.75rem 1.5rem;
+            padding: 0.8rem 1.5rem;
             border-radius: 12px;
             cursor: pointer;
             font-weight: 500;
+            margin-top: 1rem;
             transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
         }
 
-        .action-btn:hover {
+        .upload-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(79, 70, 229, 0.4);
-        }
-
-        .action-btn.secondary {
-            background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan));
-        }
-
-        .uploaded-files {
-            margin-top: 1.5rem;
-        }
-
-        .file-item {
-            background: rgba(15, 23, 42, 0.8);
-            border-radius: 12px;
-            padding: 1rem;
-            margin-bottom: 0.75rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .file-info {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .file-info i {
-            color: var(--primary-red);
-            font-size: 1.5rem;
-        }
-
-        .file-details h4 {
-            color: var(--text-primary);
-            font-size: 0.95rem;
-            margin-bottom: 0.25rem;
-        }
-
-        .file-details p {
-            color: var(--text-muted);
-            font-size: 0.8rem;
-        }
-
-        .file-actions {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .icon-btn {
-            width: 36px;
-            height: 36px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s ease;
-        }
-
-        .icon-btn.primary {
-            background: rgba(79, 70, 229, 0.2);
-            color: var(--primary-blue);
-        }
-
-        .icon-btn.success {
-            background: rgba(16, 185, 129, 0.2);
-            color: var(--primary-green);
-        }
-
-        .icon-btn.danger {
-            background: rgba(239, 68, 68, 0.2);
-            color: var(--primary-red);
-        }
-
-        .icon-btn:hover {
-            transform: translateY(-1px);
-        }
-
-        /* Flashcards Section */
-        .flashcards-container {
-            background: var(--card-bg);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--card-border);
-            border-radius: 20px;
-            padding: 2rem;
-        }
-
-        .flashcard-controls {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-        }
-
-        .flashcard-nav {
-            display: flex;
-            gap: 1rem;
-            align-items: center;
-        }
-
-        .flashcard {
-            background: linear-gradient(135deg, rgba(79, 70, 229, 0.1), rgba(124, 58, 237, 0.1));
-            border: 1px solid var(--card-border);
-            border-radius: 20px;
-            height: 300px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            position: relative;
-            perspective: 1000px;
-            margin-bottom: 2rem;
-        }
-
-        .flashcard-inner {
-            width: 100%;
-            height: 100%;
-            position: relative;
-            transform-style: preserve-3d;
-            transition: transform 0.3s ease;
-            border-radius: 20px;
-        }
-
-        .flashcard.flipped .flashcard-inner {
-            transform: rotateY(180deg);
-        }
-
-        .flashcard-front, .flashcard-back {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            backface-visibility: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 2rem;
-            border-radius: 20px;
-        }
-
-        .flashcard-back {
-            transform: rotateY(180deg);
-            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(6, 182, 212, 0.1));
-        }
-
-        .flashcard-content {
-            font-size: 1.1rem;
-            line-height: 1.6;
-            color: var(--text-secondary);
-        }
-
-        /* Pomodoro Timer */
-        .pomodoro-container {
-            background: var(--card-bg);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--card-border);
-            border-radius: 20px;
-            padding: 2rem;
-            text-align: center;
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
         }
 
         .timer-display {
-            font-size: 4rem;
+            font-size: 3rem;
             font-weight: 700;
-            color: var(--primary-orange);
+            text-align: center;
             margin: 2rem 0;
-            text-shadow: 0 0 30px rgba(245, 158, 11, 0.3);
+            color: #f59e0b;
+            text-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
         }
 
         .timer-controls {
             display: flex;
             justify-content: center;
             gap: 1rem;
-            margin-bottom: 2rem;
         }
 
         .timer-btn {
-            background: rgba(71, 85, 105, 0.3);
-            color: var(--text-secondary);
-            border: 1px solid var(--card-border);
-            padding: 0.75rem 1.5rem;
+            background: rgba(71, 85, 105, 0.5);
+            color: #e2e8f0;
+            border: 1px solid rgba(71, 85, 105, 0.3);
+            padding: 0.8rem 1.5rem;
             border-radius: 12px;
             cursor: pointer;
             font-weight: 500;
@@ -725,891 +425,534 @@
         }
 
         .timer-btn:hover {
-            background: rgba(71, 85, 105, 0.5);
+            background: rgba(71, 85, 105, 0.8);
             transform: translateY(-2px);
         }
 
-        .timer-btn.primary {
-            background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan));
-            color: white;
-            border-color: var(--primary-green);
+        .timer-btn.start {
+            background: linear-gradient(135deg, #10b981, #059669);
+            border-color: #10b981;
         }
 
-        .timer-settings {
+        .uploaded-files {
+            margin-top: 1rem;
+        }
+
+        .file-item {
             display: flex;
-            justify-content: center;
-            gap: 2rem;
-            margin-top: 1.5rem;
-        }
-
-        .setting-item {
-            text-align: center;
-        }
-
-        .setting-item label {
-            display: block;
-            color: var(--text-muted);
-            font-size: 0.85rem;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(15, 23, 42, 0.8);
+            padding: 0.8rem 1rem;
+            border-radius: 8px;
             margin-bottom: 0.5rem;
         }
 
-        .setting-input {
-            background: rgba(15, 23, 42, 0.8);
-            border: 1px solid var(--card-border);
-            border-radius: 8px;
-            padding: 0.5rem;
-            color: var(--text-secondary);
-            width: 80px;
-            text-align: center;
+        .file-name {
+            color: #3b82f6;
+            text-decoration: none;
+            font-weight: 500;
         }
 
-        /* Responsive Design */
+        .file-name:hover {
+            color: #1d4ed8;
+        }
+
         @media (max-width: 1024px) {
-            .sidebar {
-                position: fixed;
-                left: -300px;
-                height: 100vh;
-                z-index: 1000;
-            }
-
-            .sidebar.open {
-                left: 0;
-            }
-
-            .main-content {
-                width: 100%;
-            }
-
-            .sidebar-toggle {
-                display: block;
-                background: none;
-                border: none;
-                color: var(--text-secondary);
-                font-size: 1.2rem;
-                cursor: pointer;
-                padding: 0.5rem;
+            .main-container {
+                grid-template-columns: 1fr 1fr;
+                padding: 1rem;
             }
         }
 
         @media (max-width: 768px) {
-            .content-area {
+            .main-container {
+                grid-template-columns: 1fr;
                 padding: 1rem;
             }
-
-            .chat-controls {
-                flex-direction: column;
-                gap: 0.5rem;
+            
+            .welcome-title {
+                font-size: 2rem;
             }
-
-            .mode-selector, .length-selector {
-                width: 100%;
+            
+            .nav-container {
+                padding: 0 1rem;
             }
-
-            .pdf-actions {
+            
+            .feature-pills {
                 flex-direction: column;
+                align-items: center;
             }
+        }
 
-            .flashcard-nav {
-                flex-direction: column;
-                gap: 0.5rem;
+        .floating-particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: rgba(79, 70, 229, 0.3);
+            border-radius: 50%;
+            animation: float 20s infinite linear;
+        }
+
+        @keyframes float {
+            0% {
+                transform: translateY(100vh) translateX(0px);
+                opacity: 0;
             }
-
-            .timer-settings {
-                flex-direction: column;
-                gap: 1rem;
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-100px) translateX(100px);
+                opacity: 0;
             }
         }
     </style>
 </head>
 <body>
-    <div class="app-container">
-        <!-- Sidebar -->
-        <div class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-                <div class="logo">
-                    <i class="fas fa-brain"></i>
-                    PhenBOT
-                </div>
-                <div class="tagline">Advanced Study Companion</div>
+    <div class="floating-particles" id="particles"></div>
+    
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <i class="fas fa-brain"></i>
+                PhenBOT
+                <span style="font-size: 0.8rem; margin-left: 0.5rem; color: #64748b;">Advanced Study Companion</span>
             </div>
+            <div class="nav-actions">
+                <div class="user-info">
+                    <i class="fas fa-user-circle"></i>
+                    <span>{{ username or 'ashrith07' }}</span>
+                </div>
+                <button class="logout-btn" onclick="logout()">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Logout
+                </button>
+            </div>
+        </div>
+    </nav>
 
-            <nav class="sidebar-nav">
-                <div class="nav-item active" data-tab="ai-chat">
+    <div class="main-container">
+        <div class="welcome-section">
+            <div class="welcome-content">
+                <h1 class="welcome-title">Welcome Back, {{ username or 'ashrith07' }}!</h1>
+                <p class="welcome-subtitle">Your intelligent study companion is ready to help you achieve academic excellence</p>
+                <div class="feature-pills">
+                    <span class="pill"><i class="fas fa-robot"></i> AI Chat Assistant</span>
+                    <span class="pill"><i class="fas fa-file-upload"></i> PDF Analysis</span>
+                    <span class="pill"><i class="fas fa-clock"></i> Pomodoro Timer</span>
+                    <span class="pill"><i class="fas fa-bookmark"></i> Smart Bookmarks</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card ai-chat">
+            <div class="card-header">
+                <div class="card-icon">
                     <i class="fas fa-comments"></i>
-                    AI Chat Assistant
-                </div>
-                <div class="nav-item" data-tab="pdf-tools">
-                    <i class="fas fa-file-pdf"></i>
-                    PDF Tools
-                </div>
-                <div class="nav-item" data-tab="flashcards">
-                    <i class="fas fa-layer-group"></i>
-                    Flashcards
-                </div>
-                <div class="nav-item" data-tab="pomodoro">
-                    <i class="fas fa-clock"></i>
-                    Pomodoro Timer
-                </div>
-                <div class="nav-item" data-tab="analytics">
-                    <i class="fas fa-chart-line"></i>
-                    Analytics
-                </div>
-                <div class="nav-item" data-tab="settings">
-                    <i class="fas fa-cog"></i>
-                    Settings
-                </div>
-            </nav>
-
-            <div class="user-info">
-                <div class="user-avatar">
-                    {{ username[0].upper() if username else 'A' }}
                 </div>
                 <div>
-                    <div style="font-weight: 600; color: var(--text-primary);">{{ username or 'ashrith07' }}</div>
-                    <div style="font-size: 0.8rem; color: var(--text-muted);">Premium User</div>
+                    <h3 class="card-title">AI Chat</h3>
+                    <div class="status-indicator">
+                        <span class="status-dot"></span>
+                        <span>AI connected</span>
+                    </div>
                 </div>
+            </div>
+            
+            <div class="chat-container" id="chatContainer">
+                <div class="chat-message">
+                    <div class="message-bot">
+                        Hello! I'm PhenBOT, your study companion. How can I assist you today? 
+                        Do you have any specific subjects or topics you'd like to discuss, or perhaps 
+                        you need help with a particular problem or assignment?
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chat-input-container">
+                <input type="text" class="chat-input" id="chatInput" placeholder="Ask a question..." 
+                       onkeypress="handleChatKeyPress(event)">
+                <button class="send-btn" onclick="sendMessage()">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
             </div>
         </div>
 
-        <!-- Main Content -->
-        <div class="main-content">
-            <!-- Top Bar -->
-            <div class="top-bar">
-                <div class="top-bar-left">
-                    <button class="sidebar-toggle" id="sidebarToggle" style="display: none;">
-                        <i class="fas fa-bars"></i>
-                    </button>
-                    <div class="page-title" id="pageTitle">AI Chat Assistant</div>
-                    <div class="status-badge">
-                        <i class="fas fa-circle"></i>
-                        <span id="aiStatus">AI Online</span>
-                    </div>
+        <div class="card upload-section">
+            <div class="card-header">
+                <div class="card-icon">
+                    <i class="fas fa-cloud-upload-alt"></i>
                 </div>
-                <div class="top-bar-right">
-                    <div class="pomodoro-mini" id="pomodoroMini">
-                        <i class="fas fa-clock"></i>
-                        <span id="miniTimer">25:00</span>
+                <div>
+                    <h3 class="card-title">Upload PDF</h3>
+                    <div class="status-indicator">
+                        <span class="status-dot" style="background: #3b82f6;"></span>
+                        <span>Ready to upload</span>
                     </div>
-                    <button class="logout-btn" onclick="logout()">
-                        <i class="fas fa-sign-out-alt"></i>
-                        Logout
-                    </button>
                 </div>
             </div>
+            
+            <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                <i class="fas fa-file-pdf" style="font-size: 3rem; color: #3b82f6; margin-bottom: 1rem;"></i>
+                <p style="margin-bottom: 0.5rem; font-weight: 500;">Drop PDF files here</p>
+                <p style="color: #64748b; font-size: 0.9rem;">or click to browse</p>
+                <input type="file" id="fileInput" class="file-input" accept=".pdf" onchange="handleFileUpload(event)">
+            </div>
+            
+            <div class="uploaded-files" id="uploadedFiles">
+                <!-- Uploaded files will appear here -->
+            </div>
+        </div>
 
-            <!-- Content Area -->
-            <div class="content-area">
-                <!-- AI Chat Tab -->
-                <div class="tab-content active" id="ai-chat">
-                    <div class="ai-chat-container">
-                        <div class="chat-header">
-                            <div class="chat-title">AI Study Assistant</div>
-                            <div class="chat-controls">
-                                <select class="mode-selector" id="chatMode">
-                                    <option value="normal">Normal Chat</option>
-                                    <option value="analogy">Analogy Mode</option>
-                                    <option value="quiz">Quiz Mode</option>
-                                    <option value="teach">Teaching Mode</option>
-                                    <option value="socratic">Socratic Method</option>
-                                    <option value="explain">ELI5 Mode</option>
-                                </select>
-                                <select class="length-selector" id="responseLength">
-                                    <option value="short">Short</option>
-                                    <option value="normal">Normal</option>
-                                    <option value="detailed">Detailed</option>
-                                </select>
-                                <button class="voice-btn" id="voiceBtn" title="Voice Chat">
-                                    <i class="fas fa-microphone"></i>
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <div class="chat-messages" id="chatMessages">
-                            <div class="message bot">
-                                <div class="message-avatar">
-                                    <i class="fas fa-robot"></i>
-                                </div>
-                                <div class="message-content">
-                                    Hello! I'm PhenBOT, your advanced study companion. I can help you in different modes:
-                                    <br><br>
-                                    📚 <strong>Normal:</strong> Regular conversation and help<br>
-                                    🎭 <strong>Analogy:</strong> Explain concepts using analogies<br>
-                                    ❓ <strong>Quiz:</strong> Test your knowledge<br>
-                                    🎓 <strong>Teaching:</strong> Step-by-step explanations<br>
-                                    🤔 <strong>Socratic:</strong> Learn through questioning<br>
-                                    🌟 <strong>ELI5:</strong> Simple explanations<br><br>
-                                    What would you like to learn today?
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="chat-input-area">
-                            <div class="input-container">
-                                <textarea class="chat-input" id="chatInput" placeholder="Ask me anything..." rows="1"></textarea>
-                                <button class="send-btn" id="sendBtn">
-                                    <i class="fas fa-paper-plane"></i>
-                                </button>
-                            </div>
-                        </div>
+        <div class="card pomodoro">
+            <div class="card-header">
+                <div class="card-icon">
+                    <i class="fas fa-stopwatch"></i>
+                </div>
+                <div>
+                    <h3 class="card-title">Pomodoro Timer</h3>
+                    <div class="status-indicator">
+                        <span class="status-dot" style="background: #f59e0b;"></span>
+                        <span>Ready to focus</span>
                     </div>
                 </div>
-
-                <!-- PDF Tools Tab -->
-                <div class="tab-content" id="pdf-tools">
-                    <div class="upload-container">
-                        <div class="upload-header">
-                            <div class="upload-icon">
-                                <i class="fas fa-file-pdf"></i>
-                            </div>
-                            <div>
-                                <div class="upload-title">PDF Document Tools</div>
-                                <p style="color: var(--text-muted); margin-top: 0.5rem;">Upload, analyze, and create study materials from your PDFs</p>
-                            </div>
-                        </div>
-
-                        <div class="upload-area" id="uploadArea">
-                            <i class="fas fa-cloud-upload-alt"></i>
-                            <h3 style="margin-bottom: 0.5rem; color: var(--text-primary);">Drop PDF files here</h3>
-                            <p style="color: var(--text-muted);">or click to browse your computer</p>
-                            <input type="file" id="fileInput" class="file-input" accept=".pdf" multiple>
-                        </div>
-
-                        <div class="pdf-actions" id="pdfActions" style="display: none;">
-                            <button class="action-btn" id="summarizeBtn">
-                                <i class="fas fa-compress-alt"></i>
-                                Summarize PDF
-                            </button>
-                            <button class="action-btn secondary" id="createFlashcardsBtn">
-                                <i class="fas fa-layer-group"></i>
-                                Create Flashcards
-                            </button>
-                            <button class="action-btn" id="askPdfBtn">
-                                <i class="fas fa-question-circle"></i>
-                                Ask Questions
-                            </button>
-                        </div>
-
-                        <div class="uploaded-files" id="uploadedFiles"></div>
-                    </div>
-
-                    <div id="pdfResults" style="display: none;"></div>
-                </div>
-
-                <!-- Flashcards Tab -->
-                <div class="tab-content" id="flashcards">
-                    <div class="flashcards-container">
-                        <div class="flashcard-controls">
-                            <div>
-                                <h2 style="color: var(--text-primary); margin-bottom: 0.5rem;">Study Flashcards</h2>
-                                <p style="color: var(--text-muted);">Review and master your concepts</p>
-                            </div>
-                            <div class="flashcard-nav">
-                                <button class="action-btn" id="createManualCard">
-                                    <i class="fas fa-plus"></i>
-                                    Create Card
-                                </button>
-                                <button class="action-btn secondary" id="generateAiCards">
-                                    <i class="fas fa-magic"></i>
-                                    AI Generate
-                                </button>
-                                <select id="difficultySelect" class="mode-selector">
-                                    <option value="easy">Easy</option>
-                                    <option value="medium">Medium</option>
-                                    <option value="hard">Hard</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div id="flashcardDeck" style="display: none;">
-                            <div class="flashcard" id="currentFlashcard">
-                                <div class="flashcard-inner">
-                                    <div class="flashcard-front">
-                                        <div class="flashcard-content" id="cardFront">
-                                            Click to reveal answer
-                                        </div>
-                                    </div>
-                                    <div class="flashcard-back">
-                                        <div class="flashcard-content" id="cardBack">
-                                            Answer will appear here
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="flashcard-controls">
-                                <button class="timer-btn" id="prevCard">
-                                    <i class="fas fa-chevron-left"></i>
-                                    Previous
-                                </button>
-                                <span id="cardCounter" style="color: var(--text-muted);">1 / 10</span>
-                                <button class="timer-btn" id="nextCard">
-                                    Next
-                                    <i class="fas fa-chevron-right"></i>
-                                </button>
-                            </div>
-
-                            <div style="text-align: center; margin-top: 1rem;">
-                                <button class="timer-btn" id="shuffleCards">
-                                    <i class="fas fa-random"></i>
-                                    Shuffle
-                                </button>
-                                <button class="timer-btn" id="resetProgress">
-                                    <i class="fas fa-redo"></i>
-                                    Reset
-                                </button>
-                            </div>
-                        </div>
-
-                        <div id="flashcardEmpty" class="text-center" style="padding: 3rem;">
-                            <i class="fas fa-layer-group" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
-                            <h3 style="color: var(--text-primary); margin-bottom: 1rem;">No flashcards yet</h3>
-                            <p style="color: var(--text-muted); margin-bottom: 2rem;">Create your first set of flashcards to start studying</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Pomodoro Tab -->
-                <div class="tab-content" id="pomodoro">
-                    <div class="pomodoro-container">
-                        <h2 style="color: var(--text-primary); margin-bottom: 1rem;">Pomodoro Timer</h2>
-                        <p style="color: var(--text-muted); margin-bottom: 2rem;">Stay focused with the proven Pomodoro Technique</p>
-
-                        <div class="timer-display" id="timerDisplay">25:00</div>
-
-                        <div id="timerStatus" style="color: var(--text-muted); margin-bottom: 1rem; font-size: 1.1rem;">
-                            Ready to start - Focus Session
-                        </div>
-
-                        <div class="timer-controls">
-                            <button class="timer-btn primary" id="startTimer">
-                                <i class="fas fa-play"></i>
-                                Start
-                            </button>
-                            <button class="timer-btn" id="pauseTimer">
-                                <i class="fas fa-pause"></i>
-                                Pause
-                            </button>
-                            <button class="timer-btn" id="resetTimer">
-                                <i class="fas fa-stop"></i>
-                                Reset
-                            </button>
-                        </div>
-
-                        <div class="timer-settings">
-                            <div class="setting-item">
-                                <label for="workDuration">Work (min)</label>
-                                <input type="number" id="workDuration" class="setting-input" value="25" min="1" max="60">
-                            </div>
-                            <div class="setting-item">
-                                <label for="breakDuration">Short Break (min)</label>
-                                <input type="number" id="breakDuration" class="setting-input" value="5" min="1" max="30">
-                            </div>
-                            <div class="setting-item">
-                                <label for="longBreakDuration">Long Break (min)</label>
-                                <input type="number" id="longBreakDuration" class="setting-input" value="15" min="5" max="60">
-                            </div>
-                        </div>
-
-                        <div style="margin-top: 2rem; padding: 1.5rem; background: rgba(15, 23, 42, 0.5); border-radius: 12px;">
-                            <h4 style="color: var(--text-primary); margin-bottom: 1rem;">Session Progress</h4>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 1rem;">
-                                <span style="color: var(--text-muted);">Sessions completed today:</span>
-                                <span style="color: var(--primary-green); font-weight: 600;" id="sessionsToday">0</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between;">
-                                <span style="color: var(--text-muted);">Current cycle:</span>
-                                <span style="color: var(--primary-blue); font-weight: 600;" id="currentCycle">1/4</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Analytics Tab -->
-                <div class="tab-content" id="analytics">
-                    <div class="flashcards-container">
-                        <h2 style="color: var(--text-primary); margin-bottom: 1rem;">Study Analytics</h2>
-                        <p style="color: var(--text-muted); margin-bottom: 2rem;">Track your learning progress and productivity</p>
-                        
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem;">
-                            <div style="background: rgba(15, 23, 42, 0.5); padding: 1.5rem; border-radius: 12px;">
-                                <h4 style="color: var(--primary-green); margin-bottom: 0.5rem;">Study Streak</h4>
-                                <div style="font-size: 2rem; font-weight: 700; color: var(--text-primary);">7 days</div>
-                            </div>
-                            <div style="background: rgba(15, 23, 42, 0.5); padding: 1.5rem; border-radius: 12px;">
-                                <h4 style="color: var(--primary-blue); margin-bottom: 0.5rem;">Total Sessions</h4>
-                                <div style="font-size: 2rem; font-weight: 700; color: var(--text-primary);">142</div>
-                            </div>
-                            <div style="background: rgba(15, 23, 42, 0.5); padding: 1.5rem; border-radius: 12px;">
-                                <h4 style="color: var(--primary-orange); margin-bottom: 0.5rem;">Focus Time</h4>
-                                <div style="font-size: 2rem; font-weight: 700; color: var(--text-primary);">59.5h</div>
-                            </div>
-                            <div style="background: rgba(15, 23, 42, 0.5); padding: 1.5rem; border-radius: 12px;">
-                                <h4 style="color: var(--primary-purple); margin-bottom: 0.5rem;">Cards Mastered</h4>
-                                <div style="font-size: 2rem; font-weight: 700; color: var(--text-primary);">234</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Settings Tab -->
-                <div class="tab-content" id="settings">
-                    <div class="flashcards-container">
-                        <h2 style="color: var(--text-primary); margin-bottom: 1rem;">Settings</h2>
-                        <p style="color: var(--text-muted); margin-bottom: 2rem;">Customize your PhenBOT experience</p>
-                        
-                        <div style="max-width: 600px;">
-                            <div style="margin-bottom: 2rem;">
-                                <h4 style="color: var(--text-primary); margin-bottom: 1rem;">AI Preferences</h4>
-                                <div style="margin-bottom: 1rem;">
-                                    <label style="color: var(--text-muted); display: block; margin-bottom: 0.5rem;">Default Response Mode</label>
-                                    <select class="mode-selector" style="width: 100%;">
-                                        <option>Normal Chat</option>
-                                        <option>Teaching Mode</option>
-                                        <option>Analogy Mode</option>
-                                    </select>
-                                </div>
-                                <div style="margin-bottom: 1rem;">
-                                    <label style="color: var(--text-muted); display: block; margin-bottom: 0.5rem;">Default Response Length</label>
-                                    <select class="mode-selector" style="width: 100%;">
-                                        <option>Normal</option>
-                                        <option>Short</option>
-                                        <option>Detailed</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div style="margin-bottom: 2rem;">
-                                <h4 style="color: var(--text-primary); margin-bottom: 1rem;">Notifications</h4>
-                                <div style="display: flex; align-items: center; margin-bottom: 1rem;">
-                                    <input type="checkbox" id="pomodoroNotifications" checked style="margin-right: 0.75rem;">
-                                    <label for="pomodoroNotifications" style="color: var(--text-muted);">Pomodoro timer notifications</label>
-                                </div>
-                                <div style="display: flex; align-items: center; margin-bottom: 1rem;">
-                                    <input type="checkbox" id="studyReminders" checked style="margin-right: 0.75rem;">
-                                    <label for="studyReminders" style="color: var(--text-muted);">Daily study reminders</label>
-                                </div>
-                            </div>
-
-                            <div style="margin-bottom: 2rem;">
-                                <h4 style="color: var(--text-primary); margin-bottom: 1rem;">Voice Settings</h4>
-                                <div style="margin-bottom: 1rem;">
-                                    <label style="color: var(--text-muted); display: block; margin-bottom: 0.5rem;">Voice Language</label>
-                                    <select class="mode-selector" style="width: 100%;">
-                                        <option>English (US)</option>
-                                        <option>English (UK)</option>
-                                        <option>Spanish</option>
-                                        <option>French</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            </div>
+            
+            <div class="timer-display" id="timerDisplay">25:00</div>
+            
+            <div class="timer-controls">
+                <button class="timer-btn start" id="startBtn" onclick="startTimer()">
+                    <i class="fas fa-play"></i> Start
+                </button>
+                <button class="timer-btn" onclick="pauseTimer()">
+                    <i class="fas fa-pause"></i> Pause
+                </button>
+                <button class="timer-btn" onclick="resetTimer()">
+                    <i class="fas fa-redo"></i> Reset
+                </button>
             </div>
         </div>
     </div>
+  </div>
 
-    <!-- Create Flashcard Modal -->
-    <div id="createCardModal" class="modal-overlay">
-        <div class="modal">
-            <h3 style="color: var(--text-primary); margin-bottom: 1.5rem;">Create New Flashcard</h3>
-            <div style="margin-bottom: 1rem;">
-                <label style="color: var(--text-muted); display: block; margin-bottom: 0.5rem;">Front (Question)</label>
-                <textarea id="cardFrontInput" style="width: 100%; min-height: 80px; background: rgba(15, 23, 42, 0.8); border: 1px solid var(--card-border); border-radius: 8px; padding: 1rem; color: var(--text-secondary);" placeholder="Enter the question or term..."></textarea>
-            </div>
-            <div style="margin-bottom: 1.5rem;">
-                <label style="color: var(--text-muted); display: block; margin-bottom: 0.5rem;">Back (Answer)</label>
-                <textarea id="cardBackInput" style="width: 100%; min-height: 80px; background: rgba(15, 23, 42, 0.8); border: 1px solid var(--card-border); border-radius: 8px; padding: 1rem; color: var(--text-secondary);" placeholder="Enter the answer or definition..."></textarea>
-            </div>
-            <div style="display: flex; gap: 1rem; justify-content: flex-end;">
-                <button class="timer-btn" onclick="closeCreateCardModal()">Cancel</button>
-                <button class="timer-btn primary" onclick="saveFlashcard()">Save Card</button>
-            </div>
-        </div>
-    </div>
+  <div class="card">
+    <h3>AI History</h3>
+    <div id="historyList" class="small"></div>
+  </div>
+</div>
 
-    <!-- AI Generate Cards Modal -->
-    <div id="generateCardsModal" class="modal-overlay">
-        <div class="modal">
-            <h3 style="color: var(--text-primary); margin-bottom: 1.5rem;">AI Generate Flashcards</h3>
-            <div style="margin-bottom: 1rem;">
-                <label style="color: var(--text-muted); display: block; margin-bottom: 0.5rem;">Topic</label>
-                <input type="text" id="topicInput" style="width: 100%; background: rgba(15, 23, 42, 0.8); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.75rem; color: var(--text-secondary);" placeholder="e.g., Photosynthesis, World War II, Calculus...">
-            </div>
-            <div style="margin-bottom: 1rem;">
-                <label style="color: var(--text-muted); display: block; margin-bottom: 0.5rem;">Number of Cards</label>
-                <input type="number" id="numCardsInput" value="10" min="1" max="50" style="width: 100%; background: rgba(15, 23, 42, 0.8); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.75rem; color: var(--text-secondary);">
-            </div>
-            <div style="margin-bottom: 1.5rem;">
-                <label style="color: var(--text-muted); display: block; margin-bottom: 0.5rem;">Difficulty Level</label>
-                <select id="difficultyInput" style="width: 100%; background: rgba(15, 23, 42, 0.8); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.75rem; color: var(--text-secondary);">
-                    <option value="easy">Easy (Basic concepts)</option>
-                    <option value="medium">Medium (Intermediate)</option>
-                    <option value="hard">Hard (Advanced)</option>
-                </select>
-            </div>
-            <div style="display: flex; gap: 1rem; justify-content: flex-end;">
-                <button class="timer-btn" onclick="closeGenerateCardsModal()">Cancel</button>
-                <button class="timer-btn primary" onclick="generateAiFlashcards()">Generate Cards</button>
-            </div>
-        </div>
-    </div>
+<script>
+(async function(){
+  // Health check for Groq
+  async function updateHealth(){
+    try {
+      const res = await fetch('/health', { credentials: 'same-origin' });
+      const d = await res.json();
+      const el = document.getElementById('aiStatus');
+      if (d.groq_available){
+        el.innerText = 'AI connected';
+        el.style.color = 'green';
+      } else {
+        el.innerText = 'AI unavailable: ' + (d.error || 'no API key');
+        el.style.color = 'red';
+      }
+    } catch (e) {
+      document.getElementById('aiStatus').innerText = 'Health check failed';
+    }
+  }
+  updateHealth();
+
+  // chat
+  const messagesEl = document.getElementById('messages');
+  function appendMsg(role, text){
+    const div = document.createElement('div');
+    div.style.marginBottom='8px';
+    div.innerHTML = `<strong>${role}:</strong> <div>${text.replace(/\n/g,'<br/>')}</div>`;
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  document.getElementById('askBtn').addEventListener('click', async ()=>{
+    const q = document.getElementById('q').value.trim();
+    const subject = document.getElementById('subject').value;
+    if (!q) return;
+    appendMsg('You', q);
+    appendMsg('Bot','Thinking...');
+    try {
+      const res = await fetch('/api/ask', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: q, subject })
+      });
+      const data = await res.json();
+      // replace last bot placeholder
+      const children = messagesEl.children;
+      const lastBot = children[children.length-1];
+      if (res.ok && data.answer){
+        lastBot.innerHTML = `<strong>Bot:</strong> <div>${data.answer.replace(/\n/g,'<br/>')}</div>`;
+      } else {
+        lastBot.innerHTML = `<strong>Bot:</strong> <div style="color:red">${data.error || 'No response'}</div>`;
+      }
+      loadHistory();
+    } catch (e){
+      appendMsg('Bot','Network error');
+    }
+    document.getElementById('q').value = '';
+  });
+
+  // PDFs
+  async function fetchPdfs(){
+    const res = await fetch('/api/pdfs', { credentials: 'same-origin' });
+    if (!res.ok) { document.getElementById('pdfList').innerText = 'Unable to load PDFs'; return; }
+    const d = await res.json();
+    const el = document.getElementById('pdfList');
+    el.innerHTML = '';
+    d.files.forEach(f => {
+      const a = document.createElement('a');
+      a.href = f.url; a.textContent = f.name; a.target = '_blank';
+      const div = document.createElement('div'); div.appendChild(a);
+      el.appendChild(div);
+    });
+  }
+  document.getElementById('uploadPdf').addEventListener('click', async ()=>{
+    const fileInput = document.getElementById('pdfFile');
+    if (!fileInput.files || !fileInput.files[0]) { document.getElementById('pdfResult').innerText = 'Select a PDF'; return; }
+    const form = new FormData(); form.append('file', fileInput.files[0]);
+    try {
+      const res = await fetch('/api/upload-pdf', { method: 'POST', body: form, credentials: 'same-origin' });
+      const d = await res.json();
+      if (res.status === 201) { document.getElementById('pdfResult').innerText = 'Uploaded'; fetchPdfs(); }
+      else document.getElementById('pdfResult').innerText = 'Upload failed: ' + (d.error || res.statusText);
+    } catch (e){ document.getElementById('pdfResult').innerText = 'Network error'; }
+  });
+  fetchPdfs();
+
+  // Pomodoro (client-side localStorage)
+  const POM_DEFAULT = 25*60;
+  let seconds = POM_DEFAULT; let timer=null;
+  function formatTime(s){ return Math.floor(s/60).toString().padStart(2,'0') + ':' + (s%60).toString().padStart(2,'0'); }
+  function updatePom(){ document.getElementById('pomTime').innerText = formatTime(seconds); }
+  function savePom(){ localStorage.setItem('phenbot_pom', JSON.stringify({ seconds, running: !!timer })); }
+  function loadPom(){
+    try {
+      const raw = localStorage.getItem('phenbot_pom'); if (raw){ const obj = JSON.parse(raw); if (typeof obj.seconds === 'number') seconds = obj.seconds; }
+    } catch(e){}
+    updatePom();
+  }
+  function startPom(){ if (timer) return; timer = setInterval(()=>{ if (seconds>0){ seconds--; updatePom(); savePom(); } else { clearInterval(timer); timer=null; alert('Pomodoro finished!'); } },1000); savePom(); }
+  function pausePom(){ if (timer) { clearInterval(timer); timer=null; savePom(); } }
+  function resetPom(){ pausePom(); seconds = POM_DEFAULT; updatePom(); savePom(); }
+  document.getElementById('pomStart').addEventListener('click', startPom);
+  document.getElementById('pomPause').addEventListener('click', pausePom);
+  document.getElementById('pomReset').addEventListener('click', resetPom);
+  loadPom();
+
+  // History
+  async function loadHistory(){
+    const res = await fetch('/api/history', { credentials: 'same-origin' });
+    if (!res.ok) { document.getElementById('historyList').innerText = 'No history'; return; }
+    const d = await res.json();
+    const el = document.getElementById('historyList'); el.innerHTML = '';
+    d.history.forEach(h => {
+      const div = document.createElement('div');
+      div.innerHTML = `<strong>${h.subject}</strong> <small>${new Date(h.created_at).toLocaleString()}</small><div>${h.question}</div><div style="color:#333">${h.answer}</div><hr/>`;
+      el.appendChild(div);
+    });
+  }
+  loadHistory();
+
+})();
+</script>
+{% endblock %}
 
     <script>
-        // Global variables
-        let currentTab = 'ai-chat';
-        let isRecording = false;
-        let recognition = null;
-        let timerInterval = null;
-        let currentTime = 1500; // 25 minutes in seconds
-        let isTimerRunning = false;
-        let isBreak = false;
-        let sessionCount = 0;
-        let cycleCount = 1;
-        let flashcards = [];
-        let currentCardIndex = 0;
-
-        // Initialize speech recognition
-        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-            recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-            recognition.continuous = false;
-            recognition.interimResults = false;
-            recognition.lang = 'en-US';
-        }
-
-        // Tab switching
-        document.addEventListener('DOMContentLoaded', function() {
-            const navItems = document.querySelectorAll('.nav-item');
-            const tabContents = document.querySelectorAll('.tab-content');
+        // Create floating particles
+        function createParticles() {
+            const particlesContainer = document.getElementById('particles');
+            const particleCount = 50;
             
-            navItems.forEach(item => {
-                item.addEventListener('click', () => {
-                    const tabId = item.dataset.tab;
-                    switchTab(tabId);
-                    
-                    // Update active nav item
-                    navItems.forEach(nav => nav.classList.remove('active'));
-                    item.classList.add('active');
-                });
-            });
-
-            // Initialize components
-            initializeChatInput();
-            initializeFileUpload();
-            initializeTimer();
-            initializeVoiceChat();
-            checkAiStatus();
-            
-            // Auto-resize textarea
-            const chatInput = document.getElementById('chatInput');
-            chatInput.addEventListener('input', function() {
-                this.style.height = 'auto';
-                this.style.height = Math.min(this.scrollHeight, 120) + 'px';
-            });
-
-            // Mobile sidebar toggle
-            const sidebarToggle = document.getElementById('sidebarToggle');
-            const sidebar = document.getElementById('sidebar');
-            if (sidebarToggle) {
-                sidebarToggle.addEventListener('click', () => {
-                    sidebar.classList.toggle('open');
-                });
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 20 + 's';
+                particle.style.animationDuration = (Math.random() * 10 + 10) + 's';
+                particlesContainer.appendChild(particle);
             }
-        });
-
-        function switchTab(tabId) {
-            currentTab = tabId;
-            const tabContents = document.querySelectorAll('.tab-content');
-            
-            tabContents.forEach(content => content.classList.remove('active'));
-            document.getElementById(tabId).classList.add('active');
-            
-            // Update page title
-            const titles = {
-                'ai-chat': 'AI Chat Assistant',
-                'pdf-tools': 'PDF Tools',
-                'flashcards': 'Flashcards',
-                'pomodoro': 'Pomodoro Timer',
-                'analytics': 'Study Analytics',
-                'settings': 'Settings'
-            };
-            document.getElementById('pageTitle').textContent = titles[tabId];
         }
 
         // Chat functionality
-        function initializeChatInput() {
-            const chatInput = document.getElementById('chatInput');
-            const sendBtn = document.getElementById('sendBtn');
-
-            sendBtn.addEventListener('click', sendMessage);
-            chatInput.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    sendMessage();
-                }
-            });
-        }
-
-        async function sendMessage() {
-            const chatInput = document.getElementById('chatInput');
-            const message = chatInput.value.trim();
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
             
-            if (!message) return;
-            
-            const chatMode = document.getElementById('chatMode').value;
-            const responseLength = document.getElementById('responseLength').value;
-            
-            // Clear input
-            chatInput.value = '';
-            chatInput.style.height = 'auto';
-            
-            // Add user message
-            addMessage(message, 'user');
-            
-            // Show typing indicator
-            showTypingIndicator();
-            
-            try {
-                const response = await fetch('/api/chat', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        message: message,
-                        mode: chatMode,
-                        length: responseLength
-                    })
-                });
-
-                const data = await response.json();
-                hideTypingIndicator();
-
-                if (data.response) {
-                    addMessage(data.response, 'bot');
-                } else {
-                    addMessage('Sorry, I encountered an error. Please try again.', 'bot');
-                }
-            } catch (error) {
-                hideTypingIndicator();
-                addMessage('Network error. Please check your connection and try again.', 'bot');
+            if (message) {
+                const chatContainer = document.getElementById('chatContainer');
+                
+                // Add user message
+                const userMessage = document.createElement('div');
+                userMessage.className = 'chat-message';
+                userMessage.innerHTML = `<div class="message-user">${message}</div>`;
+                chatContainer.appendChild(userMessage);
+                
+                // Clear input
+                input.value = '';
+                
+                // Scroll to bottom
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+                
+                // Simulate bot response (replace with actual API call)
+                setTimeout(() => {
+                    const botMessage = document.createElement('div');
+                    botMessage.className = 'chat-message';
+                    botMessage.innerHTML = `<div class="message-bot">I understand you're asking about "${message}". Let me help you with that...</div>`;
+                    chatContainer.appendChild(botMessage);
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                }, 1000);
             }
         }
 
-        function addMessage(content, sender) {
-            const chatMessages = document.getElementById('chatMessages');
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${sender}`;
-            
-            const avatar = document.createElement('div');
-            avatar.className = 'message-avatar';
-            avatar.innerHTML = sender === 'user' ? 
-                `{{ username[0].upper() if username else 'A' }}` : 
-                '<i class="fas fa-robot"></i>';
-            
-            const messageContent = document.createElement('div');
-            messageContent.className = 'message-content';
-            messageContent.textContent = content;
-            
-            messageDiv.appendChild(avatar);
-            messageDiv.appendChild(messageContent);
-            
-            chatMessages.appendChild(messageDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-
-        function showTypingIndicator() {
-            const chatMessages = document.getElementById('chatMessages');
-            const typingDiv = document.createElement('div');
-            typingDiv.id = 'typingIndicator';
-            typingDiv.className = 'message bot';
-            
-            typingDiv.innerHTML = `
-                <div class="message-avatar">
-                    <i class="fas fa-robot"></i>
-                </div>
-                <div class="message-content">
-                    <div class="typing-indicator">
-                        <div class="typing-dot"></div>
-                        <div class="typing-dot"></div>
-                        <div class="typing-dot"></div>
-                    </div>
-                </div>
-            `;
-            
-            chatMessages.appendChild(typingDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-
-        function hideTypingIndicator() {
-            const typingIndicator = document.getElementById('typingIndicator');
-            if (typingIndicator) {
-                typingIndicator.remove();
+        function handleChatKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
             }
-        }
-
-        // Voice chat functionality
-        function initializeVoiceChat() {
-            const voiceBtn = document.getElementById('voiceBtn');
-            
-            if (!recognition) {
-                voiceBtn.style.display = 'none';
-                return;
-            }
-
-            voiceBtn.addEventListener('click', toggleVoiceRecording);
-
-            recognition.onresult = function(event) {
-                const transcript = event.results[0][0].transcript;
-                document.getElementById('chatInput').value = transcript;
-            };
-
-            recognition.onend = function() {
-                if (isRecording) {
-                    stopVoiceRecording();
-                }
-            };
-        }
-
-        function toggleVoiceRecording() {
-            if (isRecording) {
-                stopVoiceRecording();
-            } else {
-                startVoiceRecording();
-            }
-        }
-
-        function startVoiceRecording() {
-            if (!recognition) return;
-            
-            isRecording = true;
-            const voiceBtn = document.getElementById('voiceBtn');
-            voiceBtn.classList.add('recording');
-            voiceBtn.innerHTML = '<i class="fas fa-stop"></i>';
-            
-            recognition.start();
-        }
-
-        function stopVoiceRecording() {
-            if (!recognition) return;
-            
-            isRecording = false;
-            const voiceBtn = document.getElementById('voiceBtn');
-            voiceBtn.classList.remove('recording');
-            voiceBtn.innerHTML = '<i class="fas fa-microphone"></i>';
-            
-            recognition.stop();
         }
 
         // File upload functionality
-        function initializeFileUpload() {
-            const uploadArea = document.getElementById('uploadArea');
-            const fileInput = document.getElementById('fileInput');
+        let dragCounter = 0;
 
-            uploadArea.addEventListener('click', () => fileInput.click());
-            uploadArea.addEventListener('dragover', handleDragOver);
-            uploadArea.addEventListener('drop', handleFileDrop);
-            uploadArea.addEventListener('dragenter', e => e.preventDefault());
-            uploadArea.addEventListener('dragleave', handleDragLeave);
-            
-            fileInput.addEventListener('change', handleFileSelect);
-        }
-
-        function handleDragOver(e) {
-            e.preventDefault();
-            e.currentTarget.classList.add('dragover');
-        }
-
-        function handleDragLeave(e) {
-            e.preventDefault();
-            e.currentTarget.classList.remove('dragover');
-        }
-
-        function handleFileDrop(e) {
-            e.preventDefault();
-            e.currentTarget.classList.remove('dragover');
-            const files = e.dataTransfer.files;
-            processFiles(files);
-        }
-
-        function handleFileSelect(e) {
-            const files = e.target.files;
-            processFiles(files);
-        }
-
-        async function processFiles(files) {
-            for (let file of files) {
-                if (file.type === 'application/pdf') {
-                    await uploadFile(file);
-                }
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (file && file.type === 'application/pdf') {
+                addUploadedFile(file.name);
             }
         }
 
-        async function uploadFile(file) {
-            const formData = new FormData();
-            formData.append('file', file);
-
-            try {
-                const response = await fetch('/api/upload', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const data = await response.json();
-                
-                if (data.success) {
-                    addUploadedFile(data.filename, file.name);
-                    document.getElementById('pdfActions').style.display = 'flex';
-                } else {
-                    alert('Upload failed: ' + (data.error || 'Unknown error'));
-                }
-            } catch (error) {
-                alert('Upload failed: ' + error.message);
-            }
-        }
-
-        function addUploadedFile(filename, originalName) {
+        function addUploadedFile(fileName) {
             const uploadedFiles = document.getElementById('uploadedFiles');
             const fileItem = document.createElement('div');
             fileItem.className = 'file-item';
             fileItem.innerHTML = `
-                <div class="file-info">
-                    <i class="fas fa-file-pdf"></i>
-                    <div class="file-details">
-                        <h4>${originalName}</h4>
-                        <p>Uploaded successfully</p>
-                    </div>
-                </div>
-                <div class="file-actions">
-                    <button class="icon-btn primary" onclick="summarizePdf('${filename}')" title="Summarize">
-                        <i class="fas fa-compress-alt"></i>
-                    </button>
-                    <button class="icon-btn success" onclick="createFlashcardsFromPdf('${filename}')" title="Create Flashcards">
-                        <i class="fas fa-layer-group"></i>
-                    </button>
-                    <button class="icon-btn danger" onclick="deletePdf('${filename}')" title="Delete">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
+                <a href="#" class="file-name">
+                    <i class="fas fa-file-pdf" style="margin-right: 0.5rem; color: #dc2626;"></i>
+                    ${fileName}
+                </a>
+                <span style="color: #10b981; font-size: 0.9rem;">Uploaded</span>
             `;
             uploadedFiles.appendChild(fileItem);
         }
 
-        // PDF processing functions
-        async function summarizePdf(filename) {
-            try {
-                const response = await fetch('/api/summarize-pdf', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ filename: filename })
-                });
+        // Drag and drop functionality
+        const uploadArea = document.getElementById('uploadArea');
 
-                const data = await response.json();
+        uploadArea.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            dragCounter++;
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dragCounter--;
+            if (dragCounter === 0) {
+                uploadArea.classList.remove('dragover');
+            }
+        });
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dragCounter = 0;
+            uploadArea.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].type === 'application/pdf') {
+                addUploadedFile(files[0].name);
+            }
+        });
+
+        // Pomodoro timer functionality
+        let timerInterval;
+        let timeLeft = 25 * 60; // 25 minutes in seconds
+        let isRunning = false;
+
+        function updateTimerDisplay() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            document.getElementById('timerDisplay').textContent = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function startTimer() {
+            if (!isRunning) {
+                isRunning = true;
+                document.getElementById('startBtn').innerHTML = '<i class="fas fa-play"></i> Running...';
                 
-                if (data.summary) {
-                    showPdfResults('Summary', data.summary);
-                } else {
-                    alert('Failed to summarize PDF: ' + (data.error || 'Unknown error'));
-                }
+                timerInterval = setInterval(() => {
+                    timeLeft--;
+                    updateTimerDisplay();
+                    
+                    if (timeLeft <= 0) {
+                        clearInterval(timerInterval);
+                        isRunning = false;
+                        document.getElementById('startBtn').innerHTML = '<i class="fas fa-play"></i> Start';
+                        alert('Pomodoro session completed! Take a break.');
+                        resetTimer();
+                    }
+                }, 1000);
+            }
+        }
+
+        function pauseTimer() {
+            if (isRunning) {
+                clearInterval(timerInterval);
+                isRunning = false;
+                document.getElementById('startBtn').innerHTML = '<i class="fas fa-play"></i> Start';
+            }
+        }
+
+        function resetTimer() {
+            clearInterval(timerInterval);
+            isRunning = false;
+            timeLeft = 25 * 60;
+            updateTimerDisplay();
+            document.getElementById('startBtn').innerHTML = '<i class="fas fa-play"></i> Start';
+        }
+
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                window.location.href = '/logout';
+            }
+        }
+
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', () => {
+            createParticles();
+            updateTimerDisplay();
+            
+            // Add some sample uploaded file for demo
+            setTimeout(() => {
+                addUploadedFile('Laravel_Bengaluru-_PES.pdf');
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
