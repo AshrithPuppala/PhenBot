@@ -1,147 +1,124 @@
-import os
-import sys
-import uuid
-import traceback
-from functools import wraps
-from datetime import datetime
-from werkzeug.utils import secure_filename
+from flask import Flask, request, jsonify, render_template_string, redirect, url_for, session, flash
 from werkzeug.security import generate_password_hash, check_password_hash
-import re
+import os
+import sqlite3
+import traceback
+from datetime import datetime
+from functools import wraps
 
-from flask import (
-    Flask, request, jsonify, render_template, redirect, url_for, flash, session
-)
-from flask_sqlalchemy import SQLAlchemy
+def create_app():
+    app = Flask(__name__)
+    app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 
-# ------------------------
-# Config
-# ------------------------
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-INSTANCE_DIR = os.path.join(BASE_DIR, "instance")
-UPLOAD_DIR = os.path.join(BASE_DIR, "static", "uploads")
-os.makedirs(INSTANCE_DIR, exist_ok=True)
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+    # Database setup
+    DATABASE = 'phenbot.db'
 
-app = Flask(
-    __name__,
-    static_folder=os.path.join(BASE_DIR, "static"),
-    static_url_path="/static"
-)
+    def init_db():
+        """Initialize the database with users table"""
+        conn = sqlite3.connect(DATABASE)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        conn.commit()
+        conn.close()
 
-# IMPORTANT: set SECRET_KEY in env while deploying. Fallback to random for dev.
-app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", uuid.uuid4().hex)
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///" + os.path.join(INSTANCE_DIR, "app.db")
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["UPLOAD_FOLDER"] = UPLOAD_DIR
-app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024  # 32 MB
+    def get_user(username):
+        """Get user by username"""
+        conn = sqlite3.connect(DATABASE)
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT id, username, password_hash FROM users WHERE username = ?', (username,))
+        user = cursor.fetchone()
+        
+        conn.close()
+        return user
 
-db = SQLAlchemy(app)
-
-# ------------------------
-# Models
-# ------------------------
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(150), unique=True, nullable=False)
-    email = db.Column(db.String(150), unique=True, nullable=True)
-    password_hash = db.Column(db.String(256), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    def __repr__(self):
-        return f'<User {self.username}>'
-
-class PDFFile(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    filename = db.Column(db.String(400), nullable=False)
-    original_name = db.Column(db.String(400), nullable=False)
-    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-class QAHistory(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    question = db.Column(db.Text, nullable=False)
-    answer = db.Column(db.Text, nullable=False)
-    subject = db.Column(db.String(80), default="general")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-# Database initialization with proper error handling
-def init_database():
-    """Initialize database with proper migration handling"""
-    with app.app_context():
+    def create_user(username, password):
+        """Create a new user"""
         try:
-            # Create all tables
-            db.create_all()
-            print("Database tables created successfully")
+            password_hash = generate_password_hash(password)
+            conn = sqlite3.connect(DATABASE)
+            cursor = conn.cursor()
             
-            # Check if email column exists and add if missing
-            inspector = db.inspect(db.engine)
-            columns = [col['name'] for col in inspector.get_columns('user')]
+            cursor.execute('INSERT INTO users (username, password_hash) VALUES (?, ?)', 
+                          (username, password_hash))
             
-            if 'email' not in columns:
-                print("Adding email column to user table...")
-                with db.engine.connect() as conn:
-                    conn.execute(db.text('ALTER TABLE user ADD COLUMN email VARCHAR(150)'))
-                    conn.commit()
-                print("Email column added successfully")
-            
+            conn.commit()
+            conn.close()
             return True
+        except sqlite3.IntegrityError:
+            return False  # Username already exists
         except Exception as e:
-            print(f"Database initialization error: {e}")
-            traceback.print_exc()
+            print(f"Error creating user: {e}")
             return False
 
-# Initialize database
-init_database()
+    # Initialize database on app startup
+    with app.app_context():
+        init_db()
 
-# ------------------------
-# Groq initialization (safe)
-# ------------------------
-groq_client = None
-GROQ_AVAILABLE = False
-GROQ_ERROR = None
-
-try:
-    from groq import Groq
-except Exception as e:
-    Groq = None
-    GROQ_ERROR = "Groq SDK not installed"
-
-def initialize_groq():
-    global groq_client, GROQ_AVAILABLE, GROQ_ERROR
-    if Groq is None:
-        GROQ_ERROR = GROQ_ERROR or "Groq SDK not available"
-        GROQ_AVAILABLE = False
-        return False
-    api_key = os.environ.get("GROQ_API_KEY")
-    if not api_key:
-        GROQ_ERROR = "GROQ_API_KEY not set"
-        GROQ_AVAILABLE = False
-        return False
+    # Groq AI Setup
     try:
-        groq_client = Groq(api_key=api_key)
-        GROQ_AVAILABLE = True
-        return True
-    except Exception as e:
-        GROQ_ERROR = f"Groq initialization failed: {e}"
-        GROQ_AVAILABLE = False
-        return False
+        from groq import Groq
+        GROQ_IMPORT_SUCCESS = True
+    except ImportError:
+        GROQ_IMPORT_SUCCESS = False
 
-initialize_groq()
+    groq_client = None
+    GROQ_AVAILABLE = False
+    GROQ_ERROR = None
 
-def get_ai_response(question, subject="general"):
-    if not groq_client or not GROQ_AVAILABLE:
-        return "AI system not available on server. Check GROQ_API_KEY and Groq SDK installation."
-    system_prompts = {
-        "math": "You are PhenBOT, a mathematics tutor. Provide step-by-step explanations.",
-        "science": "You are PhenBOT, a science educator. Explain concepts with analogies.",
-        "english": "You are PhenBOT, an English tutor. Help with grammar and writing.",
-        "history": "You are PhenBOT, a history educator. Explain context and causes.",
-        "general": "You are PhenBOT, an advanced study companion."
-    }
-    system_prompt = system_prompts.get(subject, system_prompts["general"])
-    try:
-        if hasattr(groq_client, "chat") and hasattr(groq_client.chat, "completions"):
+    def initialize_groq():
+        """Initialize Groq client with error handling"""
+        nonlocal groq_client, GROQ_AVAILABLE, GROQ_ERROR
+        
+        if not GROQ_IMPORT_SUCCESS:
+            GROQ_ERROR = 'Groq SDK not installed'
+            GROQ_AVAILABLE = False
+            print("Groq SDK not available")
+            return
+        
+        api_key = os.environ.get('GROQ_API_KEY')
+        if not api_key:
+            GROQ_ERROR = 'GROQ_API_KEY environment variable missing'
+            GROQ_AVAILABLE = False
+            print("GROQ_API_KEY not set")
+            return
+        
+        try:
+            groq_client = Groq(api_key=api_key)
+            GROQ_AVAILABLE = True
+            print("Groq client initialized successfully")
+        except Exception as e:
+            GROQ_ERROR = str(e)
+            GROQ_AVAILABLE = False
+            print(f"Groq initialization failed: {e}")
+
+    initialize_groq()
+
+    def get_ai_response(question, subject):
+        """Get AI response from Groq"""
+        if not groq_client:
+            return "AI system is currently unavailable. Please check the server configuration."
+        
+        system_prompts = {
+            'math': 'You are PhenBOT, a mathematics tutor. Provide clear, step-by-step explanations with examples.',
+            'science': 'You are PhenBOT, a science tutor. Explain concepts using real-world analogies and examples.',
+            'english': 'You are PhenBOT, an English tutor. Help with grammar, writing, and literature analysis.',
+            'history': 'You are PhenBOT, a history tutor. Present information through engaging narratives.',
+            'general': 'You are PhenBOT, a smart AI study assistant. Provide helpful, educational answers.'
+        }
+        
+        system_prompt = system_prompts.get(subject, system_prompts['general'])
+        
+        try:
             response = groq_client.chat.completions.create(
                 model="llama-3.1-8b-instant",
                 messages=[
@@ -149,510 +126,935 @@ def get_ai_response(question, subject="general"):
                     {"role": "user", "content": question}
                 ],
                 temperature=0.7,
-                max_tokens=600,
-                top_p=0.9
+                max_tokens=600
             )
-            try:
-                return response.choices[0].message.content
-            except Exception:
-                try:
-                    return response["choices"][0]["message"]["content"]
-                except Exception:
-                    return str(response)
-        return "Groq client interface not recognized"
-    except Exception as e:
-        traceback.print_exc()
-        return f"Error calling Groq: {e}"
-
-# ------------------------
-# Helper functions
-# ------------------------
-def login_required_json(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if "user_id" not in session:
-            return jsonify({"error": "Authentication required"}), 401
-        return f(*args, **kwargs)
-    return decorated
-
-def login_required_page(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if "user_id" not in session:
-            flash("Please log in", "warning")
-            return redirect(url_for("login"))
-        return f(*args, **kwargs)
-    return decorated
-
-def validate_email(email):
-    """Simple email validation"""
-    if not email:
-        return False
-    pattern = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
-    return re.match(pattern, email) is not None
-
-def validate_password_strength(password):
-    """Check password strength and return score and feedback"""
-    if not password:
-        return 0, "Password is required"
-    
-    score = 0
-    feedback = []
-    
-    if len(password) >= 8:
-        score += 25
-    else:
-        feedback.append("At least 8 characters")
-        
-    if len(password) >= 12:
-        score += 15
-        
-    if re.search(r'[A-Z]', password):
-        score += 20
-    else:
-        feedback.append("At least one uppercase letter")
-        
-    if re.search(r'[a-z]', password):
-        score += 15
-    else:
-        feedback.append("At least one lowercase letter")
-        
-    if re.search(r'[0-9]', password):
-        score += 15
-    else:
-        feedback.append("At least one number")
-        
-    if re.search(r'[^A-Za-z0-9]', password):
-        score += 10
-    else:
-        feedback.append("At least one special character")
-    
-    if score < 40:
-        return score, "Weak password. " + ", ".join(feedback)
-    elif score < 70:
-        return score, "Medium strength password"
-    else:
-        return score, "Strong password"
-
-# ------------------------
-# Routes (HTML)
-# ------------------------
-@app.route("/")
-def home():
-    if "user_id" in session:
-        return redirect(url_for("dashboard"))
-    return redirect(url_for("login"))
-
-@app.route("/register", methods=["GET", "POST"])
-def register():
-    if "user_id" in session:
-        return redirect(url_for("dashboard"))
-    
-    if request.method == "POST":
-        try:
-            # Handle both JSON and form data
-            if request.is_json:
-                data = request.get_json()
-            else:
-                data = request.form
-                
-            username = (data.get("username") or "").strip().lower()  # Normalize username
-            email = (data.get("email") or "").strip().lower()  # Normalize email
-            password = data.get("password") or ""
-            confirm_password = data.get("confirmPassword") or ""
-            
-            print(f"Registration attempt: username='{username}', email='{email}'")
-            
-            # Validation
-            errors = []
-            
-            if not username or len(username) < 3:
-                errors.append("Username must be at least 3 characters long")
-                
-            if not email or not validate_email(email):
-                errors.append("Please enter a valid email address")
-                
-            if not password or len(password) < 8:
-                errors.append("Password must be at least 8 characters long")
-                
-            if password != confirm_password:
-                errors.append("Passwords do not match")
-                
-            # Check password strength
-            strength, strength_msg = validate_password_strength(password)
-            if strength < 40:
-                errors.append("Password is too weak. Please choose a stronger password")
-            
-            # Check if user exists
-            existing_username = User.query.filter_by(username=username).first()
-            existing_email = User.query.filter_by(email=email).first()
-            
-            if existing_username:
-                errors.append("Username already exists")
-            if existing_email:
-                errors.append("Email already registered")
-            
-            if errors:
-                print(f"Registration errors: {errors}")
-                if request.is_json:
-                    return jsonify({"success": False, "errors": errors}), 400
-                else:
-                    for error in errors:
-                        flash(error, "danger")
-                    return render_template("register.html")
-            
-            # Create user
-            hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
-            user = User(username=username, email=email, password_hash=hashed_password)
-            
-            db.session.add(user)
-            db.session.commit()
-            
-            print(f"User created successfully: id={user.id}, username={user.username}, email={user.email}")
-            print(f"Password hash: {user.password_hash[:50]}...")
-            
-            if request.is_json:
-                return jsonify({"success": True, "message": "Account created successfully"})
-            else:
-                flash("Account created successfully! Please log in.", "success")
-                return redirect(url_for("login"))
-                
+            return response.choices[0].message.content
         except Exception as e:
-            db.session.rollback()
-            print(f"Registration error: {e}")
-            traceback.print_exc()
-            error_msg = "An error occurred during registration. Please try again."
-            if request.is_json:
-                return jsonify({"success": False, "error": error_msg}), 500
-            else:
-                flash(error_msg, "danger")
-                return render_template("register.html")
-    
-    return render_template("register.html")
+            print(f"Error calling Groq API: {e}")
+            return f"Error processing your question: {str(e)}"
 
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    if "user_id" in session:
-        return redirect(url_for("dashboard"))
-    
-    if request.method == "POST":
-        try:
-            # Handle both JSON and form data
-            if request.is_json:
-                data = request.get_json()
-            else:
-                data = request.form
+    # Authentication helpers
+    def is_logged_in():
+        return 'user_id' in session and 'username' in session
+
+    def require_login(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not is_logged_in():
+                return jsonify({'error': 'Authentication required'}), 401
+            return f(*args, **kwargs)
+        return decorated_function
+
+    # HTML Templates
+    LOGIN_HTML = '''
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>PhenBOT Login</title>
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .login-card {
+                background: white;
+                padding: 2.5rem;
+                border-radius: 16px;
+                box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+                width: 100%;
+                max-width: 420px;
+            }
+            .logo {
+                text-align: center;
+                font-size: 2rem;
+                margin-bottom: 0.5rem;
+            }
+            .tagline {
+                text-align: center;
+                color: #64748b;
+                margin-bottom: 2rem;
+            }
+            h2 {
+                margin-bottom: 2rem;
+                color: #1e293b;
+                text-align: center;
+            }
+            .form-group {
+                margin-bottom: 1.5rem;
+            }
+            label {
+                display: block;
+                margin-bottom: 0.5rem;
+                font-weight: 500;
+                color: #374151;
+            }
+            input {
+                width: 100%;
+                padding: 0.875rem;
+                border: 2px solid #e5e7eb;
+                border-radius: 8px;
+                font-size: 16px;
+                transition: all 0.3s ease;
+            }
+            input:focus {
+                outline: none;
+                border-color: #4facfe;
+                box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+            }
+            .btn {
+                width: 100%;
+                padding: 0.875rem;
+                background: linear-gradient(135deg, #4facfe, #00f2fe);
+                color: white;
+                border: none;
+                border-radius: 8px;
+                font-size: 16px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.3s ease;
+            }
+            .btn:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 10px 25px rgba(79, 172, 254, 0.3);
+            }
+            .link-section {
+                text-align: center;
+                margin-top: 1.5rem;
+                padding-top: 1.5rem;
+                border-top: 1px solid #e5e7eb;
+            }
+            .link-section a {
+                color: #4facfe;
+                text-decoration: none;
+                font-weight: 500;
+            }
+            .link-section a:hover {
+                text-decoration: underline;
+            }
+            .flash-messages {
+                margin-bottom: 1rem;
+            }
+            .flash {
+                padding: 0.75rem;
+                border-radius: 8px;
+                margin-bottom: 0.5rem;
+                font-weight: 500;
+            }
+            .flash.error {
+                background: #fef2f2;
+                color: #dc2626;
+                border: 1px solid #fecaca;
+            }
+            .flash.success {
+                background: #f0fdf4;
+                color: #16a34a;
+                border: 1px solid #bbf7d0;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="login-card">
+            <div class="logo">🤖</div>
+            <h2>Welcome to PhenBOT</h2>
+            <p class="tagline">Your AI Study Companion</p>
+            
+            <div class="flash-messages">
+                {% for category, message in get_flashed_messages(with_categories=true) %}
+                    <div class="flash {{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+            
+            <form method="POST">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" required 
+                           value="{{ request.form.username if request.form.username }}">
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <button type="submit" class="btn">Sign In</button>
+            </form>
+            
+            <div class="link-section">
+                <p>Don't have an account? <a href="{{ url_for('register') }}">Create one here</a></p>
+            </div>
+        </div>
+    </body>
+    </html>
+    '''
+
+    REGISTER_HTML = '''
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>PhenBOT Register</title>
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .login-card {
+                background: white;
+                padding: 2.5rem;
+                border-radius: 16px;
+                box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+                width: 100%;
+                max-width: 420px;
+            }
+            .logo {
+                text-align: center;
+                font-size: 2rem;
+                margin-bottom: 0.5rem;
+            }
+            .tagline {
+                text-align: center;
+                color: #64748b;
+                margin-bottom: 2rem;
+            }
+            h2 {
+                margin-bottom: 2rem;
+                color: #1e293b;
+                text-align: center;
+            }
+            .form-group {
+                margin-bottom: 1.5rem;
+            }
+            label {
+                display: block;
+                margin-bottom: 0.5rem;
+                font-weight: 500;
+                color: #374151;
+            }
+            input {
+                width: 100%;
+                padding: 0.875rem;
+                border: 2px solid #e5e7eb;
+                border-radius: 8px;
+                font-size: 16px;
+                transition: all 0.3s ease;
+            }
+            input:focus {
+                outline: none;
+                border-color: #4facfe;
+                box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+            }
+            .btn {
+                width: 100%;
+                padding: 0.875rem;
+                background: linear-gradient(135deg, #4facfe, #00f2fe);
+                color: white;
+                border: none;
+                border-radius: 8px;
+                font-size: 16px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.3s ease;
+            }
+            .btn:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 10px 25px rgba(79, 172, 254, 0.3);
+            }
+            .link-section {
+                text-align: center;
+                margin-top: 1.5rem;
+                padding-top: 1.5rem;
+                border-top: 1px solid #e5e7eb;
+            }
+            .link-section a {
+                color: #4facfe;
+                text-decoration: none;
+                font-weight: 500;
+            }
+            .link-section a:hover {
+                text-decoration: underline;
+            }
+            .flash-messages {
+                margin-bottom: 1rem;
+            }
+            .flash {
+                padding: 0.75rem;
+                border-radius: 8px;
+                margin-bottom: 0.5rem;
+                font-weight: 500;
+            }
+            .flash.error {
+                background: #fef2f2;
+                color: #dc2626;
+                border: 1px solid #fecaca;
+            }
+            .flash.success {
+                background: #f0fdf4;
+                color: #16a34a;
+                border: 1px solid #bbf7d0;
+            }
+            .requirements {
+                font-size: 0.875rem;
+                color: #64748b;
+                margin-top: 0.5rem;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="login-card">
+            <div class="logo">🤖</div>
+            <h2>Join PhenBOT</h2>
+            <p class="tagline">Create your study companion account</p>
+            
+            <div class="flash-messages">
+                {% for category, message in get_flashed_messages(with_categories=true) %}
+                    <div class="flash {{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+            
+            <form method="POST">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" required minlength="3"
+                           value="{{ request.form.username if request.form.username }}">
+                    <div class="requirements">At least 3 characters</div>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required minlength="6">
+                    <div class="requirements">At least 6 characters</div>
+                </div>
+                <button type="submit" class="btn">Create Account</button>
+            </form>
+            
+            <div class="link-section">
+                <p>Already have an account? <a href="{{ url_for('login') }}">Sign in here</a></p>
+            </div>
+        </div>
+    </body>
+    </html>
+    '''
+
+    MAIN_APP_HTML = '''
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>PhenBOT - Study Dashboard</title>
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            :root {
+                --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                --secondary-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+                --accent-color: #4facfe;
+                --success-color: #10b981;
+                --warning-color: #f59e0b;
+                --error-color: #ef4444;
+                --card-bg: #ffffff;
+                --text-primary: #1e293b;
+                --text-secondary: #64748b;
+                --border-color: #e2e8f0;
+                --shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            }
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                background: var(--primary-gradient);
+                min-height: 100vh;
+                color: var(--text-primary);
+            }
+            .app-container { display: flex; height: 100vh; overflow: hidden; }
+            
+            .sidebar {
+                width: 280px;
+                background: var(--card-bg);
+                border-right: 1px solid var(--border-color);
+                display: flex;
+                flex-direction: column;
+            }
+            .sidebar-header {
+                padding: 20px;
+                background: var(--secondary-gradient);
+                color: white;
+            }
+            .logo { font-size: 24px; font-weight: 700; margin-bottom: 5px; }
+            .tagline { font-size: 14px; opacity: 0.9; }
+            .nav-tabs { padding: 20px 0; flex: 1; }
+            .nav-tab {
+                display: flex;
+                align-items: center;
+                padding: 12px 20px;
+                color: var(--text-secondary);
+                border-left: 3px solid transparent;
+                cursor: pointer;
+                background: none;
+                border: none;
+                width: 100%;
+                text-align: left;
+                font-size: 14px;
+                transition: all 0.2s ease;
+            }
+            .nav-tab:hover,
+            .nav-tab.active {
+                background: rgba(79, 172, 254, 0.1);
+                color: var(--accent-color);
+                border-left-color: var(--accent-color);
+            }
+            .nav-tab-icon { margin-right: 12px; font-size: 16px; width: 20px; text-align: center; }
+            .user-section {
+                padding: 20px;
+                border-top: 1px solid var(--border-color);
+                background: #f8fafc;
+            }
+            .user-info {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                margin-bottom: 12px;
+            }
+            .user-avatar {
+                width: 36px;
+                height: 36px;
+                border-radius: 50%;
+                background: var(--secondary-gradient);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: white;
+                font-weight: 600;
+            }
+            .logout-btn {
+                width: 100%;
+                padding: 8px 16px;
+                background: var(--error-color);
+                color: white;
+                border: none;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 14px;
+                text-decoration: none;
+                text-align: center;
+                display: block;
+            }
+            
+            .main-content { flex: 1; display: flex; flex-direction: column; }
+            .top-bar {
+                background: var(--card-bg);
+                padding: 16px 24px;
+                border-bottom: 1px solid var(--border-color);
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .system-status {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 8px 12px;
+                border-radius: 20px;
+                font-size: 12px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: transform 0.2s ease;
+            }
+            .system-status:hover { transform: scale(1.05); }
+            .system-status.online { background: var(--success-color); color: white; }
+            .system-status.offline { background: var(--error-color); color: white; }
+            .system-status.checking { background: var(--warning-color); color: white; }
+            
+            .content-area { flex: 1; padding: 24px; overflow-y: auto; }
+            .tab-content { display: none; }
+            .tab-content.active { display: block; }
+            
+            .chat-container {
+                background: var(--card-bg);
+                border-radius: 16px;
+                box-shadow: var(--shadow);
+                height: 75vh;
+                display: flex;
+                flex-direction: column;
+            }
+            .chat-messages {
+                flex: 1;
+                padding: 20px;
+                overflow-y: auto;
+                scroll-behavior: smooth;
+            }
+            .message {
+                margin-bottom: 20px;
+                display: flex;
+                gap: 12px;
+                align-items: flex-start;
+                animation: slideIn 0.3s ease;
+            }
+            .message.user { flex-direction: row-reverse; }
+            @keyframes slideIn {
+                from { opacity: 0; transform: translateY(10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            .message-avatar {
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: 600;
+                flex-shrink: 0;
+            }
+            .message.bot .message-avatar {
+                background: var(--secondary-gradient);
+                color: white;
+            }
+            .message.user .message-avatar {
+                background: var(--primary-gradient);
+                color: white;
+            }
+            .message-content {
+                max-width: 75%;
+                padding: 12px 16px;
+                border-radius: 16px;
+                line-height: 1.6;
+                white-space: pre-wrap;
+            }
+            .message.bot .message-content {
+                background: #f1f5f9;
+                border-bottom-left-radius: 4px;
+            }
+            .message.user .message-content {
+                background: var(--accent-color);
+                color: white;
+                border-bottom-right-radius: 4px;
+            }
+            
+            .chat-input-area {
+                padding: 20px;
+                border-top: 1px solid var(--border-color);
+            }
+            .input-container {
+                display: flex;
+                gap: 12px;
+                align-items: flex-end;
+            }
+            .message-input {
+                flex: 1;
+                min-height: 50px;
+                max-height: 120px;
+                padding: 12px 16px;
+                border: 2px solid var(--border-color);
+                border-radius: 24px;
+                outline: none;
+                font-size: 16px;
+                resize: none;
+                font-family: inherit;
+                transition: border-color 0.3s ease;
+            }
+            .message-input:focus {
+                border-color: var(--accent-color);
+                box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+            }
+            .send-button {
+                background: var(--secondary-gradient);
+                color: white;
+                border: none;
+                border-radius: 50%;
+                width: 50px;
+                height: 50px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 18px;
+                transition: transform 0.2s ease;
+            }
+            .send-button:hover:not(:disabled) { transform: scale(1.05); }
+            .send-button:disabled { opacity: 0.6; cursor: not-allowed; }
+            
+            @media (max-width: 768px) {
+                .app-container { flex-direction: column; }
+                .sidebar { width: 100%; height: auto; }
+                .chat-container { height: 60vh; }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="app-container">
+            <div class="sidebar">
+                <div class="sidebar-header">
+                    <div class="logo">🤖 PhenBOT</div>
+                    <div class="tagline">Advanced Study Companion</div>
+                </div>
                 
-            username_or_email = (data.get("username") or "").strip().lower()  # Normalize input
-            password = data.get("password") or ""
-            
-            print(f"Login attempt: input='{username_or_email}', password_length={len(password)}")
-            
-            if not username_or_email or not password:
-                error_msg = "Please fill in all fields"
-                print("Missing username/email or password")
-                if request.is_json:
-                    return jsonify({"success": False, "error": error_msg}), 400
-                else:
-                    flash(error_msg, "danger")
-                    return render_template("login.html")
-            
-            # Find user by username or email
-            user = None
-            
-            # First try to find by email
-            if validate_email(username_or_email):
-                print(f"Input looks like email, searching by email: {username_or_email}")
-                user = User.query.filter(User.email == username_or_email).first()
-                if user:
-                    print(f"Found user by email: {user.username}")
-            
-            # If not found by email, try username
-            if not user:
-                print(f"Searching by username: {username_or_email}")
-                user = User.query.filter(User.username == username_or_email).first()
-                if user:
-                    print(f"Found user by username: {user.username}")
-            
-            if not user:
-                print("User not found in database")
-                # List all users for debugging (remove in production)
-                all_users = User.query.all()
-                print(f"All users in database: {[(u.username, u.email) for u in all_users]}")
+                <nav class="nav-tabs">
+                    <button class="nav-tab active" data-tab="math">
+                        <span class="nav-tab-icon">🔢</span>Mathematics
+                    </button>
+                    <button class="nav-tab" data-tab="science">
+                        <span class="nav-tab-icon">🔬</span>Science
+                    </button>
+                    <button class="nav-tab" data-tab="english">
+                        <span class="nav-tab-icon">📚</span>English
+                    </button>
+                    <button class="nav-tab" data-tab="history">
+                        <span class="nav-tab-icon">🏛️</span>History
+                    </button>
+                </nav>
                 
-                error_msg = "Invalid username/email or password"
-                if request.is_json:
-                    return jsonify({"success": False, "error": error_msg}), 400
-                else:
-                    flash(error_msg, "danger")
-                    return render_template("login.html")
+                <div class="user-section">
+                    <div class="user-info">
+                        <div class="user-avatar">{{ username[0].upper() }}</div>
+                        <div>
+                            <div style="font-weight: 600;">{{ username }}</div>
+                            <div style="font-size: 12px; color: var(--text-secondary);">Student</div>
+                        </div>
+                    </div>
+                    <a href="{{ url_for('logout') }}" class="logout-btn">Sign Out</a>
+                </div>
+            </div>
             
-            # Verify password
-            print(f"Verifying password for user: {user.username}")
-            print(f"Stored hash: {user.password_hash[:50]}...")
-            
-            password_valid = check_password_hash(user.password_hash, password)
-            print(f"Password verification result: {password_valid}")
-            
-            if password_valid:
-                print("Login successful, setting session")
-                session.clear()  # Clear any existing session data
-                session["user_id"] = user.id
-                session["username"] = user.username
-                session["email"] = user.email or ""
-                session.permanent = True  # Make session permanent
+            <div class="main-content">
+                <div class="top-bar">
+                    <div class="system-status checking" id="systemStatus">🔄 Checking AI...</div>
+                    <div style="font-size: 14px; color: var(--text-secondary);">
+                        {{ datetime.now().strftime('%B %d, %Y') }}
+                    </div>
+                </div>
                 
-                print(f"Session set: user_id={session.get('user_id')}, username={session.get('username')}")
-                
-                if request.is_json:
-                    return jsonify({
-                        "success": True, 
-                        "message": "Login successful",
-                        "redirect": url_for("dashboard")
-                    })
-                else:
-                    flash("Login successful!", "success")
-                    return redirect(url_for("dashboard"))
-            else:
-                print("Password verification failed")
-                error_msg = "Invalid username/email or password"
-                if request.is_json:
-                    return jsonify({"success": False, "error": error_msg}), 400
-                else:
-                    flash(error_msg, "danger")
-                    return render_template("login.html")
+                <div class="content-area">
+                    <div class="tab-content active" id="math">
+                        <div class="chat-container">
+                            <div class="chat-messages" id="mathMessages">
+                                <div class="message bot">
+                                    <div class="message-avatar">🤖</div>
+                                    <div class="message-content">Welcome to Mathematics! I'm here to help you understand concepts through step-by-step explanations. What mathematical topic would you like to explore?</div>
+                                </div>
+                            </div>
+                            <div class="chat-input-area">
+                                <div class="input-container">
+                                    <textarea class="message-input" placeholder="Ask a math question..." data-subject="math"></textarea>
+                                    <button class="send-button" disabled>➤</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     
-        except Exception as e:
-            print(f"Login error: {e}")
-            traceback.print_exc()
-            error_msg = "An error occurred during login. Please try again."
-            if request.is_json:
-                return jsonify({"success": False, "error": error_msg}), 500
+                    <div class="tab-content" id="science">
+                        <div class="chat-container">
+                            <div class="chat-messages" id="scienceMessages">
+                                <div class="message bot">
+                                    <div class="message-avatar">🤖</div>
+                                    <div class="message-content">Ready to explore Science! I can explain complex concepts using real-world examples and analogies. What scientific topic interests you?</div>
+                                </div>
+                            </div>
+                            <div class="chat-input-area">
+                                <div class="input-container">
+                                    <textarea class="message-input" placeholder="Ask a science question..." data-subject="science"></textarea>
+                                    <button class="send-button" disabled>➤</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="tab-content" id="english">
+                        <div class="chat-container">
+                            <div class="chat-messages" id="englishMessages">
+                                <div class="message bot">
+                                    <div class="message-avatar">🤖</div>
+                                    <div class="message-content">Let's work on English & Literature! I can help with grammar, writing techniques, literary analysis, and language concepts. What can I help you with?</div>
+                                </div>
+                            </div>
+                            <div class="chat-input-area">
+                                <div class="input-container">
+                                    <textarea class="message-input" placeholder="Ask about English/Literature..." data-subject="english"></textarea>
+                                    <button class="send-button" disabled>➤</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="tab-content" id="history">
+                        <div class="chat-container">
+                            <div class="chat-messages" id="historyMessages">
+                                <div class="message bot">
+                                    <div class="message-avatar">🤖</div>
+                                    <div class="message-content">Welcome to History! I'll help you understand historical events, their causes, and connections to the present. What period or topic would you like to explore?</div>
+                                </div>
+                            </div>
+                            <div class="chat-input-area">
+                                <div class="input-container">
+                                    <textarea class="message-input" placeholder="Ask a history question..." data-subject="history"></textarea>
+                                    <button class="send-button" disabled>➤</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            let isSystemReady = false;
+
+            // Tab switching functionality
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const targetTab = tab.dataset.tab;
+                    
+                    // Update active tab
+                    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    
+                    // Show target content
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    document.getElementById(targetTab).classList.add('active');
+                });
+            });
+
+            // Input handling
+            document.querySelectorAll('.message-input').forEach(input => {
+                const sendButton = input.parentNode.querySelector('.send-button');
+                
+                input.addEventListener('input', () => {
+                    sendButton.disabled = input.value.trim() === '';
+                });
+                
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        if (input.value.trim() !== '') {
+                            sendMessage(input);
+                        }
+                    }
+                });
+                
+                sendButton.addEventListener('click', () => {
+                    if (input.value.trim() !== '') {
+                        sendMessage(input);
+                    }
+                });
+            });
+
+            function addMessage(messagesContainer, content, isUser = false) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${isUser ? 'user' : 'bot'}`;
+                
+                messageDiv.innerHTML = `
+                    <div class="message-avatar">${isUser ? '👤' : '🤖'}</div>
+                    <div class="message-content">${content}</div>
+                `;
+                
+                messagesContainer.appendChild(messageDiv);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+
+            function sendMessage(input) {
+                const subject = input.dataset.subject;
+                const question = input.value.trim();
+                const messagesContainer = document.getElementById(subject + 'Messages');
+                const sendButton = input.parentNode.querySelector('.send-button');
+                
+                // Add user message
+                addMessage(messagesContainer, question, true);
+                
+                // Clear input and disable send button
+                input.value = '';
+                sendButton.disabled = true;
+                
+                // Show loading state
+                const loadingDiv = document.createElement('div');
+                loadingDiv.className = 'message bot';
+                loadingDiv.id = 'loading-message';
+                loadingDiv.innerHTML = `
+                    <div class="message-avatar">🤖</div>
+                    <div class="message-content">Thinking...</div>
+                `;
+                messagesContainer.appendChild(loadingDiv);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                
+                // Send to backend
+                fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        question: question,
+                        subject: subject
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Remove loading message
+                    const loadingMessage = document.getElementById('loading-message');
+                    if (loadingMessage) {
+                        loadingMessage.remove();
+                    }
+                    
+                    // Add bot response
+                    addMessage(messagesContainer, data.response);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    
+                    // Remove loading message
+                    const loadingMessage = document.getElementById('loading-message');
+                    if (loadingMessage) {
+                        loadingMessage.remove();
+                    }
+                    
+                    // Add error message
+                    addMessage(messagesContainer, 'Sorry, there was an error processing your request. Please try again.');
+                });
+            }
+
+            // Check AI system status
+            function checkSystemStatus() {
+                fetch('/api/status')
+                    .then(response => response.json())
+                    .then(data => {
+                        const statusElement = document.getElementById('systemStatus');
+                        if (data.groq_available) {
+                            statusElement.className = 'system-status online';
+                            statusElement.innerHTML = '🟢 AI Online';
+                            isSystemReady = true;
+                        } else {
+                            statusElement.className = 'system-status offline';
+                            statusElement.innerHTML = '🔴 AI Offline';
+                            isSystemReady = false;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Status check error:', error);
+                        const statusElement = document.getElementById('systemStatus');
+                        statusElement.className = 'system-status offline';
+                        statusElement.innerHTML = '🔴 Connection Error';
+                        isSystemReady = false;
+                    });
+            }
+
+            // Initial status check
+            checkSystemStatus();
+            
+            // Check status every 30 seconds
+            setInterval(checkSystemStatus, 30000);
+        </script>
+    </body>
+    </html>
+    '''
+
+    # Routes
+    @app.route('/')
+    def index():
+        if is_logged_in():
+            return redirect(url_for('dashboard'))
+        return redirect(url_for('login'))
+
+    @app.route('/login', methods=['GET', 'POST'])
+    def login():
+        if is_logged_in():
+            return redirect(url_for('dashboard'))
+            
+        if request.method == 'POST':
+            username = request.form.get('username', '').strip()
+            password = request.form.get('password', '')
+            
+            if not username or not password:
+                flash('Please fill in all fields', 'error')
+                return render_template_string(LOGIN_HTML)
+            
+            user = get_user(username)
+            if user and check_password_hash(user[2], password):
+                session['user_id'] = user[0]
+                session['username'] = user[1]
+                flash('Welcome back!', 'success')
+                return redirect(url_for('dashboard'))
             else:
-                flash(error_msg, "danger")
-                return render_template("login.html")
-    
-    return render_template("login.html")
-
-@app.route("/logout")
-def logout():
-    print(f"Logging out user: {session.get('username')}")
-    session.clear()
-    flash("Logged out successfully", "info")
-    return redirect(url_for("login"))
-
-@app.route("/dashboard")
-@login_required_page
-def dashboard():
-    print(f"Dashboard accessed by user: {session.get('username')} (ID: {session.get('user_id')})")
-    return render_template("dashboard.html", username=session.get("username"))
-
-# ------------------------
-# Debug routes (remove in production)
-# ------------------------
-@app.route("/debug/users")
-def debug_users():
-    """Debug route to see all users in database"""
-    try:
-        users = User.query.all()
-        user_list = []
-        for user in users:
-            user_list.append({
-                "id": user.id,
-                "username": user.username,
-                "email": user.email,
-                "password_hash": user.password_hash[:50] + "...",
-                "created_at": user.created_at.isoformat() if user.created_at else None
-            })
+                flash('Invalid username or password', 'error')
         
+        return render_template_string(LOGIN_HTML)
+
+    @app.route('/register', methods=['GET', 'POST'])
+    def register():
+        if is_logged_in():
+            return redirect(url_for('dashboard'))
+            
+        if request.method == 'POST':
+            username = request.form.get('username', '').strip()
+            password = request.form.get('password', '')
+            
+            if not username or not password:
+                flash('Please fill in all fields', 'error')
+                return render_template_string(REGISTER_HTML)
+            
+            if len(username) < 3:
+                flash('Username must be at least 3 characters long', 'error')
+                return render_template_string(REGISTER_HTML)
+            
+            if len(password) < 6:
+                flash('Password must be at least 6 characters long', 'error')
+                return render_template_string(REGISTER_HTML)
+            
+            if create_user(username, password):
+                flash('Account created successfully! Please log in.', 'success')
+                return redirect(url_for('login'))
+            else:
+                flash('Username already exists. Please choose another.', 'error')
+        
+        return render_template_string(REGISTER_HTML)
+
+    @app.route('/dashboard')
+    @require_login
+    def dashboard():
+        return render_template_string(MAIN_APP_HTML, 
+                                    username=session['username'],
+                                    datetime=datetime)
+
+    @app.route('/logout')
+    def logout():
+        session.clear()
+        flash('You have been logged out successfully', 'success')
+        return redirect(url_for('login'))
+
+    @app.route('/api/chat', methods=['POST'])
+    @require_login
+    def api_chat():
+        try:
+            data = request.get_json()
+            question = data.get('question', '').strip()
+            subject = data.get('subject', 'general')
+            
+            if not question:
+                return jsonify({'error': 'Question is required'}), 400
+            
+            response = get_ai_response(question, subject)
+            return jsonify({'response': response})
+            
+        except Exception as e:
+            print(f"Chat API error: {e}")
+            return jsonify({'error': 'Internal server error'}), 500
+
+    @app.route('/api/status')
+    def api_status():
         return jsonify({
-            "users": user_list, 
-            "count": len(user_list),
-            "database_path": app.config["SQLALCHEMY_DATABASE_URI"]
+            'groq_available': GROQ_AVAILABLE,
+            'groq_error': GROQ_ERROR if not GROQ_AVAILABLE else None
         })
-    except Exception as e:
-        return jsonify({"error": str(e), "traceback": traceback.format_exc()}), 500
 
-@app.route("/debug/session")
-def debug_session():
-    """Debug route to check session data"""
-    return jsonify({
-        "session_data": dict(session),
-        "session_keys": list(session.keys()),
-        "user_logged_in": "user_id" in session
-    })
+    return app
 
-@app.route("/debug/test-hash")
-def debug_test_hash():
-    """Test password hashing"""
-    test_password = "TestPassword123"
-    hashed = generate_password_hash(test_password, method='pbkdf2:sha256')
-    verification = check_password_hash(hashed, test_password)
-    
-    return jsonify({
-        "original_password": test_password,
-        "hashed_password": hashed,
-        "verification_result": verification
-    })
+# Create the app instance
+app = create_app()
 
-# ------------------------
-# Health check
-# ------------------------
-@app.route("/health")
-def health():
-    return jsonify({
-        "status": "ok",
-        "groq_available": GROQ_AVAILABLE,
-        "api_key_present": bool(os.environ.get("GROQ_API_KEY")),
-        "error": GROQ_ERROR,
-        "python": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
-        "database_path": app.config["SQLALCHEMY_DATABASE_URI"]
-    })
-
-# ------------------------
-# API endpoints
-# ------------------------
-@app.route("/api/ask", methods=["POST"])
-@login_required_json
-def api_ask():
-    data = request.get_json() or {}
-    question = (data.get("question") or "").strip()
-    subject = data.get("subject", "general")
-    if not question:
-        return jsonify({"error": "Question required"}), 400
-    if not GROQ_AVAILABLE:
-        return jsonify({"error": f"AI not available: {GROQ_ERROR or 'Groq not initialized'}"}), 503
-    answer = get_ai_response(question, subject)
-    try:
-        hist = QAHistory(user_id=session["user_id"], question=question, answer=answer, subject=subject)
-        db.session.add(hist)
-        db.session.commit()
-    except Exception:
-        db.session.rollback()
-    return jsonify({"answer": answer})
-
-@app.route("/api/chat", methods=["POST"])
-@login_required_json
-def api_chat():
-    data = request.get_json() or {}
-    message = (data.get("message") or "").strip()
-    if not message:
-        return jsonify({"error": "Message required"}), 400
-    
-    if GROQ_AVAILABLE:
-        response = get_ai_response(message, "general")
-    else:
-        response = f"I received your message: '{message}'. AI service is currently unavailable, but I'm here to help!"
-    
-    try:
-        hist = QAHistory(user_id=session["user_id"], question=message, answer=response, subject="general")
-        db.session.add(hist)
-        db.session.commit()
-    except Exception:
-        db.session.rollback()
-    
-    return jsonify({
-        "response": response,
-        "timestamp": datetime.now().isoformat()
-    })
-
-# PDF upload functionality
-ALLOWED_EXT = {"pdf"}
-def allowed_file(filename):
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXT
-
-@app.route("/api/upload-pdf", methods=["POST"])
-@login_required_json
-def upload_pdf():
-    if "file" not in request.files:
-        return jsonify({"error": "No file part"}), 400
-    f = request.files["file"]
-    if f.filename == "":
-        return jsonify({"error": "No file selected"}), 400
-    if not allowed_file(f.filename):
-        return jsonify({"error": "Only .pdf allowed"}), 400
-    original = secure_filename(f.filename)
-    unique = f"{session['user_id']}_{uuid.uuid4().hex}_{original}"
-    save_path = os.path.join(app.config["UPLOAD_FOLDER"], unique)
-    f.save(save_path)
-    rec = PDFFile(user_id=session["user_id"], filename=unique, original_name=original)
-    db.session.add(rec)
-    db.session.commit()
-    url = url_for("static", filename=f"uploads/{unique}")
-    return jsonify({"message": "Uploaded successfully", "filename": original, "url": url}), 201
-
-@app.route("/api/upload", methods=["POST"])
-@login_required_json
-def api_upload():
-    if "file" not in request.files:
-        return jsonify({"error": "No file provided"}), 400
-    
-    file = request.files["file"]
-    if file.filename == "":
-        return jsonify({"error": "No file selected"}), 400
-    
-    if file and file.filename.lower().endswith('.pdf'):
-        original = secure_filename(file.filename)
-        unique = f"{session['user_id']}_{uuid.uuid4().hex}_{original}"
-        save_path = os.path.join(app.config["UPLOAD_FOLDER"], unique)
-        file.save(save_path)
-        
-        rec = PDFFile(user_id=session["user_id"], filename=unique, original_name=original)
-        db.session.add(rec)
-        db.session.commit()
-        
-        url = url_for("static", filename=f"uploads/{unique}")
-        return jsonify({
-            "success": True,
-            "filename": original,
-            "message": "File uploaded successfully",
-            "url": url
-        })
-    
-    return jsonify({"error": "Invalid file type. Only PDF files are allowed."}), 400
-
-@app.route("/api/pdfs", methods=["GET"])
-@login_required_json
-def list_pdfs():
-    uid = session["user_id"]
-    files = PDFFile.query.filter_by(user_id=uid).order_by(PDFFile.uploaded_at.desc()).all()
-    out = [{"id": p.id, "name": p.original_name, "url": url_for("static", filename=f"uploads/{p.filename}"), "uploaded_at": p.uploaded_at.isoformat()} for p in files]
-    return jsonify({"files": out})
-
-@app.route("/api/history", methods=["GET"])
-@login_required_json
-def get_history():
-    uid = session["user_id"]
-    rows = QAHistory.query.filter_by(user_id=uid).order_by(QAHistory.created_at.desc()).limit(50).all()
-    out = [{"id": r.id, "question": r.question, "answer": r.answer, "subject": r.subject, "created_at": r.created_at.isoformat()} for r in rows]
-    return jsonify({"history": out})
-
-# ------------------------
-# Error handlers
-# ------------------------
-@app.errorhandler(404)
-def handle_404(e):
-    if request.path.startswith('/api/'):
-        return jsonify({"error": "Endpoint not found"}), 404
-    flash("Page not found", "error")
-    return redirect(url_for("login"))
-
-@app.errorhandler(500)
-def handle_500(e):
-    if request.path.startswith('/api/'):
-        return jsonify({"error": "Internal server error"}), 500
-    flash("An error occurred", "error")
-    return redirect(url_for("login"))
-
-# ------------------------
-# Run
-# ------------------------
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    debug = os.environ.get("FLASK_ENV") == "development"
-    print(f"Starting PhenBOT on port {port} (debug={debug})")
-    print(f"Database: {app.config['SQLALCHEMY_DATABASE_URI']}")
-    print(f"Groq AI available: {GROQ_AVAILABLE}")
-    if not GROQ_AVAILABLE:
-        print(f"Groq error: {GROQ_ERROR}")
-    app.run(host="0.0.0.0", port=port, debug=debug)
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
