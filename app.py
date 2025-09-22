@@ -43,14 +43,17 @@ db = SQLAlchemy(app)
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
-    email = db.Column(db.String(150), unique=True, nullable=True)  # Added email field
+    email = db.Column(db.String(150), unique=True, nullable=True)
     password_hash = db.Column(db.String(256), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<User {self.username}>'
 
 class PDFFile(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    filename = db.Column(db.String(400), nullable=False)       # stored filename
+    filename = db.Column(db.String(400), nullable=False)
     original_name = db.Column(db.String(400), nullable=False)
     uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -62,23 +65,34 @@ class QAHistory(db.Model):
     subject = db.Column(db.String(80), default="general")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-# Create DB - FIXED: Handle existing database properly
-with app.app_context():
-    # Check if we need to add the email column to existing database
-    try:
-        # Try to query for email column - if it fails, we need to add it
-        db.engine.execute('SELECT email FROM user LIMIT 1')
-    except Exception as e:
-        print("Adding email column to existing database...")
+# Database initialization with proper error handling
+def init_database():
+    """Initialize database with proper migration handling"""
+    with app.app_context():
         try:
-            db.engine.execute('ALTER TABLE user ADD COLUMN email VARCHAR(150)')
-            print("Email column added successfully")
-        except Exception as alter_error:
-            print(f"Could not add email column: {alter_error}")
-    
-    # Create all tables (will create new ones and skip existing ones)
-    db.create_all()
-    print("Database initialized successfully")
+            # Create all tables
+            db.create_all()
+            print("Database tables created successfully")
+            
+            # Check if email column exists and add if missing
+            inspector = db.inspect(db.engine)
+            columns = [col['name'] for col in inspector.get_columns('user')]
+            
+            if 'email' not in columns:
+                print("Adding email column to user table...")
+                with db.engine.connect() as conn:
+                    conn.execute(db.text('ALTER TABLE user ADD COLUMN email VARCHAR(150)'))
+                    conn.commit()
+                print("Email column added successfully")
+            
+            return True
+        except Exception as e:
+            print(f"Database initialization error: {e}")
+            traceback.print_exc()
+            return False
+
+# Initialize database
+init_database()
 
 # ------------------------
 # Groq initialization (safe)
@@ -105,7 +119,6 @@ def initialize_groq():
         GROQ_AVAILABLE = False
         return False
     try:
-        # Do NOT pass 'proxies' or unsupported kwargs.
         groq_client = Groq(api_key=api_key)
         GROQ_AVAILABLE = True
         return True
@@ -114,7 +127,6 @@ def initialize_groq():
         GROQ_AVAILABLE = False
         return False
 
-# Try to initialize; doesn't crash app if missing
 initialize_groq()
 
 def get_ai_response(question, subject="general"):
@@ -129,7 +141,6 @@ def get_ai_response(question, subject="general"):
     }
     system_prompt = system_prompts.get(subject, system_prompts["general"])
     try:
-        # Try common SDK interfaces safely
         if hasattr(groq_client, "chat") and hasattr(groq_client.chat, "completions"):
             response = groq_client.chat.completions.create(
                 model="llama-3.1-8b-instant",
@@ -148,27 +159,13 @@ def get_ai_response(question, subject="general"):
                     return response["choices"][0]["message"]["content"]
                 except Exception:
                     return str(response)
-        if hasattr(groq_client, "chat") and hasattr(groq_client.chat, "create"):
-            response = groq_client.chat.create(
-                model="llama-3.1-8b-instant",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": question}
-                ],
-                temperature=0.7,
-                max_tokens=600
-            )
-            try:
-                return response.choices[0].message.content
-            except Exception:
-                return str(response)
         return "Groq client interface not recognized"
     except Exception as e:
         traceback.print_exc()
         return f"Error calling Groq: {e}"
 
 # ------------------------
-# Helpers / auth
+# Helper functions
 # ------------------------
 def login_required_json(f):
     @wraps(f)
@@ -189,6 +186,8 @@ def login_required_page(f):
 
 def validate_email(email):
     """Simple email validation"""
+    if not email:
+        return False
     pattern = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
     return re.match(pattern, email) is not None
 
@@ -250,75 +249,79 @@ def register():
         return redirect(url_for("dashboard"))
     
     if request.method == "POST":
-        # Handle both JSON and form data
-        if request.is_json:
-            data = request.get_json()
-        else:
-            data = request.form
-            
-        username = (data.get("username") or "").strip()
-        email = (data.get("email") or "").strip()
-        password = data.get("password") or ""
-        confirm_password = data.get("confirmPassword") or ""
-        
-        # Validation
-        errors = []
-        
-        if not username or len(username) < 3:
-            errors.append("Username must be at least 3 characters long")
-            
-        if not email or not validate_email(email):
-            errors.append("Please enter a valid email address")
-            
-        if not password or len(password) < 8:
-            errors.append("Password must be at least 8 characters long")
-            
-        if password != confirm_password:
-            errors.append("Passwords do not match")
-            
-        # Check password strength
-        strength, strength_msg = validate_password_strength(password)
-        if strength < 40:
-            errors.append("Password is too weak. Please choose a stronger password")
-        
-        # Check if user exists
-        existing_user = User.query.filter(
-            (User.username == username) | (User.email == email)
-        ).first()
-        
-        if existing_user:
-            if existing_user.username == username:
-                errors.append("Username already exists")
-            if existing_user.email == email:
-                errors.append("Email already registered")
-        
-        if errors:
-            if request.is_json:
-                return jsonify({"success": False, "errors": errors}), 400
-            else:
-                for error in errors:
-                    flash(error, "danger")
-                return render_template("register.html")
-        
-        # Create user
         try:
-            hashed = generate_password_hash(password)
-            user = User(username=username, email=email, password_hash=hashed)
+            # Handle both JSON and form data
+            if request.is_json:
+                data = request.get_json()
+            else:
+                data = request.form
+                
+            username = (data.get("username") or "").strip().lower()  # Normalize username
+            email = (data.get("email") or "").strip().lower()  # Normalize email
+            password = data.get("password") or ""
+            confirm_password = data.get("confirmPassword") or ""
+            
+            print(f"Registration attempt: username='{username}', email='{email}'")
+            
+            # Validation
+            errors = []
+            
+            if not username or len(username) < 3:
+                errors.append("Username must be at least 3 characters long")
+                
+            if not email or not validate_email(email):
+                errors.append("Please enter a valid email address")
+                
+            if not password or len(password) < 8:
+                errors.append("Password must be at least 8 characters long")
+                
+            if password != confirm_password:
+                errors.append("Passwords do not match")
+                
+            # Check password strength
+            strength, strength_msg = validate_password_strength(password)
+            if strength < 40:
+                errors.append("Password is too weak. Please choose a stronger password")
+            
+            # Check if user exists
+            existing_username = User.query.filter_by(username=username).first()
+            existing_email = User.query.filter_by(email=email).first()
+            
+            if existing_username:
+                errors.append("Username already exists")
+            if existing_email:
+                errors.append("Email already registered")
+            
+            if errors:
+                print(f"Registration errors: {errors}")
+                if request.is_json:
+                    return jsonify({"success": False, "errors": errors}), 400
+                else:
+                    for error in errors:
+                        flash(error, "danger")
+                    return render_template("register.html")
+            
+            # Create user
+            hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
+            user = User(username=username, email=email, password_hash=hashed_password)
+            
             db.session.add(user)
             db.session.commit()
             
-            print(f"User created successfully: username={username}, email={email}")
+            print(f"User created successfully: id={user.id}, username={user.username}, email={user.email}")
+            print(f"Password hash: {user.password_hash[:50]}...")
             
             if request.is_json:
                 return jsonify({"success": True, "message": "Account created successfully"})
             else:
-                flash("Account created! Please log in.", "success")
+                flash("Account created successfully! Please log in.", "success")
                 return redirect(url_for("login"))
                 
         except Exception as e:
             db.session.rollback()
-            print(f"Error creating user: {e}")
-            error_msg = "An error occurred during registration"
+            print(f"Registration error: {e}")
+            traceback.print_exc()
+            error_msg = "An error occurred during registration. Please try again."
             if request.is_json:
                 return jsonify({"success": False, "error": error_msg}), 500
             else:
@@ -333,79 +336,107 @@ def login():
         return redirect(url_for("dashboard"))
     
     if request.method == "POST":
-        # Handle both JSON and form data
-        if request.is_json:
-            data = request.get_json()
-        else:
-            data = request.form
-            
-        username = (data.get("username") or "").strip()
-        password = data.get("password") or ""
-        
-        print(f"Login attempt: username/email={username}")
-        
-        if not username or not password:
-            error_msg = "Please fill in all fields"
+        try:
+            # Handle both JSON and form data
             if request.is_json:
-                return jsonify({"success": False, "error": error_msg}), 400
+                data = request.get_json()
             else:
-                flash(error_msg, "danger")
-                return render_template("login.html")
-        
-        # FIXED: Search for user by username OR email
-        user = None
-        
-        # Check if username is actually an email
-        if validate_email(username):
-            print("Searching by email...")
-            user = User.query.filter_by(email=username).first()
-        else:
-            print("Searching by username...")
-            user = User.query.filter_by(username=username).first()
-        
-        # ADDITIONAL FIX: If not found by the initial method, try the other way
-        if not user:
-            print("User not found by initial method, trying alternative...")
-            if validate_email(username):
-                # If we searched by email and didn't find, try username
-                user = User.query.filter_by(username=username).first()
-            else:
-                # If we searched by username and didn't find, try email
-                user = User.query.filter_by(email=username).first()
-        
-        if user:
-            print(f"User found: id={user.id}, username={user.username}, email={user.email}")
+                data = request.form
+                
+            username_or_email = (data.get("username") or "").strip().lower()  # Normalize input
+            password = data.get("password") or ""
             
-            # FIXED: Check password hash properly
-            if check_password_hash(user.password_hash, password):
-                print("Password verified successfully")
+            print(f"Login attempt: input='{username_or_email}', password_length={len(password)}")
+            
+            if not username_or_email or not password:
+                error_msg = "Please fill in all fields"
+                print("Missing username/email or password")
+                if request.is_json:
+                    return jsonify({"success": False, "error": error_msg}), 400
+                else:
+                    flash(error_msg, "danger")
+                    return render_template("login.html")
+            
+            # Find user by username or email
+            user = None
+            
+            # First try to find by email
+            if validate_email(username_or_email):
+                print(f"Input looks like email, searching by email: {username_or_email}")
+                user = User.query.filter(User.email == username_or_email).first()
+                if user:
+                    print(f"Found user by email: {user.username}")
+            
+            # If not found by email, try username
+            if not user:
+                print(f"Searching by username: {username_or_email}")
+                user = User.query.filter(User.username == username_or_email).first()
+                if user:
+                    print(f"Found user by username: {user.username}")
+            
+            if not user:
+                print("User not found in database")
+                # List all users for debugging (remove in production)
+                all_users = User.query.all()
+                print(f"All users in database: {[(u.username, u.email) for u in all_users]}")
+                
+                error_msg = "Invalid username/email or password"
+                if request.is_json:
+                    return jsonify({"success": False, "error": error_msg}), 400
+                else:
+                    flash(error_msg, "danger")
+                    return render_template("login.html")
+            
+            # Verify password
+            print(f"Verifying password for user: {user.username}")
+            print(f"Stored hash: {user.password_hash[:50]}...")
+            
+            password_valid = check_password_hash(user.password_hash, password)
+            print(f"Password verification result: {password_valid}")
+            
+            if password_valid:
+                print("Login successful, setting session")
+                session.clear()  # Clear any existing session data
                 session["user_id"] = user.id
                 session["username"] = user.username
                 session["email"] = user.email or ""
+                session.permanent = True  # Make session permanent
+                
+                print(f"Session set: user_id={session.get('user_id')}, username={session.get('username')}")
                 
                 if request.is_json:
-                    return jsonify({"success": True, "message": "Login successful"})
+                    return jsonify({
+                        "success": True, 
+                        "message": "Login successful",
+                        "redirect": url_for("dashboard")
+                    })
                 else:
-                    flash("Logged in successfully!", "success")
+                    flash("Login successful!", "success")
                     return redirect(url_for("dashboard"))
             else:
                 print("Password verification failed")
                 error_msg = "Invalid username/email or password"
-        else:
-            print("User not found in database")
-            error_msg = "Invalid username/email or password"
-            
-        # If we reach here, login failed
-        if request.is_json:
-            return jsonify({"success": False, "error": error_msg}), 400
-        else:
-            flash(error_msg, "danger")
-            return render_template("login.html")
+                if request.is_json:
+                    return jsonify({"success": False, "error": error_msg}), 400
+                else:
+                    flash(error_msg, "danger")
+                    return render_template("login.html")
+                    
+        except Exception as e:
+            print(f"Login error: {e}")
+            traceback.print_exc()
+            error_msg = "An error occurred during login. Please try again."
+            if request.is_json:
+                return jsonify({"success": False, "error": error_msg}), 500
+            else:
+                flash(error_msg, "danger")
+                return render_template("login.html")
     
     return render_template("login.html")
 
 @app.route("/logout")
 def logout():
+    print(f"Logging out user: {session.get('username')}")
     session.clear()
     flash("Logged out successfully", "info")
     return redirect(url_for("login"))
@@ -413,33 +444,59 @@ def logout():
 @app.route("/dashboard")
 @login_required_page
 def dashboard():
-    # Renders the SPA/dashboard template (client will call /api/* endpoints)
+    print(f"Dashboard accessed by user: {session.get('username')} (ID: {session.get('user_id')})")
     return render_template("dashboard.html", username=session.get("username"))
 
 # ------------------------
-# Debug route to check users in database
+# Debug routes (remove in production)
 # ------------------------
 @app.route("/debug/users")
 def debug_users():
-    """Debug route to see all users in database - REMOVE IN PRODUCTION"""
-    if not app.debug:
-        return "Not available in production", 404
-    
-    users = User.query.all()
-    user_list = []
-    for user in users:
-        user_list.append({
-            "id": user.id,
-            "username": user.username,
-            "email": user.email,
-            "password_hash": user.password_hash[:20] + "...",  # Only show first 20 chars for security
-            "created_at": user.created_at.isoformat()
+    """Debug route to see all users in database"""
+    try:
+        users = User.query.all()
+        user_list = []
+        for user in users:
+            user_list.append({
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "password_hash": user.password_hash[:50] + "...",
+                "created_at": user.created_at.isoformat() if user.created_at else None
+            })
+        
+        return jsonify({
+            "users": user_list, 
+            "count": len(user_list),
+            "database_path": app.config["SQLALCHEMY_DATABASE_URI"]
         })
+    except Exception as e:
+        return jsonify({"error": str(e), "traceback": traceback.format_exc()}), 500
+
+@app.route("/debug/session")
+def debug_session():
+    """Debug route to check session data"""
+    return jsonify({
+        "session_data": dict(session),
+        "session_keys": list(session.keys()),
+        "user_logged_in": "user_id" in session
+    })
+
+@app.route("/debug/test-hash")
+def debug_test_hash():
+    """Test password hashing"""
+    test_password = "TestPassword123"
+    hashed = generate_password_hash(test_password, method='pbkdf2:sha256')
+    verification = check_password_hash(hashed, test_password)
     
-    return jsonify({"users": user_list, "count": len(user_list)})
+    return jsonify({
+        "original_password": test_password,
+        "hashed_password": hashed,
+        "verification_result": verification
+    })
 
 # ------------------------
-# Health & system info
+# Health check
 # ------------------------
 @app.route("/health")
 def health():
@@ -448,7 +505,8 @@ def health():
         "groq_available": GROQ_AVAILABLE,
         "api_key_present": bool(os.environ.get("GROQ_API_KEY")),
         "error": GROQ_ERROR,
-        "python": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+        "python": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+        "database_path": app.config["SQLALCHEMY_DATABASE_URI"]
     })
 
 # ------------------------
@@ -473,7 +531,6 @@ def api_ask():
         db.session.rollback()
     return jsonify({"answer": answer})
 
-# Enhanced chat endpoint for the dashboard
 @app.route("/api/chat", methods=["POST"])
 @login_required_json
 def api_chat():
@@ -485,7 +542,7 @@ def api_chat():
     if GROQ_AVAILABLE:
         response = get_ai_response(message, "general")
     else:
-        response = f"I received your message: '{message}'. AI service is currently unavailable, but I'm here to help! Try asking about study tips, time management, or general academic questions."
+        response = f"I received your message: '{message}'. AI service is currently unavailable, but I'm here to help!"
     
     try:
         hist = QAHistory(user_id=session["user_id"], question=message, answer=response, subject="general")
@@ -499,7 +556,7 @@ def api_chat():
         "timestamp": datetime.now().isoformat()
     })
 
-# PDF upload
+# PDF upload functionality
 ALLOWED_EXT = {"pdf"}
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXT
@@ -524,11 +581,9 @@ def upload_pdf():
     url = url_for("static", filename=f"uploads/{unique}")
     return jsonify({"message": "Uploaded successfully", "filename": original, "url": url}), 201
 
-# Enhanced upload endpoint for dashboard
 @app.route("/api/upload", methods=["POST"])
 @login_required_json
 def api_upload():
-    """Handle file uploads from dashboard"""
     if "file" not in request.files:
         return jsonify({"error": "No file provided"}), 400
     
@@ -579,21 +634,24 @@ def get_history():
 def handle_404(e):
     if request.path.startswith('/api/'):
         return jsonify({"error": "Endpoint not found"}), 404
-    return render_template("404.html"), 404
+    flash("Page not found", "error")
+    return redirect(url_for("login"))
 
 @app.errorhandler(500)
 def handle_500(e):
     if request.path.startswith('/api/'):
         return jsonify({"error": "Internal server error"}), 500
-    return render_template("500.html"), 500
+    flash("An error occurred", "error")
+    return redirect(url_for("login"))
 
 # ------------------------
-# Run (dev)
+# Run
 # ------------------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     debug = os.environ.get("FLASK_ENV") == "development"
     print(f"Starting PhenBOT on port {port} (debug={debug})")
+    print(f"Database: {app.config['SQLALCHEMY_DATABASE_URI']}")
     print(f"Groq AI available: {GROQ_AVAILABLE}")
     if not GROQ_AVAILABLE:
         print(f"Groq error: {GROQ_ERROR}")
