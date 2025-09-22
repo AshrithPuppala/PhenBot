@@ -547,20 +547,11 @@
             let feedback = 'Weak';
             let color = '#ef4444';
             
-            // Check length
             if (password.length >= 8) strength += 25;
             if (password.length >= 12) strength += 15;
-            
-            // Check for uppercase
             if (/[A-Z]/.test(password)) strength += 20;
-            
-            // Check for lowercase
             if (/[a-z]/.test(password)) strength += 15;
-            
-            // Check for numbers
             if (/[0-9]/.test(password)) strength += 15;
-            
-            // Check for special characters
             if (/[^A-Za-z0-9]/.test(password)) strength += 10;
             
             if (strength < 40) {
@@ -659,7 +650,8 @@
         document.getElementById('password').addEventListener('input', updatePasswordStrength);
         document.getElementById('confirmPassword').addEventListener('input', validatePasswords);
 
-        document.getElementById('registerForm').addEventListener('submit', function(e) {
+        // FIXED: This is the corrected form submission handler
+        document.getElementById('registerForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
             const username = document.getElementById('username').value.trim();
@@ -668,7 +660,7 @@
             const confirmPassword = document.getElementById('confirmPassword').value;
             const termsAccepted = document.getElementById('terms').checked;
             
-            // Validation
+            // Client-side validation
             if (!username || !email || !password || !confirmPassword) {
                 showError('Please fill in all fields');
                 return;
@@ -707,13 +699,40 @@
             
             setLoading(true);
             
-            // Simulate API call (replace with actual registration logic)
-            setTimeout(() => {
-                showSuccess('Account created successfully! Redirecting to login...');
-                setTimeout(() => {
-                    window.location.href = '/login';
-                }, 2000);
-            }, 2000);
+            try {
+                // Send AJAX request to Flask backend
+                const response = await fetch('/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        email: email,
+                        password: password,
+                        confirmPassword: confirmPassword
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess(data.message || 'Account created successfully! Redirecting to login...');
+                    setTimeout(() => {
+                        window.location.href = '/login';
+                    }, 2000);
+                } else {
+                    if (data.errors && Array.isArray(data.errors)) {
+                        showError(data.errors.join(', '));
+                    } else {
+                        showError(data.error || 'Registration failed');
+                    }
+                }
+            } catch (error) {
+                showError('Network error: ' + error.message);
+            } finally {
+                setLoading(false);
+            }
         });
 
         // Add some interactivity to form inputs
@@ -730,7 +749,6 @@
                     this.parentElement.style.transform = 'translateY(0)';
                 });
                 
-                // Add subtle animation on typing
                 input.addEventListener('input', function() {
                     if (this.value) {
                         this.style.borderColor = 'rgba(16, 185, 129, 0.5)';
@@ -740,7 +758,6 @@
                 });
             });
             
-            // Initialize password strength indicator
             updatePasswordStrength();
         });
     </script>
