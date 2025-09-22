@@ -6,144 +6,151 @@ import traceback
 from datetime import datetime
 from functools import wraps
 
-def create_app():
-    app = Flask(__name__)
-    app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+from flask import Flask, request, jsonify, render_template_string, redirect, url_for, session, flash
+from werkzeug.security import generate_password_hash, check_password_hash
+import os
+import sqlite3
+import traceback
+from datetime import datetime
+from functools import wraps
 
-    # Database setup
-    DATABASE = 'phenbot.db'
+# Create Flask app instance
+app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 
-    def init_db():
-        """Initialize the database with users table"""
+# Database setup
+DATABASE = 'phenbot.db'
+
+def init_db():
+    """Initialize the database with users table"""
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    conn.commit()
+    conn.close()
+
+def get_user(username):
+    """Get user by username"""
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT id, username, password_hash FROM users WHERE username = ?', (username,))
+    user = cursor.fetchone()
+    
+    conn.close()
+    return user
+
+def create_user(username, password):
+    """Create a new user"""
+    try:
+        password_hash = generate_password_hash(password)
         conn = sqlite3.connect(DATABASE)
         cursor = conn.cursor()
         
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
+        cursor.execute('INSERT INTO users (username, password_hash) VALUES (?, ?)', 
+                      (username, password_hash))
         
         conn.commit()
         conn.close()
+        return True
+    except sqlite3.IntegrityError:
+        return False  # Username already exists
+    except Exception as e:
+        print(f"Error creating user: {e}")
+        return False
 
-    def get_user(username):
-        """Get user by username"""
-        conn = sqlite3.connect(DATABASE)
-        cursor = conn.cursor()
-        
-        cursor.execute('SELECT id, username, password_hash FROM users WHERE username = ?', (username,))
-        user = cursor.fetchone()
-        
-        conn.close()
-        return user
+# Initialize database on startup
+init_db()
 
-    def create_user(username, password):
-        """Create a new user"""
-        try:
-            password_hash = generate_password_hash(password)
-            conn = sqlite3.connect(DATABASE)
-            cursor = conn.cursor()
-            
-            cursor.execute('INSERT INTO users (username, password_hash) VALUES (?, ?)', 
-                          (username, password_hash))
-            
-            conn.commit()
-            conn.close()
-            return True
-        except sqlite3.IntegrityError:
-            return False  # Username already exists
-        except Exception as e:
-            print(f"Error creating user: {e}")
-            return False
+# Groq AI Setup
+try:
+    from groq import Groq
+    GROQ_IMPORT_SUCCESS = True
+except ImportError:
+    GROQ_IMPORT_SUCCESS = False
 
-    # Initialize database on app startup
-    with app.app_context():
-        init_db()
+groq_client = None
+GROQ_AVAILABLE = False
+GROQ_ERROR = None
 
-    # Groq AI Setup
+def initialize_groq():
+    """Initialize Groq client with error handling"""
+    global groq_client, GROQ_AVAILABLE, GROQ_ERROR
+    
+    if not GROQ_IMPORT_SUCCESS:
+        GROQ_ERROR = 'Groq SDK not installed'
+        GROQ_AVAILABLE = False
+        print("Groq SDK not available")
+        return
+    
+    api_key = os.environ.get('GROQ_API_KEY')
+    if not api_key:
+        GROQ_ERROR = 'GROQ_API_KEY environment variable missing'
+        GROQ_AVAILABLE = False
+        print("GROQ_API_KEY not set")
+        return
+    
     try:
-        from groq import Groq
-        GROQ_IMPORT_SUCCESS = True
-    except ImportError:
-        GROQ_IMPORT_SUCCESS = False
+        groq_client = Groq(api_key=api_key)
+        GROQ_AVAILABLE = True
+        print("Groq client initialized successfully")
+    except Exception as e:
+        GROQ_ERROR = str(e)
+        GROQ_AVAILABLE = False
+        print(f"Groq initialization failed: {e}")
 
-    groq_client = None
-    GROQ_AVAILABLE = False
-    GROQ_ERROR = None
+initialize_groq()
 
-    def initialize_groq():
-        """Initialize Groq client with error handling"""
-        nonlocal groq_client, GROQ_AVAILABLE, GROQ_ERROR
-        
-        if not GROQ_IMPORT_SUCCESS:
-            GROQ_ERROR = 'Groq SDK not installed'
-            GROQ_AVAILABLE = False
-            print("Groq SDK not available")
-            return
-        
-        api_key = os.environ.get('GROQ_API_KEY')
-        if not api_key:
-            GROQ_ERROR = 'GROQ_API_KEY environment variable missing'
-            GROQ_AVAILABLE = False
-            print("GROQ_API_KEY not set")
-            return
-        
-        try:
-            groq_client = Groq(api_key=api_key)
-            GROQ_AVAILABLE = True
-            print("Groq client initialized successfully")
-        except Exception as e:
-            GROQ_ERROR = str(e)
-            GROQ_AVAILABLE = False
-            print(f"Groq initialization failed: {e}")
+def get_ai_response(question, subject):
+    """Get AI response from Groq"""
+    if not groq_client:
+        return "AI system is currently unavailable. Please check the server configuration."
+    
+    system_prompts = {
+        'math': 'You are PhenBOT, a mathematics tutor. Provide clear, step-by-step explanations with examples.',
+        'science': 'You are PhenBOT, a science tutor. Explain concepts using real-world analogies and examples.',
+        'english': 'You are PhenBOT, an English tutor. Help with grammar, writing, and literature analysis.',
+        'history': 'You are PhenBOT, a history tutor. Present information through engaging narratives.',
+        'general': 'You are PhenBOT, a smart AI study assistant. Provide helpful, educational answers.'
+    }
+    
+    system_prompt = system_prompts.get(subject, system_prompts['general'])
+    
+    try:
+        response = groq_client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": question}
+            ],
+            temperature=0.7,
+            max_tokens=600
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        print(f"Error calling Groq API: {e}")
+        return f"Error processing your question: {str(e)}"
 
-    initialize_groq()
+# Authentication helpers
+def is_logged_in():
+    return 'user_id' in session and 'username' in session
 
-    def get_ai_response(question, subject):
-        """Get AI response from Groq"""
-        if not groq_client:
-            return "AI system is currently unavailable. Please check the server configuration."
-        
-        system_prompts = {
-            'math': 'You are PhenBOT, a mathematics tutor. Provide clear, step-by-step explanations with examples.',
-            'science': 'You are PhenBOT, a science tutor. Explain concepts using real-world analogies and examples.',
-            'english': 'You are PhenBOT, an English tutor. Help with grammar, writing, and literature analysis.',
-            'history': 'You are PhenBOT, a history tutor. Present information through engaging narratives.',
-            'general': 'You are PhenBOT, a smart AI study assistant. Provide helpful, educational answers.'
-        }
-        
-        system_prompt = system_prompts.get(subject, system_prompts['general'])
-        
-        try:
-            response = groq_client.chat.completions.create(
-                model="llama-3.1-8b-instant",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": question}
-                ],
-                temperature=0.7,
-                max_tokens=600
-            )
-            return response.choices[0].message.content
-        except Exception as e:
-            print(f"Error calling Groq API: {e}")
-            return f"Error processing your question: {str(e)}"
-
-    # Authentication helpers
-    def is_logged_in():
-        return 'user_id' in session and 'username' in session
-
-    def require_login(f):
-        @wraps(f)
-        def decorated_function(*args, **kwargs):
-            if not is_logged_in():
-                return jsonify({'error': 'Authentication required'}), 401
-            return f(*args, **kwargs)
-        return decorated_function
+def require_login(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not is_logged_in():
+            return jsonify({'error': 'Authentication required'}), 401
+        return f(*args, **kwargs)
+    return decorated_function
 
     # HTML Templates
     LOGIN_HTML = '''
@@ -950,110 +957,112 @@ def create_app():
         </script>
     </body>
     </html>
-    '''
 
-    # Routes
-    @app.route('/')
-    def index():
-        if is_logged_in():
-            return redirect(url_for('dashboard'))
-        return redirect(url_for('login'))
+# Routes
+@app.route('/')
+def index():
+    if is_logged_in():
+        return redirect(url_for('dashboard'))
+    return redirect(url_for('login'))
 
-    @app.route('/login', methods=['GET', 'POST'])
-    def login():
-        if is_logged_in():
-            return redirect(url_for('dashboard'))
-            
-        if request.method == 'POST':
-            username = request.form.get('username', '').strip()
-            password = request.form.get('password', '')
-            
-            if not username or not password:
-                flash('Please fill in all fields', 'error')
-                return render_template_string(LOGIN_HTML)
-            
-            user = get_user(username)
-            if user and check_password_hash(user[2], password):
-                session['user_id'] = user[0]
-                session['username'] = user[1]
-                flash('Welcome back!', 'success')
-                return redirect(url_for('dashboard'))
-            else:
-                flash('Invalid username or password', 'error')
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if is_logged_in():
+        return redirect(url_for('dashboard'))
         
-        return render_template_string(LOGIN_HTML)
-
-    @app.route('/register', methods=['GET', 'POST'])
-    def register():
-        if is_logged_in():
-            return redirect(url_for('dashboard'))
-            
-        if request.method == 'POST':
-            username = request.form.get('username', '').strip()
-            password = request.form.get('password', '')
-            
-            if not username or not password:
-                flash('Please fill in all fields', 'error')
-                return render_template_string(REGISTER_HTML)
-            
-            if len(username) < 3:
-                flash('Username must be at least 3 characters long', 'error')
-                return render_template_string(REGISTER_HTML)
-            
-            if len(password) < 6:
-                flash('Password must be at least 6 characters long', 'error')
-                return render_template_string(REGISTER_HTML)
-            
-            if create_user(username, password):
-                flash('Account created successfully! Please log in.', 'success')
-                return redirect(url_for('login'))
-            else:
-                flash('Username already exists. Please choose another.', 'error')
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
         
-        return render_template_string(REGISTER_HTML)
+        if not username or not password:
+            flash('Please fill in all fields', 'error')
+            return render_template_string(LOGIN_HTML)
+        
+        user = get_user(username)
+        if user and check_password_hash(user[2], password):
+            session['user_id'] = user[0]
+            session['username'] = user[1]
+            flash('Welcome back!', 'success')
+            return redirect(url_for('dashboard'))
+        else:
+            flash('Invalid username or password', 'error')
+    
+    return render_template_string(LOGIN_HTML)
 
-    @app.route('/dashboard')
-    @require_login
-    def dashboard():
-        return render_template_string(MAIN_APP_HTML, 
-                                    username=session['username'],
-                                    datetime=datetime)
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if is_logged_in():
+        return redirect(url_for('dashboard'))
+        
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        
+        if not username or not password:
+            flash('Please fill in all fields', 'error')
+            return render_template_string(REGISTER_HTML)
+        
+        if len(username) < 3:
+            flash('Username must be at least 3 characters long', 'error')
+            return render_template_string(REGISTER_HTML)
+        
+        if len(password) < 6:
+            flash('Password must be at least 6 characters long', 'error')
+            return render_template_string(REGISTER_HTML)
+        
+        if create_user(username, password):
+            flash('Account created successfully! Please log in.', 'success')
+            return redirect(url_for('login'))
+        else:
+            flash('Username already exists. Please choose another.', 'error')
+    
+    return render_template_string(REGISTER_HTML)
 
-    @app.route('/logout')
-    def logout():
-        session.clear()
-        flash('You have been logged out successfully', 'success')
-        return redirect(url_for('login'))
+@app.route('/dashboard')
+@require_login
+def dashboard():
+    return render_template_string(MAIN_APP_HTML, 
+                                username=session['username'],
+                                datetime=datetime)
 
-    @app.route('/api/chat', methods=['POST'])
-    @require_login
-    def api_chat():
-        try:
-            data = request.get_json()
-            question = data.get('question', '').strip()
-            subject = data.get('subject', 'general')
-            
-            if not question:
-                return jsonify({'error': 'Question is required'}), 400
-            
-            response = get_ai_response(question, subject)
-            return jsonify({'response': response})
-            
-        except Exception as e:
-            print(f"Chat API error: {e}")
-            return jsonify({'error': 'Internal server error'}), 500
+@app.route('/logout')
+def logout():
+    session.clear()
+    flash('You have been logged out successfully', 'success')
+    return redirect(url_for('login'))
 
-    @app.route('/api/status')
-    def api_status():
-        return jsonify({
-            'groq_available': GROQ_AVAILABLE,
-            'groq_error': GROQ_ERROR if not GROQ_AVAILABLE else None
-        })
+@app.route('/api/chat', methods=['POST'])
+@require_login
+def api_chat():
+    try:
+        data = request.get_json()
+        question = data.get('question', '').strip()
+        subject = data.get('subject', 'general')
+        
+        if not question:
+            return jsonify({'error': 'Question is required'}), 400
+        
+        response = get_ai_response(question, subject)
+        return jsonify({'response': response})
+        
+    except Exception as e:
+        print(f"Chat API error: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
 
-    return app
+@app.route('/api/status')
+def api_status():
+    return jsonify({
+        'groq_available': GROQ_AVAILABLE,
+        'groq_error': GROQ_ERROR if not GROQ_AVAILABLE else None
+    })
 
-# Create the app instance
-app = create_app()
+@app.route('/health')
+def health_check():
+    return jsonify({
+        'status': 'healthy',
+        'database': 'connected',
+        'groq_available': GROQ_AVAILABLE
+    })
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
