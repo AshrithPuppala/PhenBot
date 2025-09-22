@@ -221,6 +221,13 @@
             transform: translateY(0);
         }
 
+        .login-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
         .divider {
             display: flex;
             align-items: center;
@@ -290,6 +297,7 @@
             margin-bottom: 1rem;
             font-size: 0.9rem;
             display: none;
+            animation: slideIn 0.3s ease;
         }
 
         .success-message {
@@ -301,6 +309,18 @@
             margin-bottom: 1rem;
             font-size: 0.9rem;
             display: none;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         @media (max-width: 480px) {
@@ -373,10 +393,10 @@
 
         <form id="loginForm" method="POST" action="/login">
             <div class="form-group">
-                <label for="username" class="form-label">Username</label>
+                <label for="username" class="form-label">Username or Email</label>
                 <div style="position: relative;">
                     <input type="text" id="username" name="username" class="form-input" 
-                           placeholder="Enter your username" required>
+                           placeholder="Enter your username or email" required>
                     <i class="fas fa-user input-icon"></i>
                 </div>
             </div>
@@ -464,12 +484,10 @@
                 loading.style.display = 'inline-block';
                 loginBtnText.textContent = 'Signing In...';
                 loginBtn.disabled = true;
-                loginBtn.style.opacity = '0.8';
             } else {
                 loading.style.display = 'none';
                 loginBtnText.textContent = 'Sign In to Dashboard';
                 loginBtn.disabled = false;
-                loginBtn.style.opacity = '1';
             }
         }
 
@@ -486,19 +504,34 @@
             
             setLoading(true);
             
-            // Simulate API call (replace with actual login logic)
-            setTimeout(() => {
-                // For demo purposes, accept any credentials
-                if (username && password) {
+            // Send login request to backend
+            fetch('/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    username: username,
+                    password: password
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                setLoading(false);
+                if (data.success) {
                     showSuccess('Login successful! Redirecting...');
                     setTimeout(() => {
                         window.location.href = '/dashboard';
                     }, 1000);
                 } else {
-                    setLoading(false);
-                    showError('Invalid username or password');
+                    showError(data.error || 'Login failed');
                 }
-            }, 1500);
+            })
+            .catch(error => {
+                setLoading(false);
+                showError('Network error. Please try again.');
+                console.error('Login error:', error);
+            });
         });
 
         // Add some interactivity to form inputs
