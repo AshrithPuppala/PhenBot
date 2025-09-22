@@ -6,6 +6,7 @@ from functools import wraps
 from datetime import datetime
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
+import re
 
 from flask import (
     Flask, request, jsonify, render_template, redirect, url_for, flash, session
@@ -42,6 +43,7 @@ db = SQLAlchemy(app)
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
+    email = db.Column(db.String(150), unique=True, nullable=True)  # Added email field
     password_hash = db.Column(db.String(256), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -63,6 +65,11 @@ class QAHistory(db.Model):
 # Create DB
 with app.app_context():
     db.create_all()
+    # Add email column if it doesn't exist (for existing databases)
+    try:
+        db.engine.execute('ALTER TABLE user ADD COLUMN email VARCHAR(150)')
+    except:
+        pass  # Column already exists or other error
 
 # ------------------------
 # Groq initialization (safe)
@@ -171,6 +178,54 @@ def login_required_page(f):
         return f(*args, **kwargs)
     return decorated
 
+def validate_email(email):
+    """Simple email validation"""
+    pattern = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
+    return re.match(pattern, email) is not None
+
+def validate_password_strength(password):
+    """Check password strength and return score and feedback"""
+    if not password:
+        return 0, "Password is required"
+    
+    score = 0
+    feedback = []
+    
+    if len(password) >= 8:
+        score += 25
+    else:
+        feedback.append("At least 8 characters")
+        
+    if len(password) >= 12:
+        score += 15
+        
+    if re.search(r'[A-Z]', password):
+        score += 20
+    else:
+        feedback.append("At least one uppercase letter")
+        
+    if re.search(r'[a-z]', password):
+        score += 15
+    else:
+        feedback.append("At least one lowercase letter")
+        
+    if re.search(r'[0-9]', password):
+        score += 15
+    else:
+        feedback.append("At least one number")
+        
+    if re.search(r'[^A-Za-z0-9]', password):
+        score += 10
+    else:
+        feedback.append("At least one special character")
+    
+    if score < 40:
+        return score, "Weak password. " + ", ".join(feedback)
+    elif score < 70:
+        return score, "Medium strength password"
+    else:
+        return score, "Strong password"
+
 # ------------------------
 # Routes (HTML)
 # ------------------------
@@ -184,38 +239,129 @@ def home():
 def register():
     if "user_id" in session:
         return redirect(url_for("dashboard"))
+    
     if request.method == "POST":
-        username = (request.form.get("username") or "").strip()
-        password = request.form.get("password") or ""
-        if not username or not password or len(password) < 4:
-            flash("Invalid username or password (min 4 chars)", "danger")
-            return redirect(url_for("register"))
-        if User.query.filter_by(username=username).first():
-            flash("Username already exists", "danger")
-            return redirect(url_for("register"))
-        hashed = generate_password_hash(password)
-        user = User(username=username, password_hash=hashed)
-        db.session.add(user)
-        db.session.commit()
-        flash("Account created! Please log in.", "success")
-        return redirect(url_for("login"))
+        # Handle both JSON and form data
+        if request.is_json:
+            data = request.get_json()
+        else:
+            data = request.form
+            
+        username = (data.get("username") or "").strip()
+        email = (data.get("email") or "").strip()
+        password = data.get("password") or ""
+        confirm_password = data.get("confirmPassword") or ""
+        
+        # Validation
+        errors = []
+        
+        if not username or len(username) < 3:
+            errors.append("Username must be at least 3 characters long")
+            
+        if not email or not validate_email(email):
+            errors.append("Please enter a valid email address")
+            
+        if not password or len(password) < 8:
+            errors.append("Password must be at least 8 characters long")
+            
+        if password != confirm_password:
+            errors.append("Passwords do not match")
+            
+        # Check password strength
+        strength, strength_msg = validate_password_strength(password)
+        if strength < 40:
+            errors.append("Password is too weak. Please choose a stronger password")
+        
+        # Check if user exists
+        existing_user = User.query.filter(
+            (User.username == username) | (User.email == email)
+        ).first()
+        
+        if existing_user:
+            if existing_user.username == username:
+                errors.append("Username already exists")
+            if existing_user.email == email:
+                errors.append("Email already registered")
+        
+        if errors:
+            if request.is_json:
+                return jsonify({"success": False, "errors": errors}), 400
+            else:
+                for error in errors:
+                    flash(error, "danger")
+                return render_template("register.html")
+        
+        # Create user
+        try:
+            hashed = generate_password_hash(password)
+            user = User(username=username, email=email, password_hash=hashed)
+            db.session.add(user)
+            db.session.commit()
+            
+            if request.is_json:
+                return jsonify({"success": True, "message": "Account created successfully"})
+            else:
+                flash("Account created! Please log in.", "success")
+                return redirect(url_for("login"))
+                
+        except Exception as e:
+            db.session.rollback()
+            error_msg = "An error occurred during registration"
+            if request.is_json:
+                return jsonify({"success": False, "error": error_msg}), 500
+            else:
+                flash(error_msg, "danger")
+                return render_template("register.html")
+    
     return render_template("register.html")
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if "user_id" in session:
         return redirect(url_for("dashboard"))
+    
     if request.method == "POST":
-        username = (request.form.get("username") or "").strip()
-        password = request.form.get("password") or ""
-        user = User.query.filter_by(username=username).first()
+        # Handle both JSON and form data
+        if request.is_json:
+            data = request.get_json()
+        else:
+            data = request.form
+            
+        username = (data.get("username") or "").strip()
+        password = data.get("password") or ""
+        
+        if not username or not password:
+            error_msg = "Please fill in all fields"
+            if request.is_json:
+                return jsonify({"success": False, "error": error_msg}), 400
+            else:
+                flash(error_msg, "danger")
+                return render_template("login.html")
+        
+        # Check if username is actually an email
+        if validate_email(username):
+            user = User.query.filter_by(email=username).first()
+        else:
+            user = User.query.filter_by(username=username).first()
+            
         if user and check_password_hash(user.password_hash, password):
             session["user_id"] = user.id
             session["username"] = user.username
-            flash("Logged in", "success")
-            return redirect(url_for("dashboard"))
-        flash("Invalid credentials", "danger")
-        return redirect(url_for("login"))
+            session["email"] = user.email
+            
+            if request.is_json:
+                return jsonify({"success": True, "message": "Login successful"})
+            else:
+                flash("Logged in", "success")
+                return redirect(url_for("dashboard"))
+        else:
+            error_msg = "Invalid username/email or password"
+            if request.is_json:
+                return jsonify({"success": False, "error": error_msg}), 400
+            else:
+                flash(error_msg, "danger")
+                return render_template("login.html")
+    
     return render_template("login.html")
 
 @app.route("/logout")
@@ -265,6 +411,32 @@ def api_ask():
         db.session.rollback()
     return jsonify({"answer": answer})
 
+# Enhanced chat endpoint for the dashboard
+@app.route("/api/chat", methods=["POST"])
+@login_required_json
+def api_chat():
+    data = request.get_json() or {}
+    message = (data.get("message") or "").strip()
+    if not message:
+        return jsonify({"error": "Message required"}), 400
+    
+    if GROQ_AVAILABLE:
+        response = get_ai_response(message, "general")
+    else:
+        response = f"I received your message: '{message}'. AI service is currently unavailable, but I'm here to help! Try asking about study tips, time management, or general academic questions."
+    
+    try:
+        hist = QAHistory(user_id=session["user_id"], question=message, answer=response, subject="general")
+        db.session.add(hist)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    
+    return jsonify({
+        "response": response,
+        "timestamp": datetime.now().isoformat()
+    })
+
 # PDF upload
 ALLOWED_EXT = {"pdf"}
 def allowed_file(filename):
@@ -288,7 +460,39 @@ def upload_pdf():
     db.session.add(rec)
     db.session.commit()
     url = url_for("static", filename=f"uploads/{unique}")
-    return jsonify({"message": "Uploaded", "url": url}), 201
+    return jsonify({"message": "Uploaded successfully", "filename": original, "url": url}), 201
+
+# Enhanced upload endpoint for dashboard
+@app.route("/api/upload", methods=["POST"])
+@login_required_json
+def api_upload():
+    """Handle file uploads from dashboard"""
+    if "file" not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+    
+    file = request.files["file"]
+    if file.filename == "":
+        return jsonify({"error": "No file selected"}), 400
+    
+    if file and file.filename.lower().endswith('.pdf'):
+        original = secure_filename(file.filename)
+        unique = f"{session['user_id']}_{uuid.uuid4().hex}_{original}"
+        save_path = os.path.join(app.config["UPLOAD_FOLDER"], unique)
+        file.save(save_path)
+        
+        rec = PDFFile(user_id=session["user_id"], filename=unique, original_name=original)
+        db.session.add(rec)
+        db.session.commit()
+        
+        url = url_for("static", filename=f"uploads/{unique}")
+        return jsonify({
+            "success": True,
+            "filename": original,
+            "message": "File uploaded successfully",
+            "url": url
+        })
+    
+    return jsonify({"error": "Invalid file type. Only PDF files are allowed."}), 400
 
 @app.route("/api/pdfs", methods=["GET"])
 @login_required_json
@@ -311,10 +515,14 @@ def get_history():
 # ------------------------
 @app.errorhandler(404)
 def handle_404(e):
+    if request.path.startswith('/api/'):
+        return jsonify({"error": "Endpoint not found"}), 404
     return render_template("404.html"), 404
 
 @app.errorhandler(500)
 def handle_500(e):
+    if request.path.startswith('/api/'):
+        return jsonify({"error": "Internal server error"}), 500
     return render_template("500.html"), 500
 
 # ------------------------
@@ -323,5 +531,8 @@ def handle_500(e):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     debug = os.environ.get("FLASK_ENV") == "development"
-    print(f"Starting on port {port} (debug={debug})")
+    print(f"Starting PhenBOT on port {port} (debug={debug})")
+    print(f"Groq AI available: {GROQ_AVAILABLE}")
+    if not GROQ_AVAILABLE:
+        print(f"Groq error: {GROQ_ERROR}")
     app.run(host="0.0.0.0", port=port, debug=debug)
