@@ -1,175 +1,784 @@
-{% extends "base.html" %}
-{% block content %}
-<div class="dashboard-grid">
-  <div class="card">
-    <h3>Today's Progress</h3>
-    <p>Welcome, {{ username }} — use the tabs to access AI chat, upload PDFs, flashcards, and bookmarks.</p>
-  </div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhenBOT - Advanced Study Companion</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-  <div class="card">
-    <h3>AI Chat</h3>
-    <div id="aiStatus">Checking AI status...</div>
-    <div id="chatArea">
-      <div id="messages" style="max-height:280px; overflow:auto; background:#f7fafc; padding:10px; border-radius:8px;"></div>
-      <textarea id="q" placeholder="Ask a question..." style="width:100%; margin-top:8px;"></textarea>
-      <div style="margin-top:8px;">
-        <select id="subject">
-          <option value="general">General</option>
-          <option value="math">Mathematics</option>
-          <option value="science">Science</option>
-          <option value="english">English</option>
-          <option value="history">History</option>
-        </select>
-        <button id="askBtn" class="btn-primary">Send</button>
-      </div>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+            color: #e2e8f0;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .navbar {
+            background: rgba(15, 15, 35, 0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(79, 70, 229, 0.2);
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 2rem;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #818cf8;
+        }
+
+        .logo i {
+            margin-right: 0.5rem;
+            color: #4f46e5;
+        }
+
+        .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #94a3b8;
+        }
+
+        .logout-btn {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .logout-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(239, 68, 68, 0.3);
+        }
+
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: auto 1fr;
+            gap: 2rem;
+            min-height: calc(100vh - 100px);
+        }
+
+        .welcome-section {
+            grid-column: 1 / -1;
+            background: linear-gradient(135deg, rgba(79, 70, 229, 0.1), rgba(139, 92, 246, 0.1));
+            border: 1px solid rgba(79, 70, 229, 0.2);
+            border-radius: 20px;
+            padding: 2rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .welcome-section::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(79, 70, 229, 0.05) 0%, transparent 70%);
+            animation: pulse 4s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+
+        .welcome-content {
+            position: relative;
+            z-index: 2;
+        }
+
+        .welcome-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #818cf8, #a78bfa);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 1rem;
+        }
+
+        .welcome-subtitle {
+            font-size: 1.1rem;
+            color: #94a3b8;
+            margin-bottom: 1.5rem;
+        }
+
+        .feature-pills {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .pill {
+            background: rgba(79, 70, 229, 0.2);
+            border: 1px solid rgba(79, 70, 229, 0.3);
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            color: #c7d2fe;
+        }
+
+        .card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(71, 85, 105, 0.3);
+            border-radius: 20px;
+            padding: 2rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #4f46e5, #7c3aed, #ec4899);
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            border-color: rgba(79, 70, 229, 0.5);
+        }
+
+        .card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .card-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-right: 1rem;
+        }
+
+        .ai-chat .card-icon {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+        }
+
+        .upload-section .card-icon {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+        }
+
+        .pomodoro .card-icon {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+        }
+
+        .card-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #f8fafc;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+        }
+
+        .chat-container {
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 15px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .chat-message {
+            margin-bottom: 1rem;
+        }
+
+        .message-user {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: white;
+            padding: 0.8rem 1rem;
+            border-radius: 15px 15px 5px 15px;
+            margin-left: 2rem;
+            font-size: 0.9rem;
+        }
+
+        .message-bot {
+            background: rgba(71, 85, 105, 0.5);
+            color: #e2e8f0;
+            padding: 0.8rem 1rem;
+            border-radius: 15px 15px 15px 5px;
+            margin-right: 2rem;
+            font-size: 0.9rem;
+            border-left: 3px solid #10b981;
+        }
+
+        .chat-input-container {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .chat-input {
+            flex: 1;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(71, 85, 105, 0.3);
+            border-radius: 12px;
+            padding: 0.8rem 1rem;
+            color: #e2e8f0;
+            font-size: 0.9rem;
+        }
+
+        .chat-input:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .chat-input::placeholder {
+            color: #64748b;
+        }
+
+        .send-btn {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 0.8rem 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .send-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3);
+        }
+
+        .upload-area {
+            border: 2px dashed rgba(59, 130, 246, 0.3);
+            border-radius: 15px;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-area:hover {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        .upload-area.dragover {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-btn {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 500;
+            margin-top: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
+        }
+
+        .timer-display {
+            font-size: 3rem;
+            font-weight: 700;
+            text-align: center;
+            margin: 2rem 0;
+            color: #f59e0b;
+            text-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
+        }
+
+        .timer-controls {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+        }
+
+        .timer-btn {
+            background: rgba(71, 85, 105, 0.5);
+            color: #e2e8f0;
+            border: 1px solid rgba(71, 85, 105, 0.3);
+            padding: 0.8rem 1.5rem;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .timer-btn:hover {
+            background: rgba(71, 85, 105, 0.8);
+            transform: translateY(-2px);
+        }
+
+        .timer-btn.start {
+            background: linear-gradient(135deg, #10b981, #059669);
+            border-color: #10b981;
+        }
+
+        .uploaded-files {
+            margin-top: 1rem;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(15, 23, 42, 0.8);
+            padding: 0.8rem 1rem;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+        }
+
+        .file-name {
+            color: #3b82f6;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .file-name:hover {
+            color: #1d4ed8;
+        }
+
+        @media (max-width: 1024px) {
+            .main-container {
+                grid-template-columns: 1fr 1fr;
+                padding: 1rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                grid-template-columns: 1fr;
+                padding: 1rem;
+            }
+            
+            .welcome-title {
+                font-size: 2rem;
+            }
+            
+            .nav-container {
+                padding: 0 1rem;
+            }
+            
+            .feature-pills {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+
+        .floating-particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: rgba(79, 70, 229, 0.3);
+            border-radius: 50%;
+            animation: float 20s infinite linear;
+        }
+
+        @keyframes float {
+            0% {
+                transform: translateY(100vh) translateX(0px);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-100px) translateX(100px);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="floating-particles" id="particles"></div>
+    
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <i class="fas fa-brain"></i>
+                PhenBOT
+                <span style="font-size: 0.8rem; margin-left: 0.5rem; color: #64748b;">Advanced Study Companion</span>
+            </div>
+            <div class="nav-actions">
+                <div class="user-info">
+                    <i class="fas fa-user-circle"></i>
+                    <span>{{ username or 'ashrith07' }}</span>
+                </div>
+                <button class="logout-btn" onclick="logout()">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Logout
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="main-container">
+        <div class="welcome-section">
+            <div class="welcome-content">
+                <h1 class="welcome-title">Welcome Back, {{ username or 'ashrith07' }}!</h1>
+                <p class="welcome-subtitle">Your intelligent study companion is ready to help you achieve academic excellence</p>
+                <div class="feature-pills">
+                    <span class="pill"><i class="fas fa-robot"></i> AI Chat Assistant</span>
+                    <span class="pill"><i class="fas fa-file-upload"></i> PDF Analysis</span>
+                    <span class="pill"><i class="fas fa-clock"></i> Pomodoro Timer</span>
+                    <span class="pill"><i class="fas fa-bookmark"></i> Smart Bookmarks</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card ai-chat">
+            <div class="card-header">
+                <div class="card-icon">
+                    <i class="fas fa-comments"></i>
+                </div>
+                <div>
+                    <h3 class="card-title">AI Chat</h3>
+                    <div class="status-indicator">
+                        <span class="status-dot"></span>
+                        <span>AI connected</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chat-container" id="chatContainer">
+                <div class="chat-message">
+                    <div class="message-bot">
+                        Hello! I'm PhenBOT, your study companion. How can I assist you today? 
+                        Do you have any specific subjects or topics you'd like to discuss, or perhaps 
+                        you need help with a particular problem or assignment?
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chat-input-container">
+                <input type="text" class="chat-input" id="chatInput" placeholder="Ask a question..." 
+                       onkeypress="handleChatKeyPress(event)">
+                <button class="send-btn" onclick="sendMessage()">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="card upload-section">
+            <div class="card-header">
+                <div class="card-icon">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                </div>
+                <div>
+                    <h3 class="card-title">Upload PDF</h3>
+                    <div class="status-indicator">
+                        <span class="status-dot" style="background: #3b82f6;"></span>
+                        <span>Ready to upload</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                <i class="fas fa-file-pdf" style="font-size: 3rem; color: #3b82f6; margin-bottom: 1rem;"></i>
+                <p style="margin-bottom: 0.5rem; font-weight: 500;">Drop PDF files here</p>
+                <p style="color: #64748b; font-size: 0.9rem;">or click to browse</p>
+                <input type="file" id="fileInput" class="file-input" accept=".pdf" onchange="handleFileUpload(event)">
+            </div>
+            
+            <div class="uploaded-files" id="uploadedFiles">
+                <!-- Uploaded files will appear here -->
+            </div>
+        </div>
+
+        <div class="card pomodoro">
+            <div class="card-header">
+                <div class="card-icon">
+                    <i class="fas fa-stopwatch"></i>
+                </div>
+                <div>
+                    <h3 class="card-title">Pomodoro Timer</h3>
+                    <div class="status-indicator">
+                        <span class="status-dot" style="background: #f59e0b;"></span>
+                        <span>Ready to focus</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="timer-display" id="timerDisplay">25:00</div>
+            
+            <div class="timer-controls">
+                <button class="timer-btn start" id="startBtn" onclick="startTimer()">
+                    <i class="fas fa-play"></i> Start
+                </button>
+                <button class="timer-btn" onclick="pauseTimer()">
+                    <i class="fas fa-pause"></i> Pause
+                </button>
+                <button class="timer-btn" onclick="resetTimer()">
+                    <i class="fas fa-redo"></i> Reset
+                </button>
+            </div>
+        </div>
     </div>
-  </div>
 
-  <div class="card">
-    <h3>Upload PDF</h3>
-    <input type="file" id="pdfFile" accept="application/pdf"/>
-    <button id="uploadPdf" class="btn-primary">Upload</button>
-    <div id="pdfResult"></div>
-    <div id="pdfList"></div>
-  </div>
+    <script>
+        // Create floating particles
+        function createParticles() {
+            const particlesContainer = document.getElementById('particles');
+            const particleCount = 50;
+            
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 20 + 's';
+                particle.style.animationDuration = (Math.random() * 10 + 10) + 's';
+                particlesContainer.appendChild(particle);
+            }
+        }
 
-  <div class="card">
-    <h3>Pomodoro</h3>
-    <div id="pomTime" style="font-size:28px; font-weight:700;">25:00</div>
-    <div style="margin-top:8px;">
-      <button id="pomStart" class="btn-primary">Start</button>
-      <button id="pomPause" class="btn-ghost">Pause</button>
-      <button id="pomReset" class="btn-ghost">Reset</button>
-    </div>
-  </div>
+        // Chat functionality
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            
+            if (message) {
+                const chatContainer = document.getElementById('chatContainer');
+                
+                // Add user message
+                const userMessage = document.createElement('div');
+                userMessage.className = 'chat-message';
+                userMessage.innerHTML = `<div class="message-user">${message}</div>`;
+                chatContainer.appendChild(userMessage);
+                
+                // Clear input
+                input.value = '';
+                
+                // Scroll to bottom
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+                
+                // Simulate bot response (replace with actual API call)
+                setTimeout(() => {
+                    const botMessage = document.createElement('div');
+                    botMessage.className = 'chat-message';
+                    botMessage.innerHTML = `<div class="message-bot">I understand you're asking about "${message}". Let me help you with that...</div>`;
+                    chatContainer.appendChild(botMessage);
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                }, 1000);
+            }
+        }
 
-  <div class="card">
-    <h3>AI History</h3>
-    <div id="historyList" class="small"></div>
-  </div>
-</div>
+        function handleChatKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
 
-<script>
-(async function(){
-  // Health check for Groq
-  async function updateHealth(){
-    try {
-      const res = await fetch('/health', { credentials: 'same-origin' });
-      const d = await res.json();
-      const el = document.getElementById('aiStatus');
-      if (d.groq_available){
-        el.innerText = 'AI connected';
-        el.style.color = 'green';
-      } else {
-        el.innerText = 'AI unavailable: ' + (d.error || 'no API key');
-        el.style.color = 'red';
-      }
-    } catch (e) {
-      document.getElementById('aiStatus').innerText = 'Health check failed';
-    }
-  }
-  updateHealth();
+        // File upload functionality
+        let dragCounter = 0;
 
-  // chat
-  const messagesEl = document.getElementById('messages');
-  function appendMsg(role, text){
-    const div = document.createElement('div');
-    div.style.marginBottom='8px';
-    div.innerHTML = `<strong>${role}:</strong> <div>${text.replace(/\n/g,'<br/>')}</div>`;
-    messagesEl.appendChild(div);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-  }
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (file && file.type === 'application/pdf') {
+                addUploadedFile(file.name);
+            }
+        }
 
-  document.getElementById('askBtn').addEventListener('click', async ()=>{
-    const q = document.getElementById('q').value.trim();
-    const subject = document.getElementById('subject').value;
-    if (!q) return;
-    appendMsg('You', q);
-    appendMsg('Bot','Thinking...');
-    try {
-      const res = await fetch('/api/ask', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: q, subject })
-      });
-      const data = await res.json();
-      // replace last bot placeholder
-      const children = messagesEl.children;
-      const lastBot = children[children.length-1];
-      if (res.ok && data.answer){
-        lastBot.innerHTML = `<strong>Bot:</strong> <div>${data.answer.replace(/\n/g,'<br/>')}</div>`;
-      } else {
-        lastBot.innerHTML = `<strong>Bot:</strong> <div style="color:red">${data.error || 'No response'}</div>`;
-      }
-      loadHistory();
-    } catch (e){
-      appendMsg('Bot','Network error');
-    }
-    document.getElementById('q').value = '';
-  });
+        function addUploadedFile(fileName) {
+            const uploadedFiles = document.getElementById('uploadedFiles');
+            const fileItem = document.createElement('div');
+            fileItem.className = 'file-item';
+            fileItem.innerHTML = `
+                <a href="#" class="file-name">
+                    <i class="fas fa-file-pdf" style="margin-right: 0.5rem; color: #dc2626;"></i>
+                    ${fileName}
+                </a>
+                <span style="color: #10b981; font-size: 0.9rem;">Uploaded</span>
+            `;
+            uploadedFiles.appendChild(fileItem);
+        }
 
-  // PDFs
-  async function fetchPdfs(){
-    const res = await fetch('/api/pdfs', { credentials: 'same-origin' });
-    if (!res.ok) { document.getElementById('pdfList').innerText = 'Unable to load PDFs'; return; }
-    const d = await res.json();
-    const el = document.getElementById('pdfList');
-    el.innerHTML = '';
-    d.files.forEach(f => {
-      const a = document.createElement('a');
-      a.href = f.url; a.textContent = f.name; a.target = '_blank';
-      const div = document.createElement('div'); div.appendChild(a);
-      el.appendChild(div);
-    });
-  }
-  document.getElementById('uploadPdf').addEventListener('click', async ()=>{
-    const fileInput = document.getElementById('pdfFile');
-    if (!fileInput.files || !fileInput.files[0]) { document.getElementById('pdfResult').innerText = 'Select a PDF'; return; }
-    const form = new FormData(); form.append('file', fileInput.files[0]);
-    try {
-      const res = await fetch('/api/upload-pdf', { method: 'POST', body: form, credentials: 'same-origin' });
-      const d = await res.json();
-      if (res.status === 201) { document.getElementById('pdfResult').innerText = 'Uploaded'; fetchPdfs(); }
-      else document.getElementById('pdfResult').innerText = 'Upload failed: ' + (d.error || res.statusText);
-    } catch (e){ document.getElementById('pdfResult').innerText = 'Network error'; }
-  });
-  fetchPdfs();
+        // Drag and drop functionality
+        const uploadArea = document.getElementById('uploadArea');
 
-  // Pomodoro (client-side localStorage)
-  const POM_DEFAULT = 25*60;
-  let seconds = POM_DEFAULT; let timer=null;
-  function formatTime(s){ return Math.floor(s/60).toString().padStart(2,'0') + ':' + (s%60).toString().padStart(2,'0'); }
-  function updatePom(){ document.getElementById('pomTime').innerText = formatTime(seconds); }
-  function savePom(){ localStorage.setItem('phenbot_pom', JSON.stringify({ seconds, running: !!timer })); }
-  function loadPom(){
-    try {
-      const raw = localStorage.getItem('phenbot_pom'); if (raw){ const obj = JSON.parse(raw); if (typeof obj.seconds === 'number') seconds = obj.seconds; }
-    } catch(e){}
-    updatePom();
-  }
-  function startPom(){ if (timer) return; timer = setInterval(()=>{ if (seconds>0){ seconds--; updatePom(); savePom(); } else { clearInterval(timer); timer=null; alert('Pomodoro finished!'); } },1000); savePom(); }
-  function pausePom(){ if (timer) { clearInterval(timer); timer=null; savePom(); } }
-  function resetPom(){ pausePom(); seconds = POM_DEFAULT; updatePom(); savePom(); }
-  document.getElementById('pomStart').addEventListener('click', startPom);
-  document.getElementById('pomPause').addEventListener('click', pausePom);
-  document.getElementById('pomReset').addEventListener('click', resetPom);
-  loadPom();
+        uploadArea.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            dragCounter++;
+            uploadArea.classList.add('dragover');
+        });
 
-  // History
-  async function loadHistory(){
-    const res = await fetch('/api/history', { credentials: 'same-origin' });
-    if (!res.ok) { document.getElementById('historyList').innerText = 'No history'; return; }
-    const d = await res.json();
-    const el = document.getElementById('historyList'); el.innerHTML = '';
-    d.history.forEach(h => {
-      const div = document.createElement('div');
-      div.innerHTML = `<strong>${h.subject}</strong> <small>${new Date(h.created_at).toLocaleString()}</small><div>${h.question}</div><div style="color:#333">${h.answer}</div><hr/>`;
-      el.appendChild(div);
-    });
-  }
-  loadHistory();
+        uploadArea.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dragCounter--;
+            if (dragCounter === 0) {
+                uploadArea.classList.remove('dragover');
+            }
+        });
 
-})();
-</script>
-{% endblock %}
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dragCounter = 0;
+            uploadArea.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].type === 'application/pdf') {
+                addUploadedFile(files[0].name);
+            }
+        });
+
+        // Pomodoro timer functionality
+        let timerInterval;
+        let timeLeft = 25 * 60; // 25 minutes in seconds
+        let isRunning = false;
+
+        function updateTimerDisplay() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            document.getElementById('timerDisplay').textContent = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function startTimer() {
+            if (!isRunning) {
+                isRunning = true;
+                document.getElementById('startBtn').innerHTML = '<i class="fas fa-play"></i> Running...';
+                
+                timerInterval = setInterval(() => {
+                    timeLeft--;
+                    updateTimerDisplay();
+                    
+                    if (timeLeft <= 0) {
+                        clearInterval(timerInterval);
+                        isRunning = false;
+                        document.getElementById('startBtn').innerHTML = '<i class="fas fa-play"></i> Start';
+                        alert('Pomodoro session completed! Take a break.');
+                        resetTimer();
+                    }
+                }, 1000);
+            }
+        }
+
+        function pauseTimer() {
+            if (isRunning) {
+                clearInterval(timerInterval);
+                isRunning = false;
+                document.getElementById('startBtn').innerHTML = '<i class="fas fa-play"></i> Start';
+            }
+        }
+
+        function resetTimer() {
+            clearInterval(timerInterval);
+            isRunning = false;
+            timeLeft = 25 * 60;
+            updateTimerDisplay();
+            document.getElementById('startBtn').innerHTML = '<i class="fas fa-play"></i> Start';
+        }
+
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                window.location.href = '/logout';
+            }
+        }
+
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', () => {
+            createParticles();
+            updateTimerDisplay();
+            
+            // Add some sample uploaded file for demo
+            setTimeout(() => {
+                addUploadedFile('Laravel_Bengaluru-_PES.pdf');
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
