@@ -1,40 +1,40 @@
 import os
 import json
 import traceback
-
-from flask import Flask, request, jsonify, send_from_directory, redirect, url_for, session
+from functools import wraps
+from flask import Flask, request, jsonify, session, redirect, url_for, send_from_directory
 from flask_bcrypt import generate_password_hash, check_password_hash
 
-# --- Flask Setup ---
 app = Flask(__name__, static_folder="static", static_url_path="")
 app.secret_key = os.environ.get("SECRET_KEY", "supersecretkey")
-
 USERS_FILE = os.path.join(os.path.dirname(__file__), "users.json")
 
-# --- Load/Save users ---
+# --- User helpers ---
 def load_users():
-    try:
-        if not os.path.exists(USERS_FILE):
-            return {}
-        with open(USERS_FILE, "r") as f:
-            return json.load(f)
-    except Exception as e:
-        print(f"Error loading users file: {e}")
+    if not os.path.exists(USERS_FILE):
         return {}
-
+    with open(USERS_FILE, "r") as f:
+        return json.load(f)
 def save_users(users):
-    try:
-        with open(USERS_FILE, "w") as f:
-            json.dump(users, f, indent=4)
-    except Exception as e:
-        print(f"Error saving users file: {e}")
+    with open(USERS_FILE, "w") as f:
+        json.dump(users, f, indent=4)
 
-# --- Groq AI Setup ---
+def logged_in():
+    return "username" in session
+
+def require_login(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if not logged_in():
+            return jsonify({"error": "Authentication required"}), 401
+        return func(*args, **kwargs)
+    return wrapper
+
+# --- Groq Setup ---
 try:
     from groq import Groq
 except ImportError:
     Groq = None
-
 groq_client = None
 GROQ_AVAILABLE = False
 GROQ_ERROR = None
@@ -82,32 +82,14 @@ def get_ai_response(question, subject):
         )
         return response.choices[0].message.content
     except Exception as e:
-        # Log actual error for debugging
         print(f"Groq API error: {e}")
         return f"Error calling Groq API: {e}"
-
-# --- Authentication helpers ---
-def logged_in():
-    return session.get("username") is not None
-
-from functools import wraps
-def require_login(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        if not logged_in():
-            return jsonify({"error": "Authentication required"}), 401
-        return func(*args, **kwargs)
-    return wrapper
 
 # --- Routes ---
 
 @app.route("/")
 def index():
     if logged_in():
-        # Check if index.html exists
-        index_path = os.path.join(app.static_folder, "index.html")
-        if not os.path.exists(index_path):
-            return "index.html not found", 500
         return send_from_directory(app.static_folder, "index.html")
     return redirect(url_for("login"))
 
@@ -117,8 +99,6 @@ def login():
         return redirect(url_for("index"))
     if request.method == "POST":
         data = request.form or request.get_json(force=True, silent=True)
-        if not data:
-            return "Invalid request", 400
         username = data.get("username", "").strip()
         password = data.get("password", "")
         users = load_users()
@@ -127,10 +107,6 @@ def login():
             session["username"] = username
             return redirect(url_for("index"))
         return "Invalid credentials", 401
-    # Check if login.html exists
-    login_path = os.path.join(app.static_folder, "login.html")
-    if not os.path.exists(login_path):
-        return "login.html not found", 500
     return send_from_directory(app.static_folder, "login.html")
 
 @app.route("/register", methods=["GET", "POST"])
@@ -139,8 +115,6 @@ def register():
         return redirect(url_for("index"))
     if request.method == "POST":
         data = request.form or request.get_json(force=True, silent=True)
-        if not data:
-            return "Invalid request", 400
         username = data.get("username", "").strip()
         password = data.get("password", "")
         if not username or not password or len(password) < 4:
@@ -148,17 +122,10 @@ def register():
         users = load_users()
         if username in users:
             return "User already exists", 400
-        # bcrypt generates bytes, decode to str
-        try:
-            users[username] = generate_password_hash(password).decode("utf-8")
-        except Exception as e:
-            print(f"Password hash error: {e}")
-            return "Password hashing error", 500
+        hashpw = generate_password_hash(password).decode("utf-8")
+        users[username] = hashpw
         save_users(users)
         return redirect(url_for("login"))
-    register_path = os.path.join(app.static_folder, "register.html")
-    if not os.path.exists(register_path):
-        return "register.html not found", 500
     return send_from_directory(app.static_folder, "register.html")
 
 @app.route("/logout")
@@ -170,9 +137,6 @@ def logout():
 def dashboard():
     if not logged_in():
         return redirect(url_for("login"))
-    index_path = os.path.join(app.static_folder, "index.html")
-    if not os.path.exists(index_path):
-        return "index.html not found", 500
     return send_from_directory(app.static_folder, "index.html")
 
 @app.route("/api/ask", methods=["POST"])
@@ -180,8 +144,6 @@ def dashboard():
 def api_ask():
     try:
         data = request.get_json(force=True, silent=True)
-        if not data:
-            return jsonify({"error": "Invalid request"}), 400
         question = data.get("question", "").strip()
         subject = data.get("subject", "general")
         if question == "":
@@ -199,7 +161,7 @@ def health():
     return jsonify({
         "healthy": True,
         "groq_available": GROQ_AVAILABLE,
-        "error": GROQ_ERROR,
+        "error": GROQ_ERROR
     })
 
 @app.route("/static/<path:path>")
@@ -209,7 +171,6 @@ def static_files(path):
         return jsonify({"error": "Static file not found"}), 404
     return send_from_directory(app.static_folder, path)
 
-# --- Error Handlers ---
 @app.errorhandler(404)
 def not_found(e):
     return jsonify({"error": "Not Found"}), 404
@@ -218,7 +179,6 @@ def not_found(e):
 def internal_error(e):
     return jsonify({"error": "Internal Server Error"}), 500
 
-# --- Run App ---
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
