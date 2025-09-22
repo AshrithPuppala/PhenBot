@@ -2,3 +2,6 @@ Flask==2.3.3
 flask-bcrypt==1.0.1
 gunicorn==21.2.0
 groq==0.4.1
+Flask>=2.2
+Flask-SQLAlchemy>=3.0
+gunicorn
