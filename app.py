@@ -717,4 +717,59 @@ if __name__ == "__main__":
     if not GROQ_AVAILABLE:
         print(f"Groq error: {GROQ_ERROR}")
     app.run(host="0.0.0.0", port=port, debug=debug)
+# Add these debug endpoints to your Flask app (REMOVE IN PRODUCTION)
+
+@app.route("/debug/groq")
+def debug_groq():
+    """Debug Groq configuration"""
+    return jsonify({
+        "groq_available": GROQ_AVAILABLE,
+        "groq_error": GROQ_ERROR,
+        "api_key_present": bool(os.environ.get("GROQ_API_KEY")),
+        "api_key_length": len(os.environ.get("GROQ_API_KEY", "")),
+        "groq_client_type": str(type(groq_client)),
+        "groq_client_exists": groq_client is not None
+    })
+
+@app.route("/debug/test-groq")
+def debug_test_groq():
+    """Test Groq API call"""
+    if not GROQ_AVAILABLE:
+        return jsonify({"error": f"Groq not available: {GROQ_ERROR}"}), 503
+    
+    try:
+        test_response = get_ai_response("Hello, this is a test message.", "general")
+        return jsonify({
+            "success": True,
+            "response": test_response,
+            "response_length": len(test_response)
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
+
+@app.route("/api/simple-chat", methods=["POST"])
+@login_required_json
+def api_simple_chat():
+    """Simplified chat endpoint for testing"""
+    try:
+        data = request.get_json() or {}
+        message = data.get("message", "").strip()
+        
+        if not message:
+            return jsonify({"error": "Message required"}), 400
+        
+        # Simple response without Groq for testing
+        response = f"Echo: {message} (Simple mode - AI not connected)"
+        
+        return jsonify({
+            "response": response,
+            "timestamp": datetime.now().isoformat(),
+            "mode": "simple"
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
