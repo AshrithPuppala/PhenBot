@@ -672,85 +672,79 @@ def api_upload():
     
     return jsonify({"error": "Invalid file type. Only PDF files are allowed."}), 400
 
-@app.route("/api/pdfs", methods=["GET"])
+# Add this endpoint to your Flask app (app.py)
+
+@app.route("/api/process-pdf", methods=["POST"])
 @login_required_json
-def list_pdfs():
-    uid = session["user_id"]
-    files = PDFFile.query.filter_by(user_id=uid).order_by(PDFFile.uploaded_at.desc()).all()
-    out = [{"id": p.id, "name": p.original_name, "url": url_for("static", filename=f"uploads/{p.filename}"), "uploaded_at": p.uploaded_at.isoformat()} for p in files]
-    return jsonify({"files": out})
-
-@app.route("/api/history", methods=["GET"])
-@login_required_json
-def get_history():
-    uid = session["user_id"]
-    rows = QAHistory.query.filter_by(user_id=uid).order_by(QAHistory.created_at.desc()).limit(50).all()
-    out = [{"id": r.id, "question": r.question, "answer": r.answer, "subject": r.subject, "created_at": r.created_at.isoformat()} for r in rows]
-    return jsonify({"history": out})
-
-# ------------------------
-# Error handlers
-# ------------------------
-@app.errorhandler(404)
-def handle_404(e):
-    if request.path.startswith('/api/'):
-        return jsonify({"error": "Endpoint not found"}), 404
-    flash("Page not found", "error")
-    return redirect(url_for("login"))
-
-@app.errorhandler(500)
-def handle_500(e):
-    if request.path.startswith('/api/'):
-        return jsonify({"error": "Internal server error"}), 500
-    flash("An error occurred", "error")
-    return redirect(url_for("login"))
-
-# ------------------------
-# Run
-# ------------------------
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    debug = os.environ.get("FLASK_ENV") == "development"
-    print(f"Starting PhenBOT on port {port} (debug={debug})")
-    print(f"Database: {app.config['SQLALCHEMY_DATABASE_URI']}")
-    print(f"Groq AI available: {GROQ_AVAILABLE}")
-    if not GROQ_AVAILABLE:
-        print(f"Groq error: {GROQ_ERROR}")
-    app.run(host="0.0.0.0", port=port, debug=debug)
-# Add these debug endpoints to your Flask app (REMOVE IN PRODUCTION)
-
-@app.route("/debug/groq")
-def debug_groq():
-    """Debug Groq configuration"""
-    return jsonify({
-        "groq_available": GROQ_AVAILABLE,
-        "groq_error": GROQ_ERROR,
-        "api_key_present": bool(os.environ.get("GROQ_API_KEY")),
-        "api_key_length": len(os.environ.get("GROQ_API_KEY", "")),
-        "groq_client_type": str(type(groq_client)),
-        "groq_client_exists": groq_client is not None
-    })
-
-@app.route("/debug/test-groq")
-def debug_test_groq():
-    """Test Groq API call"""
-    if not GROQ_AVAILABLE:
-        return jsonify({"error": f"Groq not available: {GROQ_ERROR}"}), 503
-    
+def api_process_pdf():
+    """Process PDF with different actions"""
     try:
-        test_response = get_ai_response("Hello, this is a test message.", "general")
+        data = request.get_json() or {}
+        filename = data.get("filename", "").strip()
+        action = data.get("action", "").strip()
+        length = data.get("length", "normal")
+        
+        if not filename or not action:
+            return jsonify({"error": "Filename and action required"}), 400
+            
+        # Check if file exists
+        file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+        if not os.path.exists(file_path):
+            return jsonify({"error": "PDF file not found"}), 404
+            
+        # Find the PDF record in database
+        pdf_record = PDFFile.query.filter_by(
+            user_id=session["user_id"], 
+            filename=filename
+        ).first()
+        
+        if not pdf_record:
+            return jsonify({"error": "PDF not found in your uploads"}), 404
+            
+        if not GROQ_AVAILABLE:
+            return jsonify({"error": f"AI service not available: {GROQ_ERROR}"}), 503
+            
+        # Create prompts based on action
+        prompts = {
+            "summarize": f"Please provide a comprehensive summary of this PDF document '{pdf_record.original_name}'. Since I cannot read the PDF content directly, please ask the user to paste key sections or tell me what specific topics they'd like me to focus on for the summary.",
+            
+            "flashcards": f"I'd like to create flashcards for the PDF '{pdf_record.original_name}'. Since I cannot read the PDF directly, please paste the main concepts, definitions, or key points from the document, and I'll create flashcards in this format:\n\nQ: [Question]\nA: [Answer]\n\nWhat topics would you like flashcards for?",
+            
+            "quiz": f"I can help create quiz questions for '{pdf_record.original_name}'. Since I cannot read the PDF directly, please share the main topics or paste relevant sections, and I'll create multiple choice, short answer, or essay questions. What type of quiz questions would you prefer?",
+            
+            "outline": f"I can help create an outline for '{pdf_record.original_name}'. Since I cannot read the PDF directly, please share the main sections or topics from the document, and I'll organize them into a structured outline format. What are the main topics covered in the PDF?"
+        }
+        
+        prompt = prompts.get(action, f"I can help you with '{pdf_record.original_name}', but I'll need you to share the content or specific sections you'd like me to work with.")
+        
+        # Get AI response
+        response = get_ai_response(prompt, "general")
+        
+        # Save to history
+        try:
+            hist = QAHistory(
+                user_id=session["user_id"], 
+                question=f"PDF {action}: {pdf_record.original_name}", 
+                answer=response, 
+                subject=f"pdf_{action}"
+            )
+            db.session.add(hist)
+            db.session.commit()
+        except Exception as e:
+            print(f"Failed to save PDF processing to history: {e}")
+            db.session.rollback()
+        
         return jsonify({
             "success": True,
-            "response": test_response,
-            "response_length": len(test_response)
+            "result": response,
+            "action": action,
+            "filename": pdf_record.original_name
         })
+        
     except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
-        }), 500
-
+        print(f"PDF processing error: {e}")
+        traceback.print_exc()
+        return jsonify({"error": f"Processing failed: {str(e)}"}), 500
 @app.route("/api/simple-chat", methods=["POST"])
 @login_required_json
 def api_simple_chat():
@@ -772,4 +766,5 @@ def api_simple_chat():
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
