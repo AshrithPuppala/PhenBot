@@ -667,70 +667,52 @@ def upload_pdf():
     if "file" not in request.files:
         return jsonify({"error": "No file part"}), 400
     
-    file = request.files["file"]
-    if file.filename == "":
-        return jsonify({"error": "No file selected"}), 400
+    files = request.files.getlist("file")  # Handle multiple files
+    if not files or files[0].filename == "":
+        return jsonify({"error": "No files selected"}), 400
     
-    if not allowed_file(file.filename):
-        return jsonify({"error": "Only .pdf files allowed"}), 400
+    uploaded_files = []
+    errors = []
     
     try:
-        original = secure_filename(file.filename)
-        unique = f"{session['user_id']}_{uuid.uuid4().hex}_{original}"
-        save_path = os.path.join(app.config["UPLOAD_FOLDER"], unique)
-        file.save(save_path)
+        for file in files:
+            if not allowed_file(file.filename):
+                errors.append(f"{file.filename}: Only PDF files allowed")
+                continue
+                
+            original = secure_filename(file.filename)
+            unique = f"{session['user_id']}_{uuid.uuid4().hex}_{original}"
+            save_path = os.path.join(app.config["UPLOAD_FOLDER"], unique)
+            file.save(save_path)
+            
+            rec = PDFFile(user_id=session["user_id"], filename=unique, original_name=original)
+            db.session.add(rec)
+            db.session.commit()
+            
+            url = url_for("static", filename=f"uploads/{unique}")
+            
+            uploaded_files.append({
+                "filename": original,
+                "unique_filename": unique,
+                "file_id": rec.id,
+                "url": url
+            })
         
-        rec = PDFFile(user_id=session["user_id"], filename=unique, original_name=original)
-        db.session.add(rec)
-        db.session.commit()
-        
-        url = url_for("static", filename=f"uploads/{unique}")
-        
-        return jsonify({
-            "success": True,
-            "message": "Uploaded successfully", 
-            "filename": original,
-            "unique_filename": unique,
-            "file_id": rec.id,
-            "url": url
-        }), 201
-        
+        if uploaded_files:
+            return jsonify({
+                "success": True,
+                "message": f"{len(uploaded_files)} PDF(s) uploaded successfully",
+                "files": uploaded_files,
+                "errors": errors
+            }), 201
+        else:
+            return jsonify({"error": "No valid PDF files uploaded", "errors": errors}), 400
+            
     except Exception as e:
         db.session.rollback()
         print(f"Upload error: {e}")
         traceback.print_exc()
         return jsonify({"error": f"Upload failed: {str(e)}"}), 500
-
-@app.route("/api/delete-pdf/<int:file_id>", methods=["DELETE"])
-@login_required_json
-def delete_pdf(file_id):
-    try:
-        pdf_file = PDFFile.query.filter_by(id=file_id, user_id=session["user_id"]).first()
-        
-        if not pdf_file:
-            return jsonify({"error": "PDF not found"}), 404
-        
-        file_path = os.path.join(app.config["UPLOAD_FOLDER"], pdf_file.filename)
-        if os.path.exists(file_path):
-            os.remove(file_path)
-            print(f"Deleted file from disk: {file_path}")
-        
-        db.session.delete(pdf_file)
-        db.session.commit()
-        
-        print(f"Deleted PDF: {pdf_file.original_name} (ID: {file_id})")
-        
-        return jsonify({
-            "success": True,
-            "message": f"PDF '{pdf_file.original_name}' deleted successfully"
-        })
-        
-    except Exception as e:
-        db.session.rollback()
-        print(f"Delete error: {e}")
-        traceback.print_exc()
-        return jsonify({"error": f"Failed to delete PDF: {str(e)}"}), 500
-
 @app.route("/api/pdfs", methods=["GET"])
 @login_required_json
 def list_pdfs():
@@ -852,3 +834,4 @@ if __name__ == "__main__":
         print(f"Groq error: {GROQ_ERROR}")
     
     app.run(host="0.0.0.0", port=port, debug=debug)
+
