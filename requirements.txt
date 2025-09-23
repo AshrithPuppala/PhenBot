@@ -4,3 +4,4 @@ groq==0.4.1
 Flask>=2.2
 Flask-SQLAlchemy>=3.0
 gunicorn
+PyPDF2==3.0.1
