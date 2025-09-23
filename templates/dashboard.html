@@ -962,7 +962,7 @@ async function sendMessage() {
     const loadingMessage = addMessage('Thinking...', 'bot', true);
     
     try {
-        const response = await fetch("/api/chat", {
+        const response = await fetch("/api/enhanced-chat", {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1115,76 +1115,60 @@ async function handleFileUpload(event) {
     const uploadArea = document.getElementById('uploadArea');
     const originalContent = uploadArea.innerHTML;
     
-    // Show upload progress
     uploadArea.innerHTML = `
         <div class="spinner" style="width: 30px; height: 30px; border-width: 3px;"></div>
         <p style="margin-top: 1rem;">Uploading ${pdfFiles.length} PDF(s)...</p>
     `;
 
-    let successCount = 0;
-    let errorCount = 0;
-    const uploadedFiles = [];
-
-    for (let i = 0; i < pdfFiles.length; i++) {
-        const file = pdfFiles[i];
-        const formData = new FormData();
+    const formData = new FormData();
+    pdfFiles.forEach(file => {
         formData.append('file', file);
+    });
 
-        try {
-            const response = await fetch('/api/upload-pdf', {
-                method: 'POST',
-                body: formData
-            });
+    try {
+        const response = await fetch('/api/upload-pdf', {
+            method: 'POST',
+            body: formData
+        });
 
-            const data = await response.json();
+        const data = await response.json();
 
-            if (data.message && data.filename) {
-                successCount++;
-                uploadedFiles.push({
-                    name: data.filename,
-                    unique_filename: data.unique_filename,
-                    url: data.url,
-                    id: data.file_id || Date.now() + i // Fallback ID
-                });
-            } else {
-                errorCount++;
-                console.error(`Failed to upload ${file.name}:`, data.error);
+        if (data.success) {
+            // Set the first uploaded file as current
+            if (data.files && data.files.length > 0) {
+                currentPDF = {
+                    name: data.files[0].filename,
+                    filename: data.files[0].filename,
+                    url: data.files[0].url,
+                    id: data.files[0].file_id
+                };
             }
-        } catch (error) {
-            errorCount++;
-            console.error(`Error uploading ${file.name}:`, error);
+            
+            document.getElementById('pdfActions').classList.add('show');
+            await refreshUploadedFiles();
+            
+            let message = data.message;
+            if (data.errors && data.errors.length > 0) {
+                message += ` (Some files had errors)`;
+            }
+            addSystemMessage(message);
+            
+            uploadArea.innerHTML = `
+                <i class="fas fa-check-circle" style="font-size: 2.5rem; color: var(--primary-green); margin-bottom: 1rem;"></i>
+                <p style="margin-bottom: 0.5rem; font-weight: 500; color: var(--primary-green);">Upload Complete!</p>
+                <p style="color: var(--text-disabled); font-size: 0.85rem;">${data.files.length} PDF(s) ready</p>
+            `;
+        } else {
+            throw new Error(data.error || 'Upload failed');
         }
-    }
-
-    // Show results
-    if (successCount > 0) {
-        // Set the first uploaded file as current for processing
-        currentPDF = uploadedFiles[0];
-        
-        // Show PDF actions
-        document.getElementById('pdfActions').classList.add('show');
-        
-        // Refresh the uploaded files list
-        await refreshUploadedFiles();
-        
-        // Success message
-        let message = `${successCount} PDF(s) uploaded successfully!`;
-        if (errorCount > 0) {
-            message += ` (${errorCount} failed)`;
-        }
-        addSystemMessage(message);
-        
-        uploadArea.innerHTML = `
-            <i class="fas fa-check-circle" style="font-size: 2.5rem; color: var(--primary-green); margin-bottom: 1rem;"></i>
-            <p style="margin-bottom: 0.5rem; font-weight: 500; color: var(--primary-green);">Upload Complete!</p>
-            <p style="color: var(--text-disabled); font-size: 0.85rem;">${successCount} PDF(s) ready</p>
-        `;
-    } else {
-        alert('All uploads failed. Please try again.');
+    } catch (error) {
+        alert(`Upload failed: ${error.message}`);
         uploadArea.innerHTML = originalContent;
     }
-}
-        // Refresh uploaded files list
+    
+    // Clear the file input
+    event.target.value = '';
+} // Refresh uploaded files list
 async function refreshUploadedFiles() {
     try {
         const response = await fetch('/api/pdfs');
