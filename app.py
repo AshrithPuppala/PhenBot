@@ -531,30 +531,91 @@ def api_ask():
         db.session.rollback()
     return jsonify({"answer": answer})
 
+# ENHANCED VERSION - Replace the existing /api/chat route with this:
+
 @app.route("/api/chat", methods=["POST"])
 @login_required_json
 def api_chat():
-    data = request.get_json() or {}
-    message = (data.get("message") or "").strip()
-    if not message:
-        return jsonify({"error": "Message required"}), 400
-    
-    if GROQ_AVAILABLE:
-        response = get_ai_response(message, "general")
-    else:
-        response = f"I received your message: '{message}'. AI service is currently unavailable, but I'm here to help!"
-    
     try:
-        hist = QAHistory(user_id=session["user_id"], question=message, answer=response, subject="general")
-        db.session.add(hist)
-        db.session.commit()
-    except Exception:
-        db.session.rollback()
+        data = request.get_json() or {}
+        message = (data.get("message") or "").strip()
+        
+        # Get optional parameters (with defaults)
+        mode = data.get("mode", "general")
+        length = data.get("length", "normal")
+        
+        if not message:
+            return jsonify({"error": "Message required"}), 400
+        
+        print(f"Chat request: user_id={session.get('user_id')}, message='{message[:50]}...', mode={mode}")
+        
+        if GROQ_AVAILABLE:
+            # Create enhanced prompt based on mode
+            enhanced_message = create_enhanced_prompt(message, mode, length)
+            response = get_ai_response(enhanced_message, mode)
+            
+            # Check if response indicates an error
+            if response.startswith("AI system not available") or response.startswith("Error calling Groq"):
+                return jsonify({"error": response}), 503
+                
+        else:
+            response = f"I received your message: '{message}'. AI service is currently unavailable (Error: {GROQ_ERROR}), but I'm here to help when it's restored!"
+        
+        # Save to history
+        try:
+            hist = QAHistory(
+                user_id=session["user_id"], 
+                question=message, 
+                answer=response, 
+                subject=mode
+            )
+            db.session.add(hist)
+            db.session.commit()
+            print(f"Chat saved to history: id={hist.id}")
+        except Exception as e:
+            print(f"Failed to save chat history: {e}")
+            db.session.rollback()
+        
+        return jsonify({
+            "response": response,
+            "timestamp": datetime.now().isoformat(),
+            "mode": mode
+        })
+        
+    except Exception as e:
+        print(f"Chat API error: {e}")
+        traceback.print_exc()
+        return jsonify({"error": "Internal server error"}), 500
+
+
+def create_enhanced_prompt(message, mode, length):
+    """Create enhanced prompts based on chat mode and length"""
     
-    return jsonify({
-        "response": response,
-        "timestamp": datetime.now().isoformat()
-    })
+    length_instructions = {
+        "short": "Keep your response concise and to the point (1-2 paragraphs).",
+        "normal": "Provide a comprehensive but balanced response (2-4 paragraphs).",
+        "detailed": "Give a thorough, detailed explanation with examples (4+ paragraphs)."
+    }
+    
+    mode_instructions = {
+        "normal": "Provide clear, conversational explanations.",
+        "analogy": "Use analogies, metaphors, and real-world comparisons to explain concepts.",
+        "quiz": "Create interactive questions to test understanding, then provide explanations.",
+        "teach": "Break down the topic into step-by-step lessons with examples and practice questions.",
+        "simple": "Use simple language and basic concepts suitable for beginners."
+    }
+    
+    base_instruction = mode_instructions.get(mode, mode_instructions["normal"])
+    length_instruction = length_instructions.get(length, length_instructions["normal"])
+    
+    enhanced_message = f"""Mode: {mode.upper()}
+Instructions: {base_instruction} {length_instruction}
+
+User Question: {message}
+
+Please respond according to the mode and length specified above."""
+    
+    return enhanced_message
 
 # PDF upload functionality
 ALLOWED_EXT = {"pdf"}
@@ -656,3 +717,4 @@ if __name__ == "__main__":
     if not GROQ_AVAILABLE:
         print(f"Groq error: {GROQ_ERROR}")
     app.run(host="0.0.0.0", port=port, debug=debug)
+
