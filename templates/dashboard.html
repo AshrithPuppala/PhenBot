@@ -1105,52 +1105,54 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Process PDF with different actions
-        async function processPDF(action) {
-            if (!currentPDF) {
-                alert('Please upload a PDF first.');
-                return;
-            }
+       // FIXED VERSION - Replace the processPDF function in your dashboard.html
+async function processPDF(action) {
+    if (!currentPDF) {
+        alert('Please upload a PDF first.');
+        return;
+    }
 
-            const actionBtn = event.target;
-            const originalContent = actionBtn.innerHTML;
-            actionBtn.innerHTML = '<div class="spinner"></div> Processing...';
-            actionBtn.disabled = true;
+    const actionBtn = event.target;
+    const originalContent = actionBtn.innerHTML;
+    actionBtn.innerHTML = '<div class="spinner"></div> Processing...';
+    actionBtn.disabled = true;
 
-            try {
-                const response = await fetch('/api/process-pdf', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        filename: currentPDF.filename,
-                        action: action,
-                        length: responseLength
-                    })
-                });
+    try {
+        const response = await fetch('/api/process-pdf', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                filename: currentPDF.filename || currentPDF.name, // Handle both filename formats
+                action: action,
+                length: responseLength
+            })
+        });
 
-                const data = await response.json();
+        const data = await response.json();
 
-                if (data.success) {
-                    // Add the result to chat
-                    let actionName = {
-                        'summarize': 'PDF Summary',
-                        'flashcards': 'Flashcards',
-                        'quiz': 'Quiz Questions',
-                        'outline': 'Content Outline'
-                    }[action];
-                    
-                    addMessage(`📄 ${actionName} for "${currentPDF.name}":\n\n${data.result}`, 'bot');
-                } else {
-                    throw new Error(data.error || 'Processing failed');
-                }
-            } catch (error) {
-                addMessage(`Error processing PDF: ${error.message}`, 'bot');
-            } finally {
-                actionBtn.innerHTML = originalContent;
-                actionBtn.disabled = false;
-            }
+        if (response.ok && data.success) {
+            // Add the result to chat
+            let actionName = {
+                'summarize': 'PDF Summary',
+                'flashcards': 'Flashcards',
+                'quiz': 'Quiz Questions',
+                'outline': 'Content Outline'
+            }[action];
+            
+            addMessage(`📄 ${actionName} for "${data.filename}":\n\n${data.result}`, 'bot');
+        } else {
+            throw new Error(data.error || 'Processing failed');
         }
+    } catch (error) {
+        console.error('PDF processing error:', error);
+        addMessage(`Error processing PDF: ${error.message}`, 'bot');
+    } finally {
+        actionBtn.innerHTML = originalContent;
+        actionBtn.disabled = false;
+    }
+}
 
         // Timer functionality
         function updateTimerDisplay() {
