@@ -1233,6 +1233,21 @@ async function refreshUploadedFiles() {
             uploadedFiles.innerHTML = '';
             uploadedFiles.appendChild(fileItem);
         }
+// Add this to your upload area click handler
+function resetUploadArea() {
+    const uploadArea = document.getElementById('uploadArea');
+    uploadArea.innerHTML = `
+        <i class="fas fa-cloud-upload-alt" style="font-size: 2.5rem; color: var(--primary-blue); margin-bottom: 1rem;"></i>
+        <p style="margin-bottom: 0.5rem; font-weight: 500;">Drop PDF files here</p>
+        <p style="color: var(--text-disabled); font-size: 0.85rem;">or click to browse</p>
+    `;
+}
+
+// Update your upload area click to include reset
+document.getElementById('uploadArea').addEventListener('click', () => {
+    resetUploadArea(); // Reset the visual state
+    document.getElementById('fileInput').click();
+});
         // Select a PDF for processing
 // Select a PDF for processing
 function selectPDF(filename, url, fileId, event) {
