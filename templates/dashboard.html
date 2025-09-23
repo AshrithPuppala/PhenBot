@@ -746,7 +746,7 @@
                     <i class="fas fa-cloud-upload-alt" style="font-size: 2.5rem; color: var(--primary-blue); margin-bottom: 1rem;"></i>
                     <p style="margin-bottom: 0.5rem; font-weight: 500;">Drop PDF files here</p>
                     <p style="color: var(--text-disabled); font-size: 0.85rem;">or click to browse</p>
-                    <input type="file" id="fileInput" class="file-input" accept=".pdf" onchange="handleFileUpload(event)">
+                    <input type="file" id="fileInput" class="file-input" accept=".pdf" multiple onchange="handleFileUpload(event)">
                 </div>
                 
                 <div class="pdf-actions" id="pdfActions">
@@ -1029,59 +1029,130 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Handle file upload
         // Handle file upload
+// Handle multiple file uploads
 async function handleFileUpload(event) {
-    const file = event.target.files[0];
-    if (!file || file.type !== 'application/pdf') {
-        alert('Please select a PDF file.');
+    const files = Array.from(event.target.files);
+    const pdfFiles = files.filter(file => file.type === 'application/pdf');
+    
+    if (pdfFiles.length === 0) {
+        alert('Please select at least one PDF file.');
         return;
     }
 
-    const formData = new FormData();
-    formData.append('file', file);
-
     const uploadArea = document.getElementById('uploadArea');
     const originalContent = uploadArea.innerHTML;
+    
+    // Show upload progress
     uploadArea.innerHTML = `
         <div class="spinner" style="width: 30px; height: 30px; border-width: 3px;"></div>
-        <p style="margin-top: 1rem;">Uploading PDF...</p>
+        <p style="margin-top: 1rem;">Uploading ${pdfFiles.length} PDF(s)...</p>
     `;
 
+    let successCount = 0;
+    let errorCount = 0;
+    const uploadedFiles = [];
+
+    for (let i = 0; i < pdfFiles.length; i++) {
+        const file = pdfFiles[i];
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const response = await fetch('/api/upload-pdf', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (data.message && data.filename) {
+                successCount++;
+                uploadedFiles.push({
+                    name: data.filename,
+                    unique_filename: data.unique_filename,
+                    url: data.url,
+                    id: data.file_id || Date.now() + i // Fallback ID
+                });
+            } else {
+                errorCount++;
+                console.error(`Failed to upload ${file.name}:`, data.error);
+            }
+        } catch (error) {
+            errorCount++;
+            console.error(`Error uploading ${file.name}:`, error);
+        }
+    }
+
+    // Show results
+    if (successCount > 0) {
+        // Set the first uploaded file as current for processing
+        currentPDF = uploadedFiles[0];
+        
+        // Show PDF actions
+        document.getElementById('pdfActions').classList.add('show');
+        
+        // Refresh the uploaded files list
+        await refreshUploadedFiles();
+        
+        // Success message
+        let message = `${successCount} PDF(s) uploaded successfully!`;
+        if (errorCount > 0) {
+            message += ` (${errorCount} failed)`;
+        }
+        addSystemMessage(message);
+        
+        uploadArea.innerHTML = `
+            <i class="fas fa-check-circle" style="font-size: 2.5rem; color: var(--primary-green); margin-bottom: 1rem;"></i>
+            <p style="margin-bottom: 0.5rem; font-weight: 500; color: var(--primary-green);">Upload Complete!</p>
+            <p style="color: var(--text-disabled); font-size: 0.85rem;">${successCount} PDF(s) ready</p>
+        `;
+    } else {
+        alert('All uploads failed. Please try again.');
+        uploadArea.innerHTML = originalContent;
+    }
+}
+        // Refresh uploaded files list
+async function refreshUploadedFiles() {
     try {
-        const response = await fetch('/api/upload-pdf', {
-            method: 'POST',
-            body: formData
-        });
-
+        const response = await fetch('/api/pdfs');
         const data = await response.json();
-
-        if (data.message && data.filename) {
-            // FIXED: Store the unique filename from backend, not original
-            currentPDF = {
-                name: data.filename, // This is the original name for display
-                filename: data.filename, // This should be the unique filename for processing
-                url: data.url
-            };
-            
-            // Show PDF actions
-            document.getElementById('pdfActions').classList.add('show');
-            
-            // Add to uploaded files list
-            addUploadedFile(currentPDF);
-            
-            // Add success message to chat
-            addSystemMessage(`PDF "${data.filename}" uploaded successfully! You can now ask questions about it or use the PDF tools.`);
-            
-            uploadArea.innerHTML = `
-                <i class="fas fa-check-circle" style="font-size: 2.5rem; color: var(--primary-green); margin-bottom: 1rem;"></i>
-                <p style="margin-bottom: 0.5rem; font-weight: 500; color: var(--primary-green);">PDF Uploaded!</p>
-                <p style="color: var(--text-disabled); font-size: 0.85rem;">${data.filename}</p>
-            `;
+        
+        const uploadedFiles = document.getElementById('uploadedFiles');
+        uploadedFiles.innerHTML = '<div class="files-header"><i class="fas fa-folder-open"></i>Your Documents</div>';
+        
+        if (data.files && data.files.length > 0) {
+            data.files.forEach(file => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item';
+                fileItem.innerHTML = `
+                    <div class="file-info">
+                        <a href="${file.url}" target="_blank" class="file-name">
+                            <i class="fas fa-file-pdf" style="margin-right: 0.5rem; color: var(--primary-red);"></i>
+                            ${file.name}
+                        </a>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">
+                            ${new Date(file.uploaded_at).toLocaleDateString()}
+                        </div>
+                    </div>
+                    <div class="file-actions">
+                        <button class="icon-btn primary" onclick="selectPDF('${file.name}', '${file.url}', ${file.id})" title="Select for processing">
+                            <i class="fas fa-mouse-pointer"></i>
+                        </button>
+                        <button class="icon-btn danger" onclick="deletePDF(${file.id}, '${file.name}')" title="Delete PDF">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+                uploadedFiles.appendChild(fileItem);
+            });
         } else {
-            throw new Error(data.error || 'Upload failed');
+            const emptyDiv = document.createElement('div');
+            emptyDiv.style.cssText = 'text-align: center; color: var(--text-muted); font-style: italic; padding: 1rem;';
+            emptyDiv.textContent = 'No PDFs uploaded yet';
+            uploadedFiles.appendChild(emptyDiv);
         }
     } catch (error) {
-        alert(`Upload failed: ${error.message}`);
-        uploadArea.innerHTML = originalContent;
+        console.error('Error refreshing file list:', error);
     }
 }
 
@@ -1105,6 +1176,67 @@ async function handleFileUpload(event) {
             uploadedFiles.innerHTML = '';
             uploadedFiles.appendChild(fileItem);
         }
+        // Select a PDF for processing
+function selectPDF(filename, url, fileId) {
+    currentPDF = {
+        name: filename,
+        filename: filename,
+        url: url,
+        id: fileId
+    };
+    
+    // Visual feedback
+    document.querySelectorAll('.file-item').forEach(item => {
+        item.style.border = '1px solid var(--card-border)';
+    });
+    
+    // Highlight selected file
+    event.target.closest('.file-item').style.border = '2px solid var(--primary-blue)';
+    
+    // Show PDF actions
+    document.getElementById('pdfActions').classList.add('show');
+    
+    addSystemMessage(`Selected "${filename}" for processing`);
+}
+
+// Delete a PDF
+async function deletePDF(fileId, filename) {
+    if (!confirm(`Are you sure you want to delete "${filename}"?`)) {
+        return;
+    }
+
+    const deleteBtn = event.target;
+    const originalContent = deleteBtn.innerHTML;
+    deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    deleteBtn.disabled = true;
+
+    try {
+        const response = await fetch(`/api/delete-pdf/${fileId}`, {
+            method: 'DELETE'
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            addSystemMessage(`"${filename}" deleted successfully`);
+            
+            // If this was the current PDF, clear it
+            if (currentPDF && (currentPDF.id === fileId || currentPDF.name === filename)) {
+                currentPDF = null;
+                document.getElementById('pdfActions').classList.remove('show');
+            }
+            
+            // Refresh the file list
+            await refreshUploadedFiles();
+        } else {
+            throw new Error(data.error || 'Delete failed');
+        }
+    } catch (error) {
+        alert(`Failed to delete PDF: ${error.message}`);
+        deleteBtn.innerHTML = originalContent;
+        deleteBtn.disabled = false;
+    }
+}
 
         // Process PDF with different actions
        // FIXED VERSION - Replace the processPDF function in your dashboard.html
