@@ -1028,60 +1028,62 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Handle file upload
-        async function handleFileUpload(event) {
-            const file = event.target.files[0];
-            if (!file || file.type !== 'application/pdf') {
-                alert('Please select a PDF file.');
-                return;
-            }
+        // Handle file upload
+async function handleFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file || file.type !== 'application/pdf') {
+        alert('Please select a PDF file.');
+        return;
+    }
 
-            const formData = new FormData();
-            formData.append('file', file);
+    const formData = new FormData();
+    formData.append('file', file);
 
-            const uploadArea = document.getElementById('uploadArea');
-            const originalContent = uploadArea.innerHTML;
+    const uploadArea = document.getElementById('uploadArea');
+    const originalContent = uploadArea.innerHTML;
+    uploadArea.innerHTML = `
+        <div class="spinner" style="width: 30px; height: 30px; border-width: 3px;"></div>
+        <p style="margin-top: 1rem;">Uploading PDF...</p>
+    `;
+
+    try {
+        const response = await fetch('/api/upload-pdf', {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (data.message && data.filename) {
+            // FIXED: Store the unique filename from backend, not original
+            currentPDF = {
+                name: data.filename, // This is the original name for display
+                filename: data.filename, // This should be the unique filename for processing
+                url: data.url
+            };
+            
+            // Show PDF actions
+            document.getElementById('pdfActions').classList.add('show');
+            
+            // Add to uploaded files list
+            addUploadedFile(currentPDF);
+            
+            // Add success message to chat
+            addSystemMessage(`PDF "${data.filename}" uploaded successfully! You can now ask questions about it or use the PDF tools.`);
+            
             uploadArea.innerHTML = `
-                <div class="spinner" style="width: 30px; height: 30px; border-width: 3px;"></div>
-                <p style="margin-top: 1rem;">Uploading PDF...</p>
+                <i class="fas fa-check-circle" style="font-size: 2.5rem; color: var(--primary-green); margin-bottom: 1rem;"></i>
+                <p style="margin-bottom: 0.5rem; font-weight: 500; color: var(--primary-green);">PDF Uploaded!</p>
+                <p style="color: var(--text-disabled); font-size: 0.85rem;">${data.filename}</p>
             `;
-
-            try {
-                const response = await fetch('/api/upload-pdf', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const data = await response.json();
-
-                if (data.success || response.ok) {
-                    currentPDF = {
-                        name: file.name,
-                        url: data.url,
-                        filename: data.filename || file.name
-                    };
-                    
-                    // Show PDF actions
-                    document.getElementById('pdfActions').classList.add('show');
-                    
-                    // Add to uploaded files list
-                    addUploadedFile(currentPDF);
-                    
-                    // Add success message to chat
-                    addSystemMessage(`PDF "${file.name}" uploaded successfully! You can now ask questions about it or use the PDF tools.`);
-                    
-                    uploadArea.innerHTML = `
-                        <i class="fas fa-check-circle" style="font-size: 2.5rem; color: var(--primary-green); margin-bottom: 1rem;"></i>
-                        <p style="margin-bottom: 0.5rem; font-weight: 500; color: var(--primary-green);">PDF Uploaded!</p>
-                        <p style="color: var(--text-disabled); font-size: 0.85rem;">${file.name}</p>
-                    `;
-                } else {
-                    throw new Error(data.error || 'Upload failed');
-                }
-            } catch (error) {
-                alert(`Upload failed: ${error.message}`);
-                uploadArea.innerHTML = originalContent;
-            }
+        } else {
+            throw new Error(data.error || 'Upload failed');
         }
+    } catch (error) {
+        alert(`Upload failed: ${error.message}`);
+        uploadArea.innerHTML = originalContent;
+    }
+}
 
         // Add uploaded file to list
         function addUploadedFile(fileInfo) {
@@ -1106,6 +1108,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Process PDF with different actions
        // FIXED VERSION - Replace the processPDF function in your dashboard.html
+// Process PDF with different actions
 async function processPDF(action) {
     if (!currentPDF) {
         alert('Please upload a PDF first.');
@@ -1118,13 +1121,26 @@ async function processPDF(action) {
     actionBtn.disabled = true;
 
     try {
+        // Get the unique filename from the database
+        const pdfListResponse = await fetch('/api/pdfs');
+        const pdfListData = await pdfListResponse.json();
+        
+        // Find the matching PDF by original name
+        const matchingPDF = pdfListData.files.find(pdf => 
+            pdf.name === currentPDF.name || pdf.name === currentPDF.filename
+        );
+        
+        if (!matchingPDF) {
+            throw new Error('PDF not found in database');
+        }
+
         const response = await fetch('/api/process-pdf', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                filename: currentPDF.filename || currentPDF.name, // Handle both filename formats
+                filename: matchingPDF.name, // Use the original name from database
                 action: action,
                 length: responseLength
             })
@@ -1133,7 +1149,6 @@ async function processPDF(action) {
         const data = await response.json();
 
         if (response.ok && data.success) {
-            // Add the result to chat
             let actionName = {
                 'summarize': 'PDF Summary',
                 'flashcards': 'Flashcards',
