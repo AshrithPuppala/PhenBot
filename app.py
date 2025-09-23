@@ -14,13 +14,8 @@ from flask import (
 from flask_sqlalchemy import SQLAlchemy
 
 # ------------------------
-# Config
+# PDF Processing Setup
 # ------------------------
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-INSTANCE_DIR = os.path.join(BASE_DIR, "instance")
-UPLOAD_DIR = os.path.join(BASE_DIR, "static", "uploads")
-os.makedirs(INSTANCE_DIR, exist_ok=True)
-os.makedirs(UPLOAD_DIR, exist_ok=True)
 try:
     import PyPDF2
     PDF_EXTRACTION_AVAILABLE = True
@@ -28,136 +23,30 @@ except ImportError:
     PDF_EXTRACTION_AVAILABLE = False
     print("PyPDF2 not available - PDF text extraction disabled")
 
-def extract_pdf_text(file_path, max_pages=5):
-    """Extract text from PDF file"""
-    if not PDF_EXTRACTION_AVAILABLE:
-        return None
-        
-    try:
-        with open(file_path, 'rb') as file:
-            pdf_reader = PyPDF2.PdfReader(file)
-            text = ""
-            
-            # Limit to max_pages to avoid huge prompts
-            pages_to_read = min(len(pdf_reader.pages), max_pages)
-            
-            for page_num in range(pages_to_read):
-                page = pdf_reader.pages[page_num]
-                text += page.extract_text() + "\n\n"
-                
-            return text.strip()
-    except Exception as e:
-        print(f"PDF extraction error: {e}")
-        return None
+# ------------------------
+# Config
+# ------------------------
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+INSTANCE_DIR = os.path.join(BASE_DIR, "instance")
+UPLOAD_DIR = os.path.join(BASE_DIR, "static", "uploads")
+os.makedirs(INSTANCE_DIR, exist_ok=True)
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-# ENHANCED VERSION - Replace the previous process-pdf endpoint with this:
-@app.route("/api/process-pdf", methods=["POST"])
-@login_required_json
-def api_process_pdf():
-    """Process PDF with different actions using actual PDF content"""
-    try:
-        data = request.get_json() or {}
-        filename = data.get("filename", "").strip()
-        action = data.get("action", "").strip()
-        length = data.get("length", "normal")
-        
-        if not filename or not action:
-            return jsonify({"error": "Filename and action required"}), 400
-            
-        # Check if file exists
-        file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-        if not os.path.exists(file_path):
-            return jsonify({"error": "PDF file not found"}), 404
-            
-        # Find the PDF record in database
-        pdf_record = PDFFile.query.filter_by(
-            user_id=session["user_id"], 
-            filename=filename
-        ).first()
-        
-        if not pdf_record:
-            return jsonify({"error": "PDF not found in your uploads"}), 404
-            
-        if not GROQ_AVAILABLE:
-            return jsonify({"error": f"AI service not available: {GROQ_ERROR}"}), 503
-            
-        # Try to extract PDF text
-        pdf_text = extract_pdf_text(file_path) if PDF_EXTRACTION_AVAILABLE else None
-        
-        # Create prompts based on action and available text
-        if pdf_text:
-            # We have actual PDF content
-            prompts = {
-                "summarize": f"Please summarize the following PDF content from '{pdf_record.original_name}':\n\n{pdf_text[:3000]}{'...' if len(pdf_text) > 3000 else ''}",
-                
-                "flashcards": f"Create flashcards based on the content from '{pdf_record.original_name}'. Format each as 'Q: [Question]\\nA: [Answer]\\n\\n'. Here's the content:\n\n{pdf_text[:2500]}{'...' if len(pdf_text) > 2500 else ''}",
-                
-                "quiz": f"Create quiz questions (multiple choice and short answer) based on '{pdf_record.original_name}'. Here's the content:\n\n{pdf_text[:2500]}{'...' if len(pdf_text) > 2500 else ''}",
-                
-                "outline": f"Create a structured outline based on the content from '{pdf_record.original_name}':\n\n{pdf_text[:2500]}{'...' if len(pdf_text) > 2500 else ''}"
-            }
-        else:
-            # Fallback prompts when we can't extract text
-            prompts = {
-                "summarize": f"I can help summarize '{pdf_record.original_name}', but I need you to share the key content first. Please paste the main sections or tell me what topics the PDF covers.",
-                
-                "flashcards": f"I'll create flashcards for '{pdf_record.original_name}'. Please share the main concepts, definitions, or key points, and I'll format them as:\n\nQ: [Question]\nA: [Answer]",
-                
-                "quiz": f"I can create quiz questions for '{pdf_record.original_name}'. Please share the main topics or content, and I'll create various types of questions.",
-                
-                "outline": f"I'll help create an outline for '{pdf_record.original_name}'. Please share the main sections or topics from the document."
-            }
-        
-        prompt = prompts.get(action, "Invalid action specified")
-        
-        # Add length instruction
-        if length == "short":
-            prompt += "\n\nPlease keep the response concise."
-        elif length == "detailed":
-            prompt += "\n\nPlease provide a detailed, comprehensive response."
-        
-        # Get AI response
-        response = get_ai_response(prompt, "general")
-        
-        # Save to history
-        try:
-            hist = QAHistory(
-                user_id=session["user_id"], 
-                question=f"PDF {action}: {pdf_record.original_name}", 
-                answer=response, 
-                subject=f"pdf_{action}"
-            )
-            db.session.add(hist)
-            db.session.commit()
-        except Exception as e:
-            print(f"Failed to save PDF processing to history: {e}")
-            db.session.rollback()
-        
-        return jsonify({
-            "success": True,
-            "result": response,
-            "action": action,
-            "filename": pdf_record.original_name,
-            "text_extracted": pdf_text is not None
-        })
-        
-    except Exception as e:
-        print(f"PDF processing error: {e}")
-        traceback.print_exc()
-        return jsonify({"error": f"Processing failed: {str(e)}"}), 500
+# Initialize Flask app
 app = Flask(
     __name__,
     static_folder=os.path.join(BASE_DIR, "static"),
     static_url_path="/static"
 )
 
-# IMPORTANT: set SECRET_KEY in env while deploying. Fallback to random for dev.
+# App configuration
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", uuid.uuid4().hex)
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///" + os.path.join(INSTANCE_DIR, "app.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["UPLOAD_FOLDER"] = UPLOAD_DIR
 app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024  # 32 MB
 
+# Initialize database
 db = SQLAlchemy(app)
 
 # ------------------------
@@ -188,37 +77,8 @@ class QAHistory(db.Model):
     subject = db.Column(db.String(80), default="general")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-# Database initialization with proper error handling
-def init_database():
-    """Initialize database with proper migration handling"""
-    with app.app_context():
-        try:
-            # Create all tables
-            db.create_all()
-            print("Database tables created successfully")
-            
-            # Check if email column exists and add if missing
-            inspector = db.inspect(db.engine)
-            columns = [col['name'] for col in inspector.get_columns('user')]
-            
-            if 'email' not in columns:
-                print("Adding email column to user table...")
-                with db.engine.connect() as conn:
-                    conn.execute(db.text('ALTER TABLE user ADD COLUMN email VARCHAR(150)'))
-                    conn.commit()
-                print("Email column added successfully")
-            
-            return True
-        except Exception as e:
-            print(f"Database initialization error: {e}")
-            traceback.print_exc()
-            return False
-
-# Initialize database
-init_database()
-
 # ------------------------
-# Groq initialization (safe)
+# Groq initialization
 # ------------------------
 groq_client = None
 GROQ_AVAILABLE = False
@@ -251,6 +111,31 @@ def initialize_groq():
         return False
 
 initialize_groq()
+
+# ------------------------
+# Helper functions (AFTER app initialization)
+# ------------------------
+def extract_pdf_text(file_path, max_pages=5):
+    """Extract text from PDF file"""
+    if not PDF_EXTRACTION_AVAILABLE:
+        return None
+        
+    try:
+        with open(file_path, 'rb') as file:
+            pdf_reader = PyPDF2.PdfReader(file)
+            text = ""
+            
+            # Limit to max_pages to avoid huge prompts
+            pages_to_read = min(len(pdf_reader.pages), max_pages)
+            
+            for page_num in range(pages_to_read):
+                page = pdf_reader.pages[page_num]
+                text += page.extract_text() + "\n\n"
+                
+            return text.strip()
+    except Exception as e:
+        print(f"PDF extraction error: {e}")
+        return None
 
 def get_ai_response(question, subject="general"):
     if not groq_client or not GROQ_AVAILABLE:
@@ -287,9 +172,35 @@ def get_ai_response(question, subject="general"):
         traceback.print_exc()
         return f"Error calling Groq: {e}"
 
-# ------------------------
-# Helper functions
-# ------------------------
+def create_enhanced_prompt(message, mode, length):
+    """Create enhanced prompts based on chat mode and length"""
+    
+    length_instructions = {
+        "short": "Keep your response concise and to the point (1-2 paragraphs).",
+        "normal": "Provide a comprehensive but balanced response (2-4 paragraphs).",
+        "detailed": "Give a thorough, detailed explanation with examples (4+ paragraphs)."
+    }
+    
+    mode_instructions = {
+        "normal": "Provide clear, conversational explanations.",
+        "analogy": "Use analogies, metaphors, and real-world comparisons to explain concepts.",
+        "quiz": "Create interactive questions to test understanding, then provide explanations.",
+        "teach": "Break down the topic into step-by-step lessons with examples and practice questions.",
+        "simple": "Use simple language and basic concepts suitable for beginners."
+    }
+    
+    base_instruction = mode_instructions.get(mode, mode_instructions["normal"])
+    length_instruction = length_instructions.get(length, length_instructions["normal"])
+    
+    enhanced_message = f"""Mode: {mode.upper()}
+Instructions: {base_instruction} {length_instruction}
+
+User Question: {message}
+
+Please respond according to the mode and length specified above."""
+    
+    return enhanced_message
+
 def login_required_json(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -357,8 +268,37 @@ def validate_password_strength(password):
     else:
         return score, "Strong password"
 
+# Database initialization
+def init_database():
+    """Initialize database with proper migration handling"""
+    with app.app_context():
+        try:
+            # Create all tables
+            db.create_all()
+            print("Database tables created successfully")
+            
+            # Check if email column exists and add if missing
+            inspector = db.inspect(db.engine)
+            columns = [col['name'] for col in inspector.get_columns('user')]
+            
+            if 'email' not in columns:
+                print("Adding email column to user table...")
+                with db.engine.connect() as conn:
+                    conn.execute(db.text('ALTER TABLE user ADD COLUMN email VARCHAR(150)'))
+                    conn.commit()
+                print("Email column added successfully")
+            
+            return True
+        except Exception as e:
+            print(f"Database initialization error: {e}")
+            traceback.print_exc()
+            return False
+
+# Initialize database
+init_database()
+
 # ------------------------
-# Routes (HTML)
+# Routes (HTML) - AFTER all dependencies are ready
 # ------------------------
 @app.route("/")
 def home():
@@ -373,14 +313,13 @@ def register():
     
     if request.method == "POST":
         try:
-            # Handle both JSON and form data
             if request.is_json:
                 data = request.get_json()
             else:
                 data = request.form
                 
-            username = (data.get("username") or "").strip().lower()  # Normalize username
-            email = (data.get("email") or "").strip().lower()  # Normalize email
+            username = (data.get("username") or "").strip().lower()
+            email = (data.get("email") or "").strip().lower()
             password = data.get("password") or ""
             confirm_password = data.get("confirmPassword") or ""
             
@@ -401,12 +340,10 @@ def register():
             if password != confirm_password:
                 errors.append("Passwords do not match")
                 
-            # Check password strength
             strength, strength_msg = validate_password_strength(password)
             if strength < 40:
                 errors.append("Password is too weak. Please choose a stronger password")
             
-            # Check if user exists
             existing_username = User.query.filter_by(username=username).first()
             existing_email = User.query.filter_by(email=email).first()
             
@@ -424,7 +361,6 @@ def register():
                         flash(error, "danger")
                     return render_template("register.html")
             
-            # Create user
             hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
             user = User(username=username, email=email, password_hash=hashed_password)
             
@@ -432,7 +368,6 @@ def register():
             db.session.commit()
             
             print(f"User created successfully: id={user.id}, username={user.username}, email={user.email}")
-            print(f"Password hash: {user.password_hash[:50]}...")
             
             if request.is_json:
                 return jsonify({"success": True, "message": "Account created successfully"})
@@ -460,13 +395,12 @@ def login():
     
     if request.method == "POST":
         try:
-            # Handle both JSON and form data
             if request.is_json:
                 data = request.get_json()
             else:
                 data = request.form
                 
-            username_or_email = (data.get("username") or "").strip().lower()  # Normalize input
+            username_or_email = (data.get("username") or "").strip().lower()
             password = data.get("password") or ""
             
             print(f"Login attempt: input='{username_or_email}', password_length={len(password)}")
@@ -480,17 +414,14 @@ def login():
                     flash(error_msg, "danger")
                     return render_template("login.html")
             
-            # Find user by username or email
             user = None
             
-            # First try to find by email
             if validate_email(username_or_email):
                 print(f"Input looks like email, searching by email: {username_or_email}")
                 user = User.query.filter(User.email == username_or_email).first()
                 if user:
                     print(f"Found user by email: {user.username}")
             
-            # If not found by email, try username
             if not user:
                 print(f"Searching by username: {username_or_email}")
                 user = User.query.filter(User.username == username_or_email).first()
@@ -499,10 +430,6 @@ def login():
             
             if not user:
                 print("User not found in database")
-                # List all users for debugging (remove in production)
-                all_users = User.query.all()
-                print(f"All users in database: {[(u.username, u.email) for u in all_users]}")
-                
                 error_msg = "Invalid username/email or password"
                 if request.is_json:
                     return jsonify({"success": False, "error": error_msg}), 400
@@ -510,20 +437,18 @@ def login():
                     flash(error_msg, "danger")
                     return render_template("login.html")
             
-            # Verify password
             print(f"Verifying password for user: {user.username}")
-            print(f"Stored hash: {user.password_hash[:50]}...")
             
             password_valid = check_password_hash(user.password_hash, password)
             print(f"Password verification result: {password_valid}")
             
             if password_valid:
                 print("Login successful, setting session")
-                session.clear()  # Clear any existing session data
+                session.clear()
                 session["user_id"] = user.id
                 session["username"] = user.username
                 session["email"] = user.email or ""
-                session.permanent = True  # Make session permanent
+                session.permanent = True
                 
                 print(f"Session set: user_id={session.get('user_id')}, username={session.get('username')}")
                 
@@ -571,99 +496,14 @@ def dashboard():
     return render_template("dashboard.html", username=session.get("username"))
 
 # ------------------------
-# Debug routes (remove in production)
-# ------------------------
-@app.route("/debug/users")
-def debug_users():
-    """Debug route to see all users in database"""
-    try:
-        users = User.query.all()
-        user_list = []
-        for user in users:
-            user_list.append({
-                "id": user.id,
-                "username": user.username,
-                "email": user.email,
-                "password_hash": user.password_hash[:50] + "...",
-                "created_at": user.created_at.isoformat() if user.created_at else None
-            })
-        
-        return jsonify({
-            "users": user_list, 
-            "count": len(user_list),
-            "database_path": app.config["SQLALCHEMY_DATABASE_URI"]
-        })
-    except Exception as e:
-        return jsonify({"error": str(e), "traceback": traceback.format_exc()}), 500
-
-@app.route("/debug/session")
-def debug_session():
-    """Debug route to check session data"""
-    return jsonify({
-        "session_data": dict(session),
-        "session_keys": list(session.keys()),
-        "user_logged_in": "user_id" in session
-    })
-
-@app.route("/debug/test-hash")
-def debug_test_hash():
-    """Test password hashing"""
-    test_password = "TestPassword123"
-    hashed = generate_password_hash(test_password, method='pbkdf2:sha256')
-    verification = check_password_hash(hashed, test_password)
-    
-    return jsonify({
-        "original_password": test_password,
-        "hashed_password": hashed,
-        "verification_result": verification
-    })
-
-# ------------------------
-# Health check
-# ------------------------
-@app.route("/health")
-def health():
-    return jsonify({
-        "status": "ok",
-        "groq_available": GROQ_AVAILABLE,
-        "api_key_present": bool(os.environ.get("GROQ_API_KEY")),
-        "error": GROQ_ERROR,
-        "python": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
-        "database_path": app.config["SQLALCHEMY_DATABASE_URI"]
-    })
-
-# ------------------------
 # API endpoints
 # ------------------------
-@app.route("/api/ask", methods=["POST"])
-@login_required_json
-def api_ask():
-    data = request.get_json() or {}
-    question = (data.get("question") or "").strip()
-    subject = data.get("subject", "general")
-    if not question:
-        return jsonify({"error": "Question required"}), 400
-    if not GROQ_AVAILABLE:
-        return jsonify({"error": f"AI not available: {GROQ_ERROR or 'Groq not initialized'}"}), 503
-    answer = get_ai_response(question, subject)
-    try:
-        hist = QAHistory(user_id=session["user_id"], question=question, answer=answer, subject=subject)
-        db.session.add(hist)
-        db.session.commit()
-    except Exception:
-        db.session.rollback()
-    return jsonify({"answer": answer})
-
-# ENHANCED VERSION - Replace the existing /api/chat route with this:
-
 @app.route("/api/chat", methods=["POST"])
 @login_required_json
 def api_chat():
     try:
         data = request.get_json() or {}
         message = (data.get("message") or "").strip()
-        
-        # Get optional parameters (with defaults)
         mode = data.get("mode", "general")
         length = data.get("length", "normal")
         
@@ -673,18 +513,15 @@ def api_chat():
         print(f"Chat request: user_id={session.get('user_id')}, message='{message[:50]}...', mode={mode}")
         
         if GROQ_AVAILABLE:
-            # Create enhanced prompt based on mode
             enhanced_message = create_enhanced_prompt(message, mode, length)
             response = get_ai_response(enhanced_message, mode)
             
-            # Check if response indicates an error
             if response.startswith("AI system not available") or response.startswith("Error calling Groq"):
                 return jsonify({"error": response}), 503
                 
         else:
             response = f"I received your message: '{message}'. AI service is currently unavailable (Error: {GROQ_ERROR}), but I'm here to help when it's restored!"
         
-        # Save to history
         try:
             hist = QAHistory(
                 user_id=session["user_id"], 
@@ -710,38 +547,91 @@ def api_chat():
         traceback.print_exc()
         return jsonify({"error": "Internal server error"}), 500
 
+@app.route("/api/process-pdf", methods=["POST"])
+@login_required_json
+def api_process_pdf():
+    """Process PDF with different actions using actual PDF content"""
+    try:
+        data = request.get_json() or {}
+        filename = data.get("filename", "").strip()
+        action = data.get("action", "").strip()
+        length = data.get("length", "normal")
+        
+        if not filename or not action:
+            return jsonify({"error": "Filename and action required"}), 400
+            
+        file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+        if not os.path.exists(file_path):
+            return jsonify({"error": "PDF file not found"}), 404
+            
+        pdf_record = PDFFile.query.filter_by(
+            user_id=session["user_id"], 
+            filename=filename
+        ).first()
+        
+        if not pdf_record:
+            return jsonify({"error": "PDF not found in your uploads"}), 404
+            
+        if not GROQ_AVAILABLE:
+            return jsonify({"error": f"AI service not available: {GROQ_ERROR}"}), 503
+            
+        # Try to extract PDF text
+        pdf_text = extract_pdf_text(file_path) if PDF_EXTRACTION_AVAILABLE else None
+        
+        # Create prompts based on action and available text
+        if pdf_text:
+            prompts = {
+                "summarize": f"Please summarize the following PDF content from '{pdf_record.original_name}':\n\n{pdf_text[:3000]}{'...' if len(pdf_text) > 3000 else ''}",
+                "flashcards": f"Create flashcards based on the content from '{pdf_record.original_name}'. Format each as 'Q: [Question]\\nA: [Answer]\\n\\n'. Here's the content:\n\n{pdf_text[:2500]}{'...' if len(pdf_text) > 2500 else ''}",
+                "quiz": f"Create quiz questions (multiple choice and short answer) based on '{pdf_record.original_name}'. Here's the content:\n\n{pdf_text[:2500]}{'...' if len(pdf_text) > 2500 else ''}",
+                "outline": f"Create a structured outline based on the content from '{pdf_record.original_name}':\n\n{pdf_text[:2500]}{'...' if len(pdf_text) > 2500 else ''}"
+            }
+        else:
+            prompts = {
+                "summarize": f"I can help summarize '{pdf_record.original_name}', but I need you to share the key content first. Please paste the main sections or tell me what topics the PDF covers.",
+                "flashcards": f"I'll create flashcards for '{pdf_record.original_name}'. Please share the main concepts, definitions, or key points, and I'll format them as:\n\nQ: [Question]\nA: [Answer]",
+                "quiz": f"I can create quiz questions for '{pdf_record.original_name}'. Please share the main topics or content, and I'll create various types of questions.",
+                "outline": f"I'll help create an outline for '{pdf_record.original_name}'. Please share the main sections or topics from the document."
+            }
+        
+        prompt = prompts.get(action, "Invalid action specified")
+        
+        if length == "short":
+            prompt += "\n\nPlease keep the response concise."
+        elif length == "detailed":
+            prompt += "\n\nPlease provide a detailed, comprehensive response."
+        
+        response = get_ai_response(prompt, "general")
+        
+        try:
+            hist = QAHistory(
+                user_id=session["user_id"], 
+                question=f"PDF {action}: {pdf_record.original_name}", 
+                answer=response, 
+                subject=f"pdf_{action}"
+            )
+            db.session.add(hist)
+            db.session.commit()
+        except Exception as e:
+            print(f"Failed to save PDF processing to history: {e}")
+            db.session.rollback()
+        
+        return jsonify({
+            "success": True,
+            "result": response,
+            "action": action,
+            "filename": pdf_record.original_name,
+            "text_extracted": pdf_text is not None
+        })
+        
+    except Exception as e:
+        print(f"PDF processing error: {e}")
+        traceback.print_exc()
+        return jsonify({"error": f"Processing failed: {str(e)}"}), 500
 
-def create_enhanced_prompt(message, mode, length):
-    """Create enhanced prompts based on chat mode and length"""
-    
-    length_instructions = {
-        "short": "Keep your response concise and to the point (1-2 paragraphs).",
-        "normal": "Provide a comprehensive but balanced response (2-4 paragraphs).",
-        "detailed": "Give a thorough, detailed explanation with examples (4+ paragraphs)."
-    }
-    
-    mode_instructions = {
-        "normal": "Provide clear, conversational explanations.",
-        "analogy": "Use analogies, metaphors, and real-world comparisons to explain concepts.",
-        "quiz": "Create interactive questions to test understanding, then provide explanations.",
-        "teach": "Break down the topic into step-by-step lessons with examples and practice questions.",
-        "simple": "Use simple language and basic concepts suitable for beginners."
-    }
-    
-    base_instruction = mode_instructions.get(mode, mode_instructions["normal"])
-    length_instruction = length_instructions.get(length, length_instructions["normal"])
-    
-    enhanced_message = f"""Mode: {mode.upper()}
-Instructions: {base_instruction} {length_instruction}
-
-User Question: {message}
-
-Please respond according to the mode and length specified above."""
-    
-    return enhanced_message
-
-# PDF upload functionality
+# File upload endpoints
 ALLOWED_EXT = {"pdf"}
+
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXT
 
@@ -795,100 +685,56 @@ def api_upload():
     
     return jsonify({"error": "Invalid file type. Only PDF files are allowed."}), 400
 
-# Add this endpoint to your Flask app (app.py)
-
-@app.route("/api/process-pdf", methods=["POST"])
+@app.route("/api/pdfs", methods=["GET"])
 @login_required_json
-def api_process_pdf():
-    """Process PDF with different actions"""
-    try:
-        data = request.get_json() or {}
-        filename = data.get("filename", "").strip()
-        action = data.get("action", "").strip()
-        length = data.get("length", "normal")
-        
-        if not filename or not action:
-            return jsonify({"error": "Filename and action required"}), 400
-            
-        # Check if file exists
-        file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-        if not os.path.exists(file_path):
-            return jsonify({"error": "PDF file not found"}), 404
-            
-        # Find the PDF record in database
-        pdf_record = PDFFile.query.filter_by(
-            user_id=session["user_id"], 
-            filename=filename
-        ).first()
-        
-        if not pdf_record:
-            return jsonify({"error": "PDF not found in your uploads"}), 404
-            
-        if not GROQ_AVAILABLE:
-            return jsonify({"error": f"AI service not available: {GROQ_ERROR}"}), 503
-            
-        # Create prompts based on action
-        prompts = {
-            "summarize": f"Please provide a comprehensive summary of this PDF document '{pdf_record.original_name}'. Since I cannot read the PDF content directly, please ask the user to paste key sections or tell me what specific topics they'd like me to focus on for the summary.",
-            
-            "flashcards": f"I'd like to create flashcards for the PDF '{pdf_record.original_name}'. Since I cannot read the PDF directly, please paste the main concepts, definitions, or key points from the document, and I'll create flashcards in this format:\n\nQ: [Question]\nA: [Answer]\n\nWhat topics would you like flashcards for?",
-            
-            "quiz": f"I can help create quiz questions for '{pdf_record.original_name}'. Since I cannot read the PDF directly, please share the main topics or paste relevant sections, and I'll create multiple choice, short answer, or essay questions. What type of quiz questions would you prefer?",
-            
-            "outline": f"I can help create an outline for '{pdf_record.original_name}'. Since I cannot read the PDF directly, please share the main sections or topics from the document, and I'll organize them into a structured outline format. What are the main topics covered in the PDF?"
-        }
-        
-        prompt = prompts.get(action, f"I can help you with '{pdf_record.original_name}', but I'll need you to share the content or specific sections you'd like me to work with.")
-        
-        # Get AI response
-        response = get_ai_response(prompt, "general")
-        
-        # Save to history
-        try:
-            hist = QAHistory(
-                user_id=session["user_id"], 
-                question=f"PDF {action}: {pdf_record.original_name}", 
-                answer=response, 
-                subject=f"pdf_{action}"
-            )
-            db.session.add(hist)
-            db.session.commit()
-        except Exception as e:
-            print(f"Failed to save PDF processing to history: {e}")
-            db.session.rollback()
-        
-        return jsonify({
-            "success": True,
-            "result": response,
-            "action": action,
-            "filename": pdf_record.original_name
-        })
-        
-    except Exception as e:
-        print(f"PDF processing error: {e}")
-        traceback.print_exc()
-        return jsonify({"error": f"Processing failed: {str(e)}"}), 500
-@app.route("/api/simple-chat", methods=["POST"])
+def list_pdfs():
+    uid = session["user_id"]
+    files = PDFFile.query.filter_by(user_id=uid).order_by(PDFFile.uploaded_at.desc()).all()
+    out = [{"id": p.id, "name": p.original_name, "url": url_for("static", filename=f"uploads/{p.filename}"), "uploaded_at": p.uploaded_at.isoformat()} for p in files]
+    return jsonify({"files": out})
+
+@app.route("/api/history", methods=["GET"])
 @login_required_json
-def api_simple_chat():
-    """Simplified chat endpoint for testing"""
-    try:
-        data = request.get_json() or {}
-        message = data.get("message", "").strip()
-        
-        if not message:
-            return jsonify({"error": "Message required"}), 400
-        
-        # Simple response without Groq for testing
-        response = f"Echo: {message} (Simple mode - AI not connected)"
-        
-        return jsonify({
-            "response": response,
-            "timestamp": datetime.now().isoformat(),
-            "mode": "simple"
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+def get_history():
+    uid = session["user_id"]
+    rows = QAHistory.query.filter_by(user_id=uid).order_by(QAHistory.created_at.desc()).limit(50).all()
+    out = [{"id": r.id, "question": r.question, "answer": r.answer, "subject": r.subject, "created_at": r.created_at.isoformat()} for r in rows]
+    return jsonify({"history": out})
 
+# Health check
+@app.route("/health")
+def health():
+    return jsonify({
+        "status": "ok",
+        "groq_available": GROQ_AVAILABLE,
+        "api_key_present": bool(os.environ.get("GROQ_API_KEY")),
+        "error": GROQ_ERROR,
+        "python": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+        "database_path": app.config["SQLALCHEMY_DATABASE_URI"]
+    })
 
+# Error handlers
+@app.errorhandler(404)
+def handle_404(e):
+    if request.path.startswith('/api/'):
+        return jsonify({"error": "Endpoint not found"}), 404
+    flash("Page not found", "error")
+    return redirect(url_for("login"))
 
+@app.errorhandler(500)
+def handle_500(e):
+    if request.path.startswith('/api/'):
+        return jsonify({"error": "Internal server error"}), 500
+    flash("An error occurred", "error")
+    return redirect(url_for("login"))
+
+# Run the app
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    debug = os.environ.get("FLASK_ENV") == "development"
+    print(f"Starting PhenBOT on port {port} (debug={debug})")
+    print(f"Database: {app.config['SQLALCHEMY_DATABASE_URI']}")
+    print(f"Groq AI available: {GROQ_AVAILABLE}")
+    if not GROQ_AVAILABLE:
+        print(f"Groq error: {GROQ_ERROR}")
+    app.run(host="0.0.0.0", port=port, debug=debug)
