@@ -903,3 +903,4 @@ MAIN_APP_HTML = '''
         .send-btn {
             padding: 1rem 2rem;
             background: linear-gradient(135deg, #667eea 0%, #764ba2
+'''
