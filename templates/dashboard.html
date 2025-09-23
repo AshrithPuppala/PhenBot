@@ -1109,6 +1109,7 @@ async function handleFileUpload(event) {
     
     if (pdfFiles.length === 0) {
         alert('Please select at least one PDF file.');
+        event.target.value = ''; // Reset here too
         return;
     }
 
@@ -1134,7 +1135,6 @@ async function handleFileUpload(event) {
         const data = await response.json();
 
         if (data.success) {
-            // Set the first uploaded file as current
             if (data.files && data.files.length > 0) {
                 currentPDF = {
                     name: data.files[0].filename,
@@ -1164,10 +1164,10 @@ async function handleFileUpload(event) {
     } catch (error) {
         alert(`Upload failed: ${error.message}`);
         uploadArea.innerHTML = originalContent;
+    } finally {
+        // Always reset the file input - this is the key fix
+        event.target.value = '';
     }
-    
-    // Clear the file input
-    event.target.value = '';
 } // Refresh uploaded files list
 async function refreshUploadedFiles() {
     try {
