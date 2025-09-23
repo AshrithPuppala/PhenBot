@@ -870,7 +870,7 @@
         }
 
         // Send message function
- // Send message function - FIXED VERSION
+// ENHANCED VERSION - Send message function with mode support
 async function sendMessage() {
     const input = document.getElementById('chatInput');
     const message = input.value.trim();
@@ -897,10 +897,9 @@ async function sendMessage() {
             },
             body: JSON.stringify({
                 message: message,
-                // Remove the fields that don't exist in backend
-                // mode: currentMode,
-                // length: responseLength,
-                // pdf_context: currentPDF ? currentPDF.name : null
+                mode: currentMode,
+                length: responseLength,
+                pdf_context: currentPDF ? currentPDF.name : null
             })
         });
         
@@ -924,6 +923,30 @@ async function sendMessage() {
         sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
     }
 }
+
+// Enhanced error handling for network issues
+async function testConnection() {
+    try {
+        const response = await fetch('/health');
+        const data = await response.json();
+        console.log('System status:', data);
+        
+        if (!data.groq_available) {
+            addSystemMessage(`⚠️ AI service not available: ${data.error}. Basic functionality will work.`);
+        }
+    } catch (error) {
+        console.error('Connection test failed:', error);
+        addSystemMessage('⚠️ Connection issues detected. Please check your internet connection.');
+    }
+}
+
+// Call connection test on page load
+document.addEventListener('DOMContentLoaded', () => {
+    // ... existing initialization code ...
+    
+    // Test connection after a short delay
+    setTimeout(testConnection, 2000);
+});
         // Add message to chat
         function addMessage(content, sender, isLoading = false) {
             const chatMessages = document.getElementById('chatMessages');
