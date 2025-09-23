@@ -715,9 +715,9 @@ def upload_pdf():
         print(f"Upload error: {e}")
         return jsonify({"error": f"Upload failed: {str(e)}"}), 500
    @app.route("/api/delete-pdf/<int:file_id>", methods=["DELETE"])
-@login_required_json
-def delete_pdf(file_id):
-    try:
+   @login_required_json
+   def delete_pdf(file_id):
+        try:
         pdf_file = PDFFile.query.filter_by(id=file_id, user_id=session["user_id"]).first()
         
         if not pdf_file:
@@ -846,6 +846,7 @@ if __name__ == "__main__":
     if not GROQ_AVAILABLE:
         print(f"Groq error: {GROQ_ERROR}")
     app.run(host="0.0.0.0", port=port, debug=debug)
+
 
 
 
