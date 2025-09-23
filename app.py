@@ -21,7 +21,130 @@ INSTANCE_DIR = os.path.join(BASE_DIR, "instance")
 UPLOAD_DIR = os.path.join(BASE_DIR, "static", "uploads")
 os.makedirs(INSTANCE_DIR, exist_ok=True)
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+try:
+    import PyPDF2
+    PDF_EXTRACTION_AVAILABLE = True
+except ImportError:
+    PDF_EXTRACTION_AVAILABLE = False
+    print("PyPDF2 not available - PDF text extraction disabled")
 
+def extract_pdf_text(file_path, max_pages=5):
+    """Extract text from PDF file"""
+    if not PDF_EXTRACTION_AVAILABLE:
+        return None
+        
+    try:
+        with open(file_path, 'rb') as file:
+            pdf_reader = PyPDF2.PdfReader(file)
+            text = ""
+            
+            # Limit to max_pages to avoid huge prompts
+            pages_to_read = min(len(pdf_reader.pages), max_pages)
+            
+            for page_num in range(pages_to_read):
+                page = pdf_reader.pages[page_num]
+                text += page.extract_text() + "\n\n"
+                
+            return text.strip()
+    except Exception as e:
+        print(f"PDF extraction error: {e}")
+        return None
+
+# ENHANCED VERSION - Replace the previous process-pdf endpoint with this:
+@app.route("/api/process-pdf", methods=["POST"])
+@login_required_json
+def api_process_pdf():
+    """Process PDF with different actions using actual PDF content"""
+    try:
+        data = request.get_json() or {}
+        filename = data.get("filename", "").strip()
+        action = data.get("action", "").strip()
+        length = data.get("length", "normal")
+        
+        if not filename or not action:
+            return jsonify({"error": "Filename and action required"}), 400
+            
+        # Check if file exists
+        file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+        if not os.path.exists(file_path):
+            return jsonify({"error": "PDF file not found"}), 404
+            
+        # Find the PDF record in database
+        pdf_record = PDFFile.query.filter_by(
+            user_id=session["user_id"], 
+            filename=filename
+        ).first()
+        
+        if not pdf_record:
+            return jsonify({"error": "PDF not found in your uploads"}), 404
+            
+        if not GROQ_AVAILABLE:
+            return jsonify({"error": f"AI service not available: {GROQ_ERROR}"}), 503
+            
+        # Try to extract PDF text
+        pdf_text = extract_pdf_text(file_path) if PDF_EXTRACTION_AVAILABLE else None
+        
+        # Create prompts based on action and available text
+        if pdf_text:
+            # We have actual PDF content
+            prompts = {
+                "summarize": f"Please summarize the following PDF content from '{pdf_record.original_name}':\n\n{pdf_text[:3000]}{'...' if len(pdf_text) > 3000 else ''}",
+                
+                "flashcards": f"Create flashcards based on the content from '{pdf_record.original_name}'. Format each as 'Q: [Question]\\nA: [Answer]\\n\\n'. Here's the content:\n\n{pdf_text[:2500]}{'...' if len(pdf_text) > 2500 else ''}",
+                
+                "quiz": f"Create quiz questions (multiple choice and short answer) based on '{pdf_record.original_name}'. Here's the content:\n\n{pdf_text[:2500]}{'...' if len(pdf_text) > 2500 else ''}",
+                
+                "outline": f"Create a structured outline based on the content from '{pdf_record.original_name}':\n\n{pdf_text[:2500]}{'...' if len(pdf_text) > 2500 else ''}"
+            }
+        else:
+            # Fallback prompts when we can't extract text
+            prompts = {
+                "summarize": f"I can help summarize '{pdf_record.original_name}', but I need you to share the key content first. Please paste the main sections or tell me what topics the PDF covers.",
+                
+                "flashcards": f"I'll create flashcards for '{pdf_record.original_name}'. Please share the main concepts, definitions, or key points, and I'll format them as:\n\nQ: [Question]\nA: [Answer]",
+                
+                "quiz": f"I can create quiz questions for '{pdf_record.original_name}'. Please share the main topics or content, and I'll create various types of questions.",
+                
+                "outline": f"I'll help create an outline for '{pdf_record.original_name}'. Please share the main sections or topics from the document."
+            }
+        
+        prompt = prompts.get(action, "Invalid action specified")
+        
+        # Add length instruction
+        if length == "short":
+            prompt += "\n\nPlease keep the response concise."
+        elif length == "detailed":
+            prompt += "\n\nPlease provide a detailed, comprehensive response."
+        
+        # Get AI response
+        response = get_ai_response(prompt, "general")
+        
+        # Save to history
+        try:
+            hist = QAHistory(
+                user_id=session["user_id"], 
+                question=f"PDF {action}: {pdf_record.original_name}", 
+                answer=response, 
+                subject=f"pdf_{action}"
+            )
+            db.session.add(hist)
+            db.session.commit()
+        except Exception as e:
+            print(f"Failed to save PDF processing to history: {e}")
+            db.session.rollback()
+        
+        return jsonify({
+            "success": True,
+            "result": response,
+            "action": action,
+            "filename": pdf_record.original_name,
+            "text_extracted": pdf_text is not None
+        })
+        
+    except Exception as e:
+        print(f"PDF processing error: {e}")
+        traceback.print_exc()
+        return jsonify({"error": f"Processing failed: {str(e)}"}), 500
 app = Flask(
     __name__,
     static_folder=os.path.join(BASE_DIR, "static"),
@@ -766,5 +889,6 @@ def api_simple_chat():
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 
