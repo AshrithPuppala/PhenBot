@@ -660,7 +660,7 @@
                 grid-template-columns: 1fr;
                 padding: 1rem;
             }
-            
+
             .sidebar {
                 display: grid;
                 grid-template-columns: 1fr 1fr;
@@ -674,19 +674,19 @@
                 gap: 1rem;
                 align-items: stretch;
             }
-            
+
             .mode-selector {
                 justify-content: center;
             }
-            
+
             .sidebar {
                 grid-template-columns: 1fr;
             }
-            
+
             .nav-container {
                 padding: 0 1rem;
             }
-            
+
             .chat-container {
                 height: 60vh;
             }
@@ -744,7 +744,7 @@
                     <i class="fas fa-robot"></i>
                     AI Study Assistant
                 </h2>
-                
+
                 <div class="chat-controls">
                     <div class="control-group">
                         <div class="control-label">Chat Mode</div>
@@ -759,7 +759,7 @@
                             Regular conversational responses with clear explanations
                         </div>
                     </div>
-                    
+
                     <div class="control-group">
                         <div class="control-label">Response Length</div>
                         <div class="length-selector">
@@ -772,7 +772,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <div class="chat-container">
                 <div class="chat-messages" id="chatMessages">
                     <div class="message bot">
@@ -784,7 +784,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="chat-input-area">
                     <div class="input-container">
                         <textarea class="chat-input" id="chatInput" placeholder="Ask me anything... Try different modes for varied learning experiences!" rows="1"></textarea>
@@ -810,15 +810,14 @@
                         </div>
                     </div>
                 </div>
-                
-                <!-- REMOVE the onclick attribute from the upload area -->
+
                 <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
                     <i class="fas fa-cloud-upload-alt" style="font-size: 2.5rem; color: var(--primary-blue); margin-bottom: 1rem;"></i>
                     <p style="margin-bottom: 0.5rem; font-weight: 500;">Drop PDF files here</p>
                     <p style="color: var(--text-disabled); font-size: 0.85rem;">or click to browse</p>
                     <input type="file" id="fileInput" class="file-input" accept=".pdf" multiple onchange="handleFileUpload(event)">
                 </div>
-                
+
                 <div class="pdf-actions" id="pdfActions">
                     <button class="pdf-action-btn" onclick="processPDF('summarize')">
                         <i class="fas fa-file-text"></i>
@@ -837,7 +836,7 @@
                         Create Outline
                     </button>
                 </div>
-                
+
                 <div class="uploaded-files" id="uploadedFiles">
                     <!-- Uploaded files will appear here -->
                 </div>
@@ -856,9 +855,9 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="timer-display" id="timerDisplay">25:00</div>
-                
+
                 <div class="timer-controls">
                     <button class="timer-btn start" id="startBtn" onclick="startTimer()">
                         <i class="fas fa-play"></i> Start
@@ -899,7 +898,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateTimerDisplay();
     setupFileUpload();
     refreshUploadedFiles();
-    
+
     // Test connection after a short delay
     setTimeout(testConnection, 2000);
 });
@@ -912,12 +911,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     btn.classList.add('active');
                     currentMode = btn.dataset.mode;
                     document.getElementById('modeDescription').textContent = modeDescriptions[currentMode];
-                    
+
                     // Add mode change message to chat
                     addSystemMessage(`Switched to ${currentMode.toUpperCase()} mode. ${modeDescriptions[currentMode]}`);
                 });
             });
-            
+
             // Response length selector
             document.getElementById('responseLength').addEventListener('change', (e) => {
                 responseLength = e.target.value;
@@ -927,14 +926,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // Chat input setup
         function setupChatInput() {
             const chatInput = document.getElementById('chatInput');
-            
+
             chatInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     sendMessage();
                 }
             });
-            
+
             // Auto-resize textarea
             chatInput.addEventListener('input', () => {
                 chatInput.style.height = 'auto';
@@ -947,21 +946,21 @@ document.addEventListener('DOMContentLoaded', () => {
 async function sendMessage() {
     const input = document.getElementById('chatInput');
     const message = input.value.trim();
-    
+
     if (!message) return;
-    
+
     const sendBtn = document.getElementById('sendBtn');
     sendBtn.disabled = true;
     sendBtn.innerHTML = '<div class="spinner"></div>';
-    
+
     // Add user message
     addMessage(message, 'user');
     input.value = '';
     input.style.height = 'auto';
-    
+
     // Add loading message
     const loadingMessage = addMessage('Thinking...', 'bot', true);
-    
+
     try {
         const response = await fetch("/api/enhanced-chat", {
             method: 'POST',
@@ -975,12 +974,12 @@ async function sendMessage() {
                 pdf_context: currentPDF ? currentPDF.name : null
             })
         });
-        
+
         const data = await response.json();
-        
+
         // Remove loading message
         loadingMessage.remove();
-        
+
         // Check if response is successful
         if (response.ok && data.response) {
             addMessage(data.response, 'bot');
@@ -1004,7 +1003,7 @@ async function testConnection() {
         const response = await fetch('/health');
         const data = await response.json();
         console.log('System status:', data);
-        
+
         if (!data.groq_available) {
             addSystemMessage(`⚠️ AI service not available: ${data.error}. Basic functionality will work.`);
         }
@@ -1017,38 +1016,38 @@ async function testConnection() {
 // Call connection test on page load
 document.addEventListener('DOMContentLoaded', () => {
     // ... existing initialization code ...
-    
+
     // Test connection after a short delay
     setTimeout(testConnection, 2000);
 });
         // Add message to chat
         function addMessage(content, sender, isLoading = false) {
             const chatMessages = document.getElementById('chatMessages');
-            
+
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}${isLoading ? ' loading' : ''}`;
-            
+
             const avatar = document.createElement('div');
             avatar.className = 'message-avatar';
             avatar.innerHTML = sender === 'user' ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>';
-            
+
             const messageContent = document.createElement('div');
             messageContent.className = 'message-content';
             messageContent.textContent = content;
-            
+
             messageDiv.appendChild(avatar);
             messageDiv.appendChild(messageContent);
-            
+
             chatMessages.appendChild(messageDiv);
             chatMessages.scrollTop = chatMessages.scrollHeight;
-            
+
             return messageDiv;
         }
 
         // Add system message
         function addSystemMessage(content) {
             const chatMessages = document.getElementById('chatMessages');
-            
+
             const systemDiv = document.createElement('div');
             systemDiv.style.cssText = `
                 text-align: center;
@@ -1061,70 +1060,63 @@ document.addEventListener('DOMContentLoaded', () => {
                 font-style: italic;
             `;
             systemDiv.textContent = content;
-            
+
             chatMessages.appendChild(systemDiv);
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
         // File upload functionality
-       
+        function setupFileUpload() {
+            const uploadArea = document.getElementById('uploadArea');
+            let dragCounter = 0;
+
+            uploadArea.addEventListener('dragenter', (e) => {
+                e.preventDefault();
+                dragCounter++;
+                uploadArea.classList.add('dragover');
+            });
+
+            uploadArea.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                dragCounter--;
+                if (dragCounter === 0) {
+                    uploadArea.classList.remove('dragover');
+                }
+            });
+
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+            });
+
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dragCounter = 0;
+                uploadArea.classList.remove('dragover');
+
+                const files = e.dataTransfer.files;
+                if (files.length > 0 && files[0].type === 'application/pdf') {
+                    handleFileUpload({ target: { files: files } });
+                }
+            });
+        }
+
         // Handle file upload
         // Handle file upload
 // Handle multiple file uploads
-// Remove all the existing upload area event listeners and replace with this:
-
-// File upload functionality - FIXED VERSION
-function setupFileUpload() {
-    const uploadArea = document.getElementById('uploadArea');
-    let dragCounter = 0;
-
-    // Only handle drag and drop, let HTML onclick handle clicks
-    uploadArea.addEventListener('dragenter', (e) => {
-        e.preventDefault();
-        dragCounter++;
-        uploadArea.classList.add('dragover');
-    });
-
-    uploadArea.addEventListener('dragleave', (e) => {
-        e.preventDefault();
-        dragCounter--;
-        if (dragCounter === 0) {
-            uploadArea.classList.remove('dragover');
-        }
-    });
-
-    uploadArea.addEventListener('dragover', (e) => {
-        e.preventDefault();
-    });
-
-    uploadArea.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dragCounter = 0;
-        uploadArea.classList.remove('dragover');
-        
-        const files = e.dataTransfer.files;
-        if (files.length > 0) {
-            handleFileUpload({ target: { files: files } });
-        }
-    });
-}
-// Refresh uploaded files list
 async function handleFileUpload(event) {
     const files = Array.from(event.target.files);
     const pdfFiles = files.filter(file => file.type === 'application/pdf');
-    
-    // Always reset the file input immediately
-    const fileInput = document.getElementById('fileInput');
-    
+
     if (pdfFiles.length === 0) {
         alert('Please select at least one PDF file.');
-        fileInput.value = ''; // Reset even on error
+        event.target.value = ''; // Reset here too
+        event.target.value = ''; // Reset here
         return;
     }
 
     const uploadArea = document.getElementById('uploadArea');
     const originalContent = uploadArea.innerHTML;
-    
+
     uploadArea.innerHTML = `
         <div class="spinner" style="width: 30px; height: 30px; border-width: 3px;"></div>
         <p style="margin-top: 1rem;">Uploading ${pdfFiles.length} PDF(s)...</p>
@@ -1152,16 +1144,16 @@ async function handleFileUpload(event) {
                     id: data.files[0].file_id
                 };
             }
-            
+
             document.getElementById('pdfActions').classList.add('show');
             await refreshUploadedFiles();
-            
+
             let message = data.message;
             if (data.errors && data.errors.length > 0) {
                 message += ` (Some files had errors)`;
             }
             addSystemMessage(message);
-            
+
             uploadArea.innerHTML = `
                 <i class="fas fa-check-circle" style="font-size: 2.5rem; color: var(--primary-green); margin-bottom: 1rem;"></i>
                 <p style="margin-bottom: 0.5rem; font-weight: 500; color: var(--primary-green);">Upload Complete!</p>
@@ -1180,18 +1172,19 @@ async function handleFileUpload(event) {
         alert(`Upload failed: ${error.message}`);
         uploadArea.innerHTML = originalContent;
     } finally {
-        // CRITICAL: Always reset file input
-        fileInput.value = '';
+        // Always reset the file input - this is the key fix
+        // CRITICAL: Always reset the file input
+        event.target.value = '';
     }
-}
+} // Refresh uploaded files list
 async function refreshUploadedFiles() {
     try {
         const response = await fetch('/api/pdfs');
         const data = await response.json();
-        
+
         const uploadedFiles = document.getElementById('uploadedFiles');
         uploadedFiles.innerHTML = '<div class="files-header"><i class="fas fa-folder-open"></i>Your Documents</div>';
-        
+
         if (data.files && data.files.length > 0) {
             data.files.forEach(file => {
                 const fileItem = document.createElement('div');
@@ -1231,7 +1224,7 @@ async function refreshUploadedFiles() {
         // Add uploaded file to list
         function addUploadedFile(fileInfo) {
             const uploadedFiles = document.getElementById('uploadedFiles');
-            
+
             const fileItem = document.createElement('div');
             fileItem.className = 'file-item';
             fileItem.innerHTML = `
@@ -1243,7 +1236,7 @@ async function refreshUploadedFiles() {
                     <i class="fas fa-check"></i> Ready
                 </span>
             `;
-            
+
             // Remove any existing files (for now, support single file)
             uploadedFiles.innerHTML = '';
             uploadedFiles.appendChild(fileItem);
@@ -1257,6 +1250,21 @@ function resetUploadArea() {
         <p style="color: var(--text-disabled); font-size: 0.85rem;">or click to browse</p>
     `;
 }
+
+// Update your upload area click handler:
+document.getElementById('uploadArea').addEventListener('click', () => {
+    // Reset any previous state
+    const fileInput = document.getElementById('fileInput');
+    fileInput.value = ''; // Clear any previous selection
+    resetUploadArea(); // Reset visual state
+    fileInput.click(); // Open file dialog
+});
+// Update your upload area click to include reset
+document.getElementById('uploadArea').addEventListener('click', () => {
+    resetUploadArea(); // Reset the visual state
+    document.getElementById('fileInput').click();
+});
+        // Select a PDF for processing
 // Select a PDF for processing
 function selectPDF(filename, url, fileId, event) {
     currentPDF = {
@@ -1265,12 +1273,12 @@ function selectPDF(filename, url, fileId, event) {
         url: url,
         id: fileId
     };
-    
+
     // Visual feedback
     document.querySelectorAll('.file-item').forEach(item => {
         item.style.border = '1px solid var(--card-border)';
     });
-    
+
     // Highlight selected file
     if (event && event.target) {
         const fileItem = event.target.closest('.file-item');
@@ -1278,10 +1286,10 @@ function selectPDF(filename, url, fileId, event) {
             fileItem.style.border = '2px solid var(--primary-blue)';
         }
     }
-    
+
     // Show PDF actions
     document.getElementById('pdfActions').classList.add('show');
-    
+
     addSystemMessage(`Selected "${filename}" for processing`);
 }
 
@@ -1312,33 +1320,30 @@ async function deletePDF(fileId, filename, event) {
 
         if (response.ok && data.success) {
             addSystemMessage(`"${filename}" deleted successfully`);
-            
-            // If this was the current PDF, clear it and reset file input
+
+            // If this was the current PDF, clear it
             if (currentPDF && (currentPDF.id === fileId || currentPDF.name === filename)) {
                 currentPDF = null;
                 document.getElementById('pdfActions').classList.remove('show');
-                // CRITICAL: Reset file input after deletion
-                document.getElementById('fileInput').value = '';
-                resetUploadArea();
             }
-            
+
             // Refresh the file list
             await refreshUploadedFiles();
         } else {
             throw new Error(data.error || 'Delete failed');
         }
-    } 
-    // In your deletePDF function, add this after successful deletion:
-if (currentPDF && (currentPDF.id === fileId || currentPDF.name === filename)) {
-    currentPDF = null;
-    document.getElementById('pdfActions').classList.remove('show');
-    // Reset file input after deletion
-    document.getElementById('fileInput').value = '';
-}catch (error) {
+    } catch (error) {
         alert(`Failed to delete PDF: ${error.message}`);
         if (deleteBtn) {
             deleteBtn.innerHTML = originalContent;
             deleteBtn.disabled = false;
+      // In the deletePDF function, after the successful deletion and before refreshing files:
+    if (currentPDF && (currentPDF.id === fileId || currentPDF.name === filename)) {
+    currentPDF = null;
+    document.getElementById('pdfActions').classList.remove('show');
+    // Add this line to reset the file input:
+    document.getElementById('fileInput').value = '';
+}
         }
     }
 }
@@ -1360,12 +1365,12 @@ async function processPDF(action) {
         // Get the unique filename from the database
         const pdfListResponse = await fetch('/api/pdfs');
         const pdfListData = await pdfListResponse.json();
-        
+
         // Find the matching PDF by original name
         const matchingPDF = pdfListData.files.find(pdf => 
             pdf.name === currentPDF.name || pdf.name === currentPDF.filename
         );
-        
+
         if (!matchingPDF) {
             throw new Error('PDF not found in database');
         }
@@ -1391,7 +1396,7 @@ async function processPDF(action) {
                 'quiz': 'Quiz Questions',
                 'outline': 'Content Outline'
             }[action];
-            
+
             addMessage(`📄 ${actionName} for "${data.filename}":\n\n${data.result}`, 'bot');
         } else {
             throw new Error(data.error || 'Processing failed');
@@ -1419,17 +1424,17 @@ async function processPDF(action) {
                 const startBtn = document.getElementById('startBtn');
                 startBtn.innerHTML = '<i class="fas fa-pause"></i> Running...';
                 startBtn.classList.remove('start');
-                
+
                 timerInterval = setInterval(() => {
                     timeLeft--;
                     updateTimerDisplay();
-                    
+
                     if (timeLeft <= 0) {
                         clearInterval(timerInterval);
                         isRunning = false;
                         startBtn.innerHTML = '<i class="fas fa-play"></i> Start';
                         startBtn.classList.add('start');
-                        
+
                         // Show notification
                         if ('Notification' in window && Notification.permission === 'granted') {
                             new Notification('PhenBOT Timer', {
@@ -1437,7 +1442,7 @@ async function processPDF(action) {
                                 icon: '/static/favicon.ico'
                             });
                         }
-                        
+
                         alert('Pomodoro session completed! Take a break.');
                         resetTimer();
                     }
