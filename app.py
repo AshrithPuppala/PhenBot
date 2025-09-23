@@ -1,387 +1,599 @@
-# Enhanced PhenBOT Flask Backend with AI Modes, PDF Processing, and Flashcards
-
-import os
-import sys
-import uuid
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash
+from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
+import openai
 import json
-import traceback
-from functools import wraps
+import os
 from datetime import datetime
 import PyPDF2
 import io
-from werkzeug.utils import secure_filename
-from werkzeug.security import generate_password_hash, check_password_hash
-import re
+import uuid
+import speech_recognition as sr
+from gtts import gTTS
+import tempfile
+from PIL import Image
 
-from flask import (
-    Flask, request, jsonify, render_template, redirect, url_for, flash, session
-)
-from flask_sqlalchemy import SQLAlchemy
+app = Flask(__name__)
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///phenbot.db')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
-# ------------------------
-# Config
-# ------------------------
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-INSTANCE_DIR = os.path.join(BASE_DIR, "instance")
-UPLOAD_DIR = os.path.join(BASE_DIR, "static", "uploads")
-os.makedirs(INSTANCE_DIR, exist_ok=True)
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-app = Flask(
-    __name__,
-    static_folder=os.path.join(BASE_DIR, "static"),
-    static_url_path="/static"
-)
-
-app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", uuid.uuid4().hex)
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///" + os.path.join(INSTANCE_DIR, "app.db")
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["UPLOAD_FOLDER"] = UPLOAD_DIR
-app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024  # 32 MB
-
+# Initialize extensions
 db = SQLAlchemy(app)
 
-# ------------------------
-# Enhanced Models
-# ------------------------
+# Set OpenAI API key (you'll need to get this from OpenAI)
+openai.api_key = os.environ.get('OPENAI_API_KEY', 'your-openai-api-key-here')
+
+# Ensure upload directory exists
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+# Database Models
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(150), unique=True, nullable=False)
-    email = db.Column(db.String(150), unique=True, nullable=True)
-    password_hash = db.Column(db.String(256), nullable=False)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(200), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    def __repr__(self):
-        return f'<User {self.username}>'
-
-class PDFFile(db.Model):
+class ChatHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    filename = db.Column(db.String(400), nullable=False)
-    original_name = db.Column(db.String(400), nullable=False)
-    file_size = db.Column(db.Integer, nullable=True)
-    page_count = db.Column(db.Integer, nullable=True)
-    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
-    processed = db.Column(db.Boolean, default=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    response = db.Column(db.Text, nullable=False)
+    mode = db.Column(db.String(50), default='normal')
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
-class QAHistory(db.Model):
+class PDFDocument(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    question = db.Column(db.Text, nullable=False)
-    answer = db.Column(db.Text, nullable=False)
-    mode = db.Column(db.String(50), default="normal")
-    response_length = db.Column(db.String(20), default="normal")
-    subject = db.Column(db.String(80), default="general")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    filename = db.Column(db.String(200), nullable=False)
+    file_path = db.Column(db.String(300), nullable=False)
+    content = db.Column(db.Text)
+    upload_time = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Flashcard(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    front = db.Column(db.Text, nullable=False)
-    back = db.Column(db.Text, nullable=False)
-    topic = db.Column(db.String(100), nullable=True)
-    difficulty = db.Column(db.String(20), default="medium")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    times_reviewed = db.Column(db.Integer, default=0)
-    times_correct = db.Column(db.Integer, default=0)
-
-class StudySession(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    session_type = db.Column(db.String(50), nullable=False)  # 'pomodoro', 'flashcard', 'chat'
-    duration_minutes = db.Column(db.Integer, nullable=True)
-    completed = db.Column(db.Boolean, default=False)
-    notes = db.Column(db.Text, nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    question = db.Column(db.Text, nullable=False)
+    answer = db.Column(db.Text, nullable=False)
+    topic = db.Column(db.String(200))
+    difficulty = db.Column(db.String(50), default='medium')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-# Database initialization
-def init_database():
-    with app.app_context():
-        try:
-            db.create_all()
-            print("Database tables created successfully")
-            return True
-        except Exception as e:
-            print(f"Database initialization error: {e}")
-            traceback.print_exc()
-            return False
+# AI Chat Mode Prompts
+CHAT_MODES = {
+    'normal': {
+        'system_prompt': "You are PhenBot, an advanced AI study companion. Provide helpful, accurate, and educational responses to help students learn effectively.",
+        'style': "conversational and supportive"
+    },
+    'analogy': {
+        'system_prompt': "You are PhenBot in Analogy Mode. Explain complex concepts using creative analogies and metaphors to make them easier to understand. Always start with 'Think of it like this:' and use relatable comparisons.",
+        'style': "analogy-focused and creative"
+    },
+    'quiz': {
+        'system_prompt': "You are PhenBot in Quiz Mode. Ask engaging questions to test the user's knowledge, then provide immediate feedback. Format questions clearly and explain answers thoroughly.",
+        'style': "interactive questioning"
+    },
+    'teach': {
+        'system_prompt': "You are PhenBot in Teaching Mode. Break down complex topics into step-by-step explanations. Use structured learning approaches with clear examples and practice exercises.",
+        'style': "structured and educational"
+    },
+    'socratic': {
+        'system_prompt': "You are PhenBot in Socratic Mode. Guide learning through thoughtful questions that help users discover answers themselves. Ask follow-up questions to deepen understanding.",
+        'style': "questioning and guiding"
+    },
+    'explain': {
+        'system_prompt': "You are PhenBot in ELI5 Mode. Explain everything in simple terms that a 5-year-old could understand. Use everyday language, avoid jargon, and include fun examples.",
+        'style': "simple and accessible"
+    }
+}
 
-init_database()
+RESPONSE_LENGTHS = {
+    'short': "Keep responses concise and to the point, under 100 words.",
+    'normal': "Provide moderate detail in responses, around 150-300 words.",
+    'detailed': "Give comprehensive, detailed explanations with examples, 300+ words."
+}
 
-# ------------------------
-# Enhanced Groq AI with Multiple Modes
-# ------------------------
-groq_client = None
-GROQ_AVAILABLE = False
-GROQ_ERROR = None
-
-try:
-    from groq import Groq
-except Exception as e:
-    Groq = None
-    GROQ_ERROR = "Groq SDK not installed"
-
-def initialize_groq():
-    global groq_client, GROQ_AVAILABLE, GROQ_ERROR
-    if Groq is None:
-        GROQ_ERROR = GROQ_ERROR or "Groq SDK not available"
-        GROQ_AVAILABLE = False
-        return False
-    api_key = os.environ.get("GROQ_API_KEY")
-    if not api_key:
-        GROQ_ERROR = "GROQ_API_KEY not set"
-        GROQ_AVAILABLE = False
-        return False
+def get_ai_response(message, mode='normal', length='normal', context=""):
+    """Generate AI response based on mode and length preferences"""
     try:
-        groq_client = Groq(api_key=api_key)
-        GROQ_AVAILABLE = True
-        return True
-    except Exception as e:
-        GROQ_ERROR = f"Groq initialization failed: {e}"
-        GROQ_AVAILABLE = False
-        return False
-
-initialize_groq()
-
-def get_ai_response(question, mode="normal", response_length="normal", subject="general"):
-    """Enhanced AI response with different modes and length controls"""
-    if not groq_client or not GROQ_AVAILABLE:
-        return "AI system not available. Check GROQ_API_KEY and Groq SDK installation."
-    
-    # Define system prompts for different modes
-    mode_prompts = {
-        "normal": "You are PhenBOT, an intelligent study companion. Provide helpful, accurate responses.",
-        "analogy": "You are PhenBOT in analogy mode. Explain concepts using clear, relatable analogies and metaphors. Always include at least one analogy in your response.",
-        "quiz": "You are PhenBOT in quiz mode. Create engaging quiz questions based on the topic. Ask follow-up questions to test understanding.",
-        "teach": "You are PhenBOT in teaching mode. Provide step-by-step explanations, breaking down complex concepts into digestible parts. Use examples and check for understanding.",
-        "socratic": "You are PhenBOT using the Socratic method. Guide learning through thoughtful questions rather than direct answers. Help students discover answers themselves.",
-        "explain": "You are PhenBOT in ELI5 (Explain Like I'm 5) mode. Use simple language and everyday examples to explain complex concepts clearly."
-    }
-    
-    # Subject-specific additions
-    subject_additions = {
-        "math": " Focus on mathematical concepts and provide clear problem-solving steps.",
-        "science": " Emphasize scientific principles and real-world applications.",
-        "english": " Help with language, literature, writing, and communication skills.",
-        "history": " Explain historical context, causes, and effects of events.",
-        "general": " Cover any academic subject as needed."
-    }
-    
-    # Length instructions
-    length_instructions = {
-        "short": " Keep responses concise and to the point (2-3 sentences max).",
-        "normal": " Provide balanced, informative responses (1-2 paragraphs).",
-        "detailed": " Give comprehensive, thorough explanations with examples and context."
-    }
-    
-    system_prompt = (mode_prompts.get(mode, mode_prompts["normal"]) + 
-                    subject_additions.get(subject, subject_additions["general"]) +
-                    length_instructions.get(response_length, length_instructions["normal"]))
-    
-    # Adjust max tokens based on response length
-    max_tokens = {
-        "short": 150,
-        "normal": 500,
-        "detailed": 800
-    }.get(response_length, 500)
-    
-    try:
-        response = groq_client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+        mode_config = CHAT_MODES.get(mode, CHAT_MODES['normal'])
+        length_instruction = RESPONSE_LENGTHS.get(length, RESPONSE_LENGTHS['normal'])
+        
+        system_message = f"{mode_config['system_prompt']} {length_instruction}"
+        
+        if context:
+            system_message += f"\n\nContext from uploaded PDF: {context[:1000]}..."
+        
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": question}
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": message}
             ],
-            temperature=0.7,
-            max_tokens=max_tokens,
-            top_p=0.9
+            max_tokens=500 if length == 'short' else (800 if length == 'normal' else 1200),
+            temperature=0.7
         )
-        return response.choices[0].message.content
+        
+        return response.choices[0].message.content.strip()
+    
     except Exception as e:
-        traceback.print_exc()
-        return f"Error calling AI: {e}"
+        app.logger.error(f"OpenAI API error: {str(e)}")
+        return "I'm having trouble connecting to my AI brain right now. Please try again in a moment!"
 
-def extract_text_from_pdf(file_path):
+def extract_text_from_pdf(file_stream):
     """Extract text content from PDF file"""
     try:
-        with open(file_path, 'rb') as file:
-            pdf_reader = PyPDF2.PdfReader(file)
-            text = ""
-            for page in pdf_reader.pages:
-                text += page.extract_text() + "\n"
-        return text.strip()
+        pdf_reader = PyPDF2.PdfReader(file_stream)
+        text = ""
+        for page in pdf_reader.pages:
+            text += page.extract_text()
+        return text
     except Exception as e:
-        print(f"PDF extraction error: {e}")
+        app.logger.error(f"PDF extraction error: {str(e)}")
         return None
 
-def summarize_pdf_content(text, length="normal"):
-    """Summarize PDF content using AI"""
-    if not text or not GROQ_AVAILABLE:
-        return "Unable to summarize PDF content."
-    
-    # Truncate text if too long (API limits)
-    max_chars = 8000
-    if len(text) > max_chars:
-        text = text[:max_chars] + "..."
-    
-    length_instructions = {
-        "short": "Provide a brief summary in 2-3 sentences.",
-        "normal": "Provide a comprehensive summary in 1-2 paragraphs.",
-        "detailed": "Provide a detailed summary with key points and main concepts."
-    }
-    
-    prompt = f"""Summarize the following document content. {length_instructions.get(length, length_instructions['normal'])}
-
-Document content:
-{text}
-
-Summary:"""
-
+def generate_flashcards_from_content(content, topic="", difficulty="medium", count=10):
+    """Generate flashcards from PDF content or topic using AI"""
     try:
-        response = groq_client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.5,
-            max_tokens=600
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        return f"Error summarizing PDF: {e}"
-
-def create_flashcards_from_text(text, count=10, difficulty="medium"):
-    """Generate flashcards from PDF text using AI"""
-    if not text or not GROQ_AVAILABLE:
-        return []
-    
-    # Truncate text if too long
-    max_chars = 6000
-    if len(text) > max_chars:
-        text = text[:max_chars] + "..."
-    
-    difficulty_instructions = {
-        "easy": "Create basic, fundamental questions suitable for beginners.",
-        "medium": "Create intermediate-level questions that require understanding of concepts.",
-        "hard": "Create advanced questions that require deep analysis and critical thinking."
-    }
-    
-    prompt = f"""Based on the following document, create {count} flashcards for studying. {difficulty_instructions.get(difficulty, difficulty_instructions['medium'])}
-
-Format each flashcard as:
-FRONT: [Question or term]
-BACK: [Answer or definition]
-
-Document content:
-{text}
-
-Flashcards:"""
-
-    try:
-        response = groq_client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.6,
-            max_tokens=800
+        if content:
+            prompt = f"Create {count} educational flashcards from this content. Format as JSON with 'question' and 'answer' fields:\n\n{content[:2000]}"
+        else:
+            prompt = f"Create {count} {difficulty} level flashcards about {topic}. Format as JSON with 'question' and 'answer' fields."
+        
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are an educational content creator. Create clear, concise flashcards that help students learn effectively. Return only valid JSON array."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=1500,
+            temperature=0.5
         )
         
-        # Parse the response to extract flashcards
-        flashcards = []
-        lines = response.choices[0].message.content.split('\n')
-        current_front = None
-        
-        for line in lines:
-            line = line.strip()
-            if line.startswith('FRONT:'):
-                current_front = line[6:].strip()
-            elif line.startswith('BACK:') and current_front:
-                back = line[5:].strip()
-                flashcards.append({'front': current_front, 'back': back})
-                current_front = None
-        
-        return flashcards
+        flashcards_text = response.choices[0].message.content.strip()
+        # Try to extract JSON from response
+        if flashcards_text.startswith('```json'):
+            flashcards_text = flashcards_text.split('```json')[1].split('```')[0]
+        elif flashcards_text.startswith('```'):
+            flashcards_text = flashcards_text.split('```')[1]
+            
+        flashcards = json.loads(flashcards_text)
+        return flashcards if isinstance(flashcards, list) else [flashcards]
+    
     except Exception as e:
-        print(f"Error creating flashcards: {e}")
+        app.logger.error(f"Flashcard generation error: {str(e)}")
         return []
 
-def generate_topic_flashcards(topic, count=10, difficulty="medium"):
-    """Generate flashcards for a specific topic using AI"""
-    if not GROQ_AVAILABLE:
-        return []
-    
-    difficulty_instructions = {
-        "easy": "Create basic, fundamental questions suitable for beginners.",
-        "medium": "Create intermediate-level questions that require understanding of concepts.",
-        "hard": "Create advanced questions that require deep analysis and critical thinking."
-    }
-    
-    prompt = f"""Create {count} educational flashcards about "{topic}". {difficulty_instructions.get(difficulty, difficulty_instructions['medium'])}
-
-Format each flashcard as:
-FRONT: [Question or term]
-BACK: [Answer or definition]
-
-Make sure the flashcards cover different aspects of the topic and are educational and accurate.
-
-Flashcards:"""
-
+def summarize_pdf_content(content, length='normal'):
+    """Generate summary of PDF content"""
     try:
-        response = groq_client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.6,
-            max_tokens=800
+        length_map = {
+            'short': "Provide a brief summary in 2-3 sentences.",
+            'normal': "Provide a comprehensive summary in 1-2 paragraphs.",
+            'detailed': "Provide a detailed summary with key points and main topics covered."
+        }
+        
+        prompt = f"Summarize this document content. {length_map.get(length, length_map['normal'])}:\n\n{content[:3000]}"
+        
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are a document summarization expert. Create clear, informative summaries."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=800,
+            temperature=0.3
         )
         
-        # Parse the response to extract flashcards
-        flashcards = []
-        lines = response.choices[0].message.content.split('\n')
-        current_front = None
-        
-        for line in lines:
-            line = line.strip()
-            if line.startswith('FRONT:'):
-                current_front = line[6:].strip()
-            elif line.startswith('BACK:') and current_front:
-                back = line[5:].strip()
-                flashcards.append({'front': current_front, 'back': back})
-                current_front = None
-        
-        return flashcards
+        return response.choices[0].message.content.strip()
+    
     except Exception as e:
-        print(f"Error generating flashcards: {e}")
-        return []
+        app.logger.error(f"Summarization error: {str(e)}")
+        return "Unable to generate summary at this time."
 
-# ------------------------
-# Helper functions
-# ------------------------
-def login_required_json(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if "user_id" not in session:
-            return jsonify({"error": "Authentication required"}), 401
-        return f(*args, **kwargs)
-    return decorated
+# Routes
+@app.route('/')
+def index():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    user = User.query.get(session['user_id'])
+    return render_template('dashboard.html', username=user.username if user else 'Student')
 
-def login_required_page(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if "user_id" not in session:
-            flash("Please log in", "warning")
-            return redirect(url_for("login"))
-        return f(*args, **kwargs)
-    return decorated
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        data = request.get_json()
+        username = data.get('username')
+        password = data.get('password')
+        
+        user = User.query.filter_by(username=username).first()
+        
+        if user and check_password_hash(user.password_hash, password):
+            session['user_id'] = user.id
+            session['username'] = user.username
+            return jsonify({'success': True, 'message': 'Login successful!'})
+        else:
+            return jsonify({'success': False, 'message': 'Invalid credentials!'})
+    
+    return render_template('login.html')
 
-# ------------------------
-# Routes (keeping existing ones and adding new ones)
-# ------------------------
-@app.route("/")
-def home():
-    if "user_id" in session:
-        return redirect(url_for("dashboard"))
-    return redirect(url_for("login"))
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        data = request.get_json()
+        username = data.get('username')
+        email = data.get('email')
+        password = data.get('password')
+        
+        if User.query.filter_by(username=username).first():
+            return jsonify({'success': False, 'message': 'Username already exists!'})
+        
+        if User.query.filter_by(email=email).first():
+            return jsonify({'success': False, 'message': 'Email already registered!'})
+        
+        user = User(
+            username=username,
+            email=email,
+            password_hash=generate_password_hash(password)
+        )
+        
+        db.session.add(user)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Registration successful!'})
+    
+    return render_template('register.html')
 
-@app.route("/dashboard")
-@login_required_page
-def dashboard():
-    print(f"Dashboard accessed by user: {session.get('username')} (ID: {session.get('user_id')})")
-    # Use the enhanced dashboard template
-    return render_template("dashboard.html", username=session.get("username"))
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
+
+@app.route('/api/chat', methods=['POST'])
+def chat():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    data = request.get_json()
+    message = data.get('message', '').strip()
+    mode = data.get('mode', 'normal')
+    length = data.get('length', 'normal')
+    pdf_context = data.get('context', '')
+    
+    if not message:
+        return jsonify({'error': 'Message cannot be empty'}), 400
+    
+    try:
+        # Generate AI response
+        ai_response = get_ai_response(message, mode, length, pdf_context)
+        
+        # Save to chat history
+        chat_record = ChatHistory(
+            user_id=session['user_id'],
+            message=message,
+            response=ai_response,
+            mode=mode
+        )
+        db.session.add(chat_record)
+        db.session.commit()
+        
+        return jsonify({
+            'response': ai_response,
+            'mode': mode,
+            'timestamp': datetime.utcnow().isoformat()
+        })
+    
+    except Exception as e:
+        app.logger.error(f"Chat error: {str(e)}")
+        return jsonify({'error': 'Failed to generate response'}), 500
+
+@app.route('/api/upload-pdf', methods=['POST'])
+def upload_pdf():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file uploaded'}), 400
+    
+    file = request.files['file']
+    if file.filename == '' or not file.filename.lower().endswith('.pdf'):
+        return jsonify({'error': 'Please upload a valid PDF file'}), 400
+    
+    try:
+        # Extract text from PDF
+        file_stream = io.BytesIO(file.read())
+        text_content = extract_text_from_pdf(file_stream)
+        
+        if not text_content:
+            return jsonify({'error': 'Could not extract text from PDF'}), 400
+        
+        # Save file info to database
+        filename = secure_filename(file.filename)
+        unique_filename = f"{uuid.uuid4()}_{filename}"
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+        
+        # Reset file stream and save file
+        file.stream.seek(0)
+        file.save(file_path)
+        
+        pdf_doc = PDFDocument(
+            user_id=session['user_id'],
+            filename=filename,
+            file_path=file_path,
+            content=text_content
+        )
+        db.session.add(pdf_doc)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'file_id': pdf_doc.id,
+            'filename': filename,
+            'message': 'PDF uploaded successfully!'
+        })
+    
+    except Exception as e:
+        app.logger.error(f"PDF upload error: {str(e)}")
+        return jsonify({'error': 'Failed to process PDF'}), 500
+
+@app.route('/api/summarize-pdf/<int:pdf_id>')
+def summarize_pdf(pdf_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    length = request.args.get('length', 'normal')
+    
+    pdf_doc = PDFDocument.query.filter_by(id=pdf_id, user_id=session['user_id']).first()
+    if not pdf_doc:
+        return jsonify({'error': 'PDF not found'}), 404
+    
+    try:
+        summary = summarize_pdf_content(pdf_doc.content, length)
+        return jsonify({
+            'summary': summary,
+            'filename': pdf_doc.filename
+        })
+    
+    except Exception as e:
+        app.logger.error(f"PDF summarization error: {str(e)}")
+        return jsonify({'error': 'Failed to generate summary'}), 500
+
+@app.route('/api/create-flashcards', methods=['POST'])
+def create_flashcards():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    data = request.get_json()
+    source_type = data.get('source', 'manual')  # manual, pdf, or topic
+    
+    try:
+        if source_type == 'manual':
+            # Manual flashcard creation
+            question = data.get('question', '').strip()
+            answer = data.get('answer', '').strip()
+            topic = data.get('topic', '')
+            
+            if not question or not answer:
+                return jsonify({'error': 'Question and answer are required'}), 400
+            
+            flashcard = Flashcard(
+                user_id=session['user_id'],
+                question=question,
+                answer=answer,
+                topic=topic
+            )
+            db.session.add(flashcard)
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'flashcard': {
+                    'id': flashcard.id,
+                    'question': flashcard.question,
+                    'answer': flashcard.answer,
+                    'topic': flashcard.topic
+                }
+            })
+        
+        elif source_type == 'pdf':
+            pdf_id = data.get('pdf_id')
+            count = data.get('count', 10)
+            
+            pdf_doc = PDFDocument.query.filter_by(id=pdf_id, user_id=session['user_id']).first()
+            if not pdf_doc:
+                return jsonify({'error': 'PDF not found'}), 404
+            
+            flashcards_data = generate_flashcards_from_content(
+                pdf_doc.content, 
+                topic=pdf_doc.filename, 
+                count=count
+            )
+            
+        elif source_type == 'topic':
+            topic = data.get('topic', '').strip()
+            difficulty = data.get('difficulty', 'medium')
+            count = data.get('count', 10)
+            
+            if not topic:
+                return jsonify({'error': 'Topic is required'}), 400
+            
+            flashcards_data = generate_flashcards_from_content(
+                "", 
+                topic=topic, 
+                difficulty=difficulty, 
+                count=count
+            )
+        
+        else:
+            return jsonify({'error': 'Invalid source type'}), 400
+        
+        # Save generated flashcards
+        if source_type in ['pdf', 'topic']:
+            saved_flashcards = []
+            for card_data in flashcards_data:
+                if isinstance(card_data, dict) and 'question' in card_data and 'answer' in card_data:
+                    flashcard = Flashcard(
+                        user_id=session['user_id'],
+                        question=card_data['question'],
+                        answer=card_data['answer'],
+                        topic=data.get('topic', ''),
+                        difficulty=data.get('difficulty', 'medium')
+                    )
+                    db.session.add(flashcard)
+                    saved_flashcards.append({
+                        'question': flashcard.question,
+                        'answer': flashcard.answer
+                    })
+            
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'flashcards': saved_flashcards,
+                'count': len(saved_flashcards)
+            })
+    
+    except Exception as e:
+        app.logger.error(f"Flashcard creation error: {str(e)}")
+        return jsonify({'error': 'Failed to create flashcards'}), 500
+
+@app.route('/api/get-flashcards')
+def get_flashcards():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    flashcards = Flashcard.query.filter_by(user_id=session['user_id']).order_by(Flashcard.created_at.desc()).all()
+    
+    return jsonify({
+        'flashcards': [{
+            'id': card.id,
+            'question': card.question,
+            'answer': card.answer,
+            'topic': card.topic,
+            'difficulty': card.difficulty
+        } for card in flashcards]
+    })
+
+@app.route('/api/get-pdfs')
+def get_pdfs():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    pdfs = PDFDocument.query.filter_by(user_id=session['user_id']).order_by(PDFDocument.upload_time.desc()).all()
+    
+    return jsonify({
+        'pdfs': [{
+            'id': pdf.id,
+            'filename': pdf.filename,
+            'upload_time': pdf.upload_time.isoformat(),
+            'content_preview': pdf.content[:200] + '...' if pdf.content else ''
+        } for pdf in pdfs]
+    })
+
+@app.route('/api/delete-pdf/<int:pdf_id>', methods=['DELETE'])
+def delete_pdf(pdf_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    pdf_doc = PDFDocument.query.filter_by(id=pdf_id, user_id=session['user_id']).first()
+    if not pdf_doc:
+        return jsonify({'error': 'PDF not found'}), 404
+    
+    try:
+        # Delete file from filesystem
+        if os.path.exists(pdf_doc.file_path):
+            os.remove(pdf_doc.file_path)
+        
+        # Delete from database
+        db.session.delete(pdf_doc)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'PDF deleted successfully'})
+    
+    except Exception as e:
+        app.logger.error(f"PDF deletion error: {str(e)}")
+        return jsonify({'error': 'Failed to delete PDF'}), 500
+
+@app.route('/api/voice-to-text', methods=['POST'])
+def voice_to_text():
+    """Convert voice audio to text"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    if 'audio' not in request.files:
+        return jsonify({'error': 'No audio file provided'}), 400
+    
+    audio_file = request.files['audio']
+    
+    try:
+        # Save temporary audio file
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as temp_audio:
+            audio_file.save(temp_audio.name)
+            
+            # Use speech recognition
+            r = sr.Recognizer()
+            with sr.AudioFile(temp_audio.name) as source:
+                audio_data = r.record(source)
+                text = r.recognize_google(audio_data)
+            
+            # Clean up temp file
+            os.unlink(temp_audio.name)
+            
+            return jsonify({'text': text})
+    
+    except sr.UnknownValueError:
+        return jsonify({'error': 'Could not understand audio'}), 400
+    except sr.RequestError as e:
+        return jsonify({'error': f'Speech recognition service error: {str(e)}'}), 500
+    except Exception as e:
+        app.logger.error(f"Voice to text error: {str(e)}")
+        return jsonify({'error': 'Failed to process audio'}), 500
+
+@app.route('/api/text-to-voice', methods=['POST'])
+def text_to_voice():
+    """Convert text to voice audio"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    data = request.get_json()
+    text = data.get('text', '').strip()
+    
+    if not text:
+        return jsonify({'error': 'No text provided'}), 400
+    
+    try:
+        # Generate speech
+        tts = gTTS(text=text, lang='en', slow=False)
+        
+        # Save to temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_audio:
+            tts.save(temp_audio.name)
+            
+            # Read file content
+            with open(temp_audio.name, 'rb') as f:
+                audio_data = f.read()
+            
+            # Clean up temp file
+            os.unlink(temp_audio.name)
+            
+            return audio_data, 200, {
+                'Content-Type': 'audio/mpeg',
+                'Content-Disposition': 'attachment; filename=response.mp3'
+            }
+    
+    except Exception as e:
+        app.logger.error(f"Text to voice error: {str(e)}")
+        return jsonify({'error': 'Failed to generate audio'}), 500
+
+# Initialize database
+@app.before_first_request
+def create_tables():
+    db.create_all()
+
+if __name__ == '__main__':
+    app.run(debug=True)
