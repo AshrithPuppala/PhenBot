@@ -702,6 +702,63 @@ def upload_pdf():
     if not allowed_file(f.filename):
         return jsonify({"error": "Only .pdf allowed"}), 400
     
+    try:
+        original = secure_filename(f.filename)
+        unique = f"{session['user_id']}_{uuid.uuid4().hex}_{original}"
+        save_path = os.path.join(app.config["UPLOAD_FOLDER"], unique)
+        f.save(save_path)
+        
+        rec = PDFFile(user_id=session["user_id"], filename=unique, original_name=original)
+        db.session.add(rec)
+        db.session.commit()
+        
+        url = url_for("static", filename=f"uploads/{unique}")
+        
+        return jsonify({
+            "message": "Uploaded successfully", 
+            "filename": original,
+            "unique_filename": unique,
+            "file_id": rec.id,
+            "url": url
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Upload error: {e}")
+        return jsonify({"error": f"Upload failed: {str(e)}"}), 500
+    @app.route("/api/delete-pdf/<int:file_id>", methods=["DELETE"])
+@login_required_json
+def delete_pdf(file_id):
+    try:
+        # Find the PDF file belonging to the current user
+        pdf_file = PDFFile.query.filter_by(id=file_id, user_id=session["user_id"]).first()
+        
+        if not pdf_file:
+            return jsonify({"error": "PDF not found"}), 404
+        
+        # Delete the actual file from disk
+        file_path = os.path.join(app.config["UPLOAD_FOLDER"], pdf_file.filename)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            print(f"Deleted file from disk: {file_path}")
+        
+        # Delete the database record
+        db.session.delete(pdf_file)
+        db.session.commit()
+        
+        print(f"Deleted PDF: {pdf_file.original_name} (ID: {file_id})")
+        
+        return jsonify({
+            "success": True,
+            "message": f"PDF '{pdf_file.original_name}' deleted successfully"
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Delete error: {e}")
+        traceback.print_exc()
+        return jsonify({"error": f"Failed to delete PDF: {str(e)}"}), 500
+    
     original = secure_filename(f.filename)
     unique = f"{session['user_id']}_{uuid.uuid4().hex}_{original}"
     save_path = os.path.join(app.config["UPLOAD_FOLDER"], unique)
@@ -804,4 +861,5 @@ if __name__ == "__main__":
     if not GROQ_AVAILABLE:
         print(f"Groq error: {GROQ_ERROR}")
     app.run(host="0.0.0.0", port=port, debug=debug)
+
 
