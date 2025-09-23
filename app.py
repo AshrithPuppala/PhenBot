@@ -1,252 +1,658 @@
-# app.py - PhenBOT Complete Flask Application
-
-from flask import Flask, request, jsonify, render_template_string, redirect, url_for, session, flash
-from werkzeug.security import generate_password_hash, check_password_hash
-from werkzeug.utils import secure_filename
 import os
-import sqlite3
+import sys
+import uuid
 import traceback
+from functools import wraps
 from datetime import datetime
-import PyPDF2
+from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
+import re
 
-app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB
+from flask import (
+    Flask, request, jsonify, render_template, redirect, url_for, flash, session
+)
+from flask_sqlalchemy import SQLAlchemy
 
-DATABASE = 'phenbot.db'
-UPLOAD_FOLDER = 'uploads'
-ALLOWED_EXTENSIONS = {'pdf', 'txt', 'doc', 'docx'}
+# ------------------------
+# Config
+# ------------------------
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+INSTANCE_DIR = os.path.join(BASE_DIR, "instance")
+UPLOAD_DIR = os.path.join(BASE_DIR, "static", "uploads")
+os.makedirs(INSTANCE_DIR, exist_ok=True)
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
+app = Flask(
+    __name__,
+    static_folder=os.path.join(BASE_DIR, "static"),
+    static_url_path="/static"
+)
 
-# -------------------- Database --------------------
-def init_db():
-    conn = sqlite3.connect(DATABASE)
-    cursor = conn.cursor()
+# IMPORTANT: set SECRET_KEY in env while deploying. Fallback to random for dev.
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", uuid.uuid4().hex)
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///" + os.path.join(INSTANCE_DIR, "app.db")
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["UPLOAD_FOLDER"] = UPLOAD_DIR
+app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024  # 32 MB
 
-    cursor.execute('''CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )''')
+db = SQLAlchemy(app)
 
-    cursor.execute('''CREATE TABLE IF NOT EXISTS chat_history (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
-        subject TEXT,
-        mode TEXT,
-        length_preference TEXT,
-        question TEXT,
-        answer TEXT,
-        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users (id)
-    )''')
+# ------------------------
+# Models
+# ------------------------
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(150), unique=True, nullable=False)
+    email = db.Column(db.String(150), unique=True, nullable=True)
+    password_hash = db.Column(db.String(256), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<User {self.username}>'
 
-    cursor.execute('''CREATE TABLE IF NOT EXISTS uploaded_files (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
-        filename TEXT,
-        original_filename TEXT,
-        file_path TEXT,
-        file_type TEXT,
-        upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users (id)
-    )''')
+class PDFFile(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    filename = db.Column(db.String(400), nullable=False)
+    original_name = db.Column(db.String(400), nullable=False)
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    cursor.execute('''CREATE TABLE IF NOT EXISTS flashcards (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
-        title TEXT,
-        front TEXT,
-        back TEXT,
-        subject TEXT,
-        difficulty TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users (id)
-    )''')
+class QAHistory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    question = db.Column(db.Text, nullable=False)
+    answer = db.Column(db.Text, nullable=False)
+    subject = db.Column(db.String(80), default="general")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    conn.commit()
-    conn.close()
+# Database initialization with proper error handling
+def init_database():
+    """Initialize database with proper migration handling"""
+    with app.app_context():
+        try:
+            # Create all tables
+            db.create_all()
+            print("Database tables created successfully")
+            
+            # Check if email column exists and add if missing
+            inspector = db.inspect(db.engine)
+            columns = [col['name'] for col in inspector.get_columns('user')]
+            
+            if 'email' not in columns:
+                print("Adding email column to user table...")
+                with db.engine.connect() as conn:
+                    conn.execute(db.text('ALTER TABLE user ADD COLUMN email VARCHAR(150)'))
+                    conn.commit()
+                print("Email column added successfully")
+            
+            return True
+        except Exception as e:
+            print(f"Database initialization error: {e}")
+            traceback.print_exc()
+            return False
 
-init_db()
+# Initialize database
+init_database()
 
-# -------------------- Helpers --------------------
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+# ------------------------
+# Groq initialization (safe)
+# ------------------------
+groq_client = None
+GROQ_AVAILABLE = False
+GROQ_ERROR = None
 
-def extract_text_from_pdf(file_path):
+try:
+    from groq import Groq
+except Exception as e:
+    Groq = None
+    GROQ_ERROR = "Groq SDK not installed"
+
+def initialize_groq():
+    global groq_client, GROQ_AVAILABLE, GROQ_ERROR
+    if Groq is None:
+        GROQ_ERROR = GROQ_ERROR or "Groq SDK not available"
+        GROQ_AVAILABLE = False
+        return False
+    api_key = os.environ.get("GROQ_API_KEY")
+    if not api_key:
+        GROQ_ERROR = "GROQ_API_KEY not set"
+        GROQ_AVAILABLE = False
+        return False
     try:
-        with open(file_path, 'rb') as f:
-            reader = PyPDF2.PdfReader(f)
-            return "\n".join([p.extract_text() or "" for p in reader.pages])
-    except Exception as e:
-        print("PDF extraction error:", e)
-        return None
-
-def get_user(username):
-    conn = sqlite3.connect(DATABASE)
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, username, password_hash FROM users WHERE username = ?", (username,))
-    user = cursor.fetchone()
-    conn.close()
-    return user
-
-def create_user(username, password):
-    try:
-        pw_hash = generate_password_hash(password)
-        conn = sqlite3.connect(DATABASE)
-        cursor = conn.cursor()
-        cursor.execute("INSERT INTO users (username, password_hash) VALUES (?, ?)", (username, pw_hash))
-        conn.commit()
-        conn.close()
+        groq_client = Groq(api_key=api_key)
+        GROQ_AVAILABLE = True
         return True
-    except sqlite3.IntegrityError:
+    except Exception as e:
+        GROQ_ERROR = f"Groq initialization failed: {e}"
+        GROQ_AVAILABLE = False
         return False
 
-# -------------------- HTML Templates --------------------
-LOGIN_HTML = """ ... (your login HTML unchanged) ... """
-REGISTER_HTML = """ ... (your register HTML unchanged) ... """
-MAIN_APP_HTML = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PhenBOT Dashboard</title>
-  <style>
-    /* keep all your CSS here */
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div class="header-content">
-      <div class="logo">🤖 PhenBOT</div>
-      <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
-    </div>
-  </div>
+initialize_groq()
 
-  <div class="main-container">
-    <div class="sidebar">
-      <div class="sidebar-section">
-        <div class="sidebar-title">📂 File Upload</div>
-        <form method="POST" enctype="multipart/form-data" action="{{ url_for('upload_file') }}">
-          <input type="file" name="file">
-          <button type="submit">Upload</button>
-        </form>
-      </div>
-      <div class="sidebar-section">
-        <div class="sidebar-title">🃏 Flashcards</div>
-        <form method="POST" action="{{ url_for('generate_flashcards') }}">
-          <input type="text" name="topic" placeholder="Enter topic" required>
-          <select name="subject">
-            <option value="science">Science</option>
-            <option value="math">Math</option>
-            <option value="history">History</option>
-          </select>
-          <button type="submit">Generate</button>
-        </form>
-      </div>
-    </div>
+def get_ai_response(question, subject="general"):
+    if not groq_client or not GROQ_AVAILABLE:
+        return "AI system not available on server. Check GROQ_API_KEY and Groq SDK installation."
+    system_prompts = {
+        "math": "You are PhenBOT, a mathematics tutor. Provide step-by-step explanations.",
+        "science": "You are PhenBOT, a science educator. Explain concepts with analogies.",
+        "english": "You are PhenBOT, an English tutor. Help with grammar and writing.",
+        "history": "You are PhenBOT, a history educator. Explain context and causes.",
+        "general": "You are PhenBOT, an advanced study companion."
+    }
+    system_prompt = system_prompts.get(subject, system_prompts["general"])
+    try:
+        if hasattr(groq_client, "chat") and hasattr(groq_client.chat, "completions"):
+            response = groq_client.chat.completions.create(
+                model="llama-3.1-8b-instant",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": question}
+                ],
+                temperature=0.7,
+                max_tokens=600,
+                top_p=0.9
+            )
+            try:
+                return response.choices[0].message.content
+            except Exception:
+                try:
+                    return response["choices"][0]["message"]["content"]
+                except Exception:
+                    return str(response)
+        return "Groq client interface not recognized"
+    except Exception as e:
+        traceback.print_exc()
+        return f"Error calling Groq: {e}"
 
-    <div class="chat-area">
-      <div class="chat-header"><div class="chat-title">Chat with PhenBOT</div></div>
-      <div class="chat-messages" id="chat-messages"></div>
-      <div class="chat-input">
-        <form method="POST" action="{{ url_for('ask') }}">
-          <div class="controls-row">
-            <select name="subject">
-              <option value="general">General</option>
-              <option value="math">Math</option>
-              <option value="science">Science</option>
-            </select>
-            <select name="mode">
-              <option value="normal">Normal</option>
-              <option value="analogy">Analogy</option>
-              <option value="quiz">Quiz</option>
-            </select>
-            <select name="length_preference">
-              <option value="short">Short</option>
-              <option value="normal">Normal</option>
-              <option value="detailed">Detailed</option>
-            </select>
-          </div>
-          <textarea class="input-field" name="question" placeholder="Type your question"></textarea>
-          <button class="send-btn" type="submit">Ask</button>
-        </form>
-      </div>
-    </div>
-  </div>
-</body>
-</html>
-"""
+# ------------------------
+# Helper functions
+# ------------------------
+def login_required_json(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if "user_id" not in session:
+            return jsonify({"error": "Authentication required"}), 401
+        return f(*args, **kwargs)
+    return decorated
 
-# -------------------- Routes --------------------
-@app.route('/')
-def index():
-    if 'user_id' in session:
-        return render_template_string(MAIN_APP_HTML)
-    return redirect(url_for('login'))
+def login_required_page(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if "user_id" not in session:
+            flash("Please log in", "warning")
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return decorated
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        user = get_user(request.form['username'])
-        if user and check_password_hash(user[2], request.form['password']):
-            session['user_id'], session['username'] = user[0], user[1]
-            return redirect(url_for('index'))
-        flash("Invalid login", "error")
-    return render_template_string(LOGIN_HTML)
+def validate_email(email):
+    """Simple email validation"""
+    if not email:
+        return False
+    pattern = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
+    return re.match(pattern, email) is not None
 
-@app.route('/register', methods=['GET', 'POST'])
+def validate_password_strength(password):
+    """Check password strength and return score and feedback"""
+    if not password:
+        return 0, "Password is required"
+    
+    score = 0
+    feedback = []
+    
+    if len(password) >= 8:
+        score += 25
+    else:
+        feedback.append("At least 8 characters")
+        
+    if len(password) >= 12:
+        score += 15
+        
+    if re.search(r'[A-Z]', password):
+        score += 20
+    else:
+        feedback.append("At least one uppercase letter")
+        
+    if re.search(r'[a-z]', password):
+        score += 15
+    else:
+        feedback.append("At least one lowercase letter")
+        
+    if re.search(r'[0-9]', password):
+        score += 15
+    else:
+        feedback.append("At least one number")
+        
+    if re.search(r'[^A-Za-z0-9]', password):
+        score += 10
+    else:
+        feedback.append("At least one special character")
+    
+    if score < 40:
+        return score, "Weak password. " + ", ".join(feedback)
+    elif score < 70:
+        return score, "Medium strength password"
+    else:
+        return score, "Strong password"
+
+# ------------------------
+# Routes (HTML)
+# ------------------------
+@app.route("/")
+def home():
+    if "user_id" in session:
+        return redirect(url_for("dashboard"))
+    return redirect(url_for("login"))
+
+@app.route("/register", methods=["GET", "POST"])
 def register():
-    if request.method == 'POST':
-        if create_user(request.form['username'], request.form['password']):
-            flash("Account created! Please login", "success")
-            return redirect(url_for('login'))
-        else:
-            flash("Username already exists", "error")
-    return render_template_string(REGISTER_HTML)
+    if "user_id" in session:
+        return redirect(url_for("dashboard"))
+    
+    if request.method == "POST":
+        try:
+            # Handle both JSON and form data
+            if request.is_json:
+                data = request.get_json()
+            else:
+                data = request.form
+                
+            username = (data.get("username") or "").strip().lower()  # Normalize username
+            email = (data.get("email") or "").strip().lower()  # Normalize email
+            password = data.get("password") or ""
+            confirm_password = data.get("confirmPassword") or ""
+            
+            print(f"Registration attempt: username='{username}', email='{email}'")
+            
+            # Validation
+            errors = []
+            
+            if not username or len(username) < 3:
+                errors.append("Username must be at least 3 characters long")
+                
+            if not email or not validate_email(email):
+                errors.append("Please enter a valid email address")
+                
+            if not password or len(password) < 8:
+                errors.append("Password must be at least 8 characters long")
+                
+            if password != confirm_password:
+                errors.append("Passwords do not match")
+                
+            # Check password strength
+            strength, strength_msg = validate_password_strength(password)
+            if strength < 40:
+                errors.append("Password is too weak. Please choose a stronger password")
+            
+            # Check if user exists
+            existing_username = User.query.filter_by(username=username).first()
+            existing_email = User.query.filter_by(email=email).first()
+            
+            if existing_username:
+                errors.append("Username already exists")
+            if existing_email:
+                errors.append("Email already registered")
+            
+            if errors:
+                print(f"Registration errors: {errors}")
+                if request.is_json:
+                    return jsonify({"success": False, "errors": errors}), 400
+                else:
+                    for error in errors:
+                        flash(error, "danger")
+                    return render_template("register.html")
+            
+            # Create user
+            hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
+            user = User(username=username, email=email, password_hash=hashed_password)
+            
+            db.session.add(user)
+            db.session.commit()
+            
+            print(f"User created successfully: id={user.id}, username={user.username}, email={user.email}")
+            print(f"Password hash: {user.password_hash[:50]}...")
+            
+            if request.is_json:
+                return jsonify({"success": True, "message": "Account created successfully"})
+            else:
+                flash("Account created successfully! Please log in.", "success")
+                return redirect(url_for("login"))
+                
+        except Exception as e:
+            db.session.rollback()
+            print(f"Registration error: {e}")
+            traceback.print_exc()
+            error_msg = "An error occurred during registration. Please try again."
+            if request.is_json:
+                return jsonify({"success": False, "error": error_msg}), 500
+            else:
+                flash(error_msg, "danger")
+                return render_template("register.html")
+    
+    return render_template("register.html")
 
-@app.route('/logout')
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if "user_id" in session:
+        return redirect(url_for("dashboard"))
+    
+    if request.method == "POST":
+        try:
+            # Handle both JSON and form data
+            if request.is_json:
+                data = request.get_json()
+            else:
+                data = request.form
+                
+            username_or_email = (data.get("username") or "").strip().lower()  # Normalize input
+            password = data.get("password") or ""
+            
+            print(f"Login attempt: input='{username_or_email}', password_length={len(password)}")
+            
+            if not username_or_email or not password:
+                error_msg = "Please fill in all fields"
+                print("Missing username/email or password")
+                if request.is_json:
+                    return jsonify({"success": False, "error": error_msg}), 400
+                else:
+                    flash(error_msg, "danger")
+                    return render_template("login.html")
+            
+            # Find user by username or email
+            user = None
+            
+            # First try to find by email
+            if validate_email(username_or_email):
+                print(f"Input looks like email, searching by email: {username_or_email}")
+                user = User.query.filter(User.email == username_or_email).first()
+                if user:
+                    print(f"Found user by email: {user.username}")
+            
+            # If not found by email, try username
+            if not user:
+                print(f"Searching by username: {username_or_email}")
+                user = User.query.filter(User.username == username_or_email).first()
+                if user:
+                    print(f"Found user by username: {user.username}")
+            
+            if not user:
+                print("User not found in database")
+                # List all users for debugging (remove in production)
+                all_users = User.query.all()
+                print(f"All users in database: {[(u.username, u.email) for u in all_users]}")
+                
+                error_msg = "Invalid username/email or password"
+                if request.is_json:
+                    return jsonify({"success": False, "error": error_msg}), 400
+                else:
+                    flash(error_msg, "danger")
+                    return render_template("login.html")
+            
+            # Verify password
+            print(f"Verifying password for user: {user.username}")
+            print(f"Stored hash: {user.password_hash[:50]}...")
+            
+            password_valid = check_password_hash(user.password_hash, password)
+            print(f"Password verification result: {password_valid}")
+            
+            if password_valid:
+                print("Login successful, setting session")
+                session.clear()  # Clear any existing session data
+                session["user_id"] = user.id
+                session["username"] = user.username
+                session["email"] = user.email or ""
+                session.permanent = True  # Make session permanent
+                
+                print(f"Session set: user_id={session.get('user_id')}, username={session.get('username')}")
+                
+                if request.is_json:
+                    return jsonify({
+                        "success": True, 
+                        "message": "Login successful",
+                        "redirect": url_for("dashboard")
+                    })
+                else:
+                    flash("Login successful!", "success")
+                    return redirect(url_for("dashboard"))
+            else:
+                print("Password verification failed")
+                error_msg = "Invalid username/email or password"
+                if request.is_json:
+                    return jsonify({"success": False, "error": error_msg}), 400
+                else:
+                    flash(error_msg, "danger")
+                    return render_template("login.html")
+                    
+        except Exception as e:
+            print(f"Login error: {e}")
+            traceback.print_exc()
+            error_msg = "An error occurred during login. Please try again."
+            if request.is_json:
+                return jsonify({"success": False, "error": error_msg}), 500
+            else:
+                flash(error_msg, "danger")
+                return render_template("login.html")
+    
+    return render_template("login.html")
+
+@app.route("/logout")
 def logout():
+    print(f"Logging out user: {session.get('username')}")
     session.clear()
-    return redirect(url_for('login'))
+    flash("Logged out successfully", "info")
+    return redirect(url_for("login"))
 
-@app.route('/ask', methods=['POST'])
-def ask():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-    question = request.form['question']
-    subject = request.form.get('subject', 'general')
-    mode = request.form.get('mode', 'normal')
-    length_pref = request.form.get('length_preference', 'normal')
-    # call AI here (placeholder)
-    answer = f"PhenBOT ({subject}, {mode}, {length_pref}): {question}"
-    return render_template_string(MAIN_APP_HTML, answer=answer)
+@app.route("/dashboard")
+@login_required_page
+def dashboard():
+    print(f"Dashboard accessed by user: {session.get('username')} (ID: {session.get('user_id')})")
+    return render_template("dashboard.html", username=session.get("username"))
 
-@app.route('/upload', methods=['POST'])
-def upload_file():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-    file = request.files['file']
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        path = os.path.join(UPLOAD_FOLDER, filename)
-        file.save(path)
-        flash("File uploaded", "success")
-    return redirect(url_for('index'))
+# ------------------------
+# Debug routes (remove in production)
+# ------------------------
+@app.route("/debug/users")
+def debug_users():
+    """Debug route to see all users in database"""
+    try:
+        users = User.query.all()
+        user_list = []
+        for user in users:
+            user_list.append({
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "password_hash": user.password_hash[:50] + "...",
+                "created_at": user.created_at.isoformat() if user.created_at else None
+            })
+        
+        return jsonify({
+            "users": user_list, 
+            "count": len(user_list),
+            "database_path": app.config["SQLALCHEMY_DATABASE_URI"]
+        })
+    except Exception as e:
+        return jsonify({"error": str(e), "traceback": traceback.format_exc()}), 500
 
-@app.route('/flashcards', methods=['POST'])
-def generate_flashcards():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-    topic = request.form['topic']
-    subject = request.form.get('subject', 'general')
-    flash(f"Generated flashcards for {topic} ({subject})", "success")
-    return redirect(url_for('index'))
+@app.route("/debug/session")
+def debug_session():
+    """Debug route to check session data"""
+    return jsonify({
+        "session_data": dict(session),
+        "session_keys": list(session.keys()),
+        "user_logged_in": "user_id" in session
+    })
 
-# -------------------- Run --------------------
-if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=8080, debug=True)
+@app.route("/debug/test-hash")
+def debug_test_hash():
+    """Test password hashing"""
+    test_password = "TestPassword123"
+    hashed = generate_password_hash(test_password, method='pbkdf2:sha256')
+    verification = check_password_hash(hashed, test_password)
+    
+    return jsonify({
+        "original_password": test_password,
+        "hashed_password": hashed,
+        "verification_result": verification
+    })
+
+# ------------------------
+# Health check
+# ------------------------
+@app.route("/health")
+def health():
+    return jsonify({
+        "status": "ok",
+        "groq_available": GROQ_AVAILABLE,
+        "api_key_present": bool(os.environ.get("GROQ_API_KEY")),
+        "error": GROQ_ERROR,
+        "python": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+        "database_path": app.config["SQLALCHEMY_DATABASE_URI"]
+    })
+
+# ------------------------
+# API endpoints
+# ------------------------
+@app.route("/api/ask", methods=["POST"])
+@login_required_json
+def api_ask():
+    data = request.get_json() or {}
+    question = (data.get("question") or "").strip()
+    subject = data.get("subject", "general")
+    if not question:
+        return jsonify({"error": "Question required"}), 400
+    if not GROQ_AVAILABLE:
+        return jsonify({"error": f"AI not available: {GROQ_ERROR or 'Groq not initialized'}"}), 503
+    answer = get_ai_response(question, subject)
+    try:
+        hist = QAHistory(user_id=session["user_id"], question=question, answer=answer, subject=subject)
+        db.session.add(hist)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    return jsonify({"answer": answer})
+
+@app.route("/api/chat", methods=["POST"])
+@login_required_json
+def api_chat():
+    data = request.get_json() or {}
+    message = (data.get("message") or "").strip()
+    if not message:
+        return jsonify({"error": "Message required"}), 400
+    
+    if GROQ_AVAILABLE:
+        response = get_ai_response(message, "general")
+    else:
+        response = f"I received your message: '{message}'. AI service is currently unavailable, but I'm here to help!"
+    
+    try:
+        hist = QAHistory(user_id=session["user_id"], question=message, answer=response, subject="general")
+        db.session.add(hist)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    
+    return jsonify({
+        "response": response,
+        "timestamp": datetime.now().isoformat()
+    })
+
+# PDF upload functionality
+ALLOWED_EXT = {"pdf"}
+def allowed_file(filename):
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXT
+
+@app.route("/api/upload-pdf", methods=["POST"])
+@login_required_json
+def upload_pdf():
+    if "file" not in request.files:
+        return jsonify({"error": "No file part"}), 400
+    f = request.files["file"]
+    if f.filename == "":
+        return jsonify({"error": "No file selected"}), 400
+    if not allowed_file(f.filename):
+        return jsonify({"error": "Only .pdf allowed"}), 400
+    original = secure_filename(f.filename)
+    unique = f"{session['user_id']}_{uuid.uuid4().hex}_{original}"
+    save_path = os.path.join(app.config["UPLOAD_FOLDER"], unique)
+    f.save(save_path)
+    rec = PDFFile(user_id=session["user_id"], filename=unique, original_name=original)
+    db.session.add(rec)
+    db.session.commit()
+    url = url_for("static", filename=f"uploads/{unique}")
+    return jsonify({"message": "Uploaded successfully", "filename": original, "url": url}), 201
+
+@app.route("/api/upload", methods=["POST"])
+@login_required_json
+def api_upload():
+    if "file" not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+    
+    file = request.files["file"]
+    if file.filename == "":
+        return jsonify({"error": "No file selected"}), 400
+    
+    if file and file.filename.lower().endswith('.pdf'):
+        original = secure_filename(file.filename)
+        unique = f"{session['user_id']}_{uuid.uuid4().hex}_{original}"
+        save_path = os.path.join(app.config["UPLOAD_FOLDER"], unique)
+        file.save(save_path)
+        
+        rec = PDFFile(user_id=session["user_id"], filename=unique, original_name=original)
+        db.session.add(rec)
+        db.session.commit()
+        
+        url = url_for("static", filename=f"uploads/{unique}")
+        return jsonify({
+            "success": True,
+            "filename": original,
+            "message": "File uploaded successfully",
+            "url": url
+        })
+    
+    return jsonify({"error": "Invalid file type. Only PDF files are allowed."}), 400
+
+@app.route("/api/pdfs", methods=["GET"])
+@login_required_json
+def list_pdfs():
+    uid = session["user_id"]
+    files = PDFFile.query.filter_by(user_id=uid).order_by(PDFFile.uploaded_at.desc()).all()
+    out = [{"id": p.id, "name": p.original_name, "url": url_for("static", filename=f"uploads/{p.filename}"), "uploaded_at": p.uploaded_at.isoformat()} for p in files]
+    return jsonify({"files": out})
+
+@app.route("/api/history", methods=["GET"])
+@login_required_json
+def get_history():
+    uid = session["user_id"]
+    rows = QAHistory.query.filter_by(user_id=uid).order_by(QAHistory.created_at.desc()).limit(50).all()
+    out = [{"id": r.id, "question": r.question, "answer": r.answer, "subject": r.subject, "created_at": r.created_at.isoformat()} for r in rows]
+    return jsonify({"history": out})
+
+# ------------------------
+# Error handlers
+# ------------------------
+@app.errorhandler(404)
+def handle_404(e):
+    if request.path.startswith('/api/'):
+        return jsonify({"error": "Endpoint not found"}), 404
+    flash("Page not found", "error")
+    return redirect(url_for("login"))
+
+@app.errorhandler(500)
+def handle_500(e):
+    if request.path.startswith('/api/'):
+        return jsonify({"error": "Internal server error"}), 500
+    flash("An error occurred", "error")
+    return redirect(url_for("login"))
+
+# ------------------------
+# Run
+# ------------------------
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    debug = os.environ.get("FLASK_ENV") == "development"
+    print(f"Starting PhenBOT on port {port} (debug={debug})")
+    print(f"Database: {app.config['SQLALCHEMY_DATABASE_URI']}")
+    print(f"Groq AI available: {GROQ_AVAILABLE}")
+    if not GROQ_AVAILABLE:
+        print(f"Groq error: {GROQ_ERROR}")
+    app.run(host="0.0.0.0", port=port, debug=debug)
