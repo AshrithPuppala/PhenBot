@@ -811,7 +811,8 @@
                     </div>
                 </div>
                 
-                <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                <!-- REMOVE the onclick attribute from the upload area -->
+                <div class="upload-area" id="uploadArea">
                     <i class="fas fa-cloud-upload-alt" style="font-size: 2.5rem; color: var(--primary-blue); margin-bottom: 1rem;"></i>
                     <p style="margin-bottom: 0.5rem; font-weight: 500;">Drop PDF files here</p>
                     <p style="color: var(--text-disabled); font-size: 0.85rem;">or click to browse</p>
@@ -1103,77 +1104,54 @@ document.addEventListener('DOMContentLoaded', () => {
         // Handle file upload
         // Handle file upload
 // Handle multiple file uploads
-async function handleFileUpload(event) {
-    const files = Array.from(event.target.files);
-    const pdfFiles = files.filter(file => file.type === 'application/pdf');
-    
-    if (pdfFiles.length === 0) {
-        alert('Please select at least one PDF file.');
-        event.target.value = ''; // Reset here
-        return;
-    }
+// Remove all the existing upload area event listeners and replace with this:
 
+// File upload functionality - FIXED VERSION
+function setupFileUpload() {
     const uploadArea = document.getElementById('uploadArea');
-    const originalContent = uploadArea.innerHTML;
-    
-    uploadArea.innerHTML = `
-        <div class="spinner" style="width: 30px; height: 30px; border-width: 3px;"></div>
-        <p style="margin-top: 1rem;">Uploading ${pdfFiles.length} PDF(s)...</p>
-    `;
+    const fileInput = document.getElementById('fileInput');
+    let dragCounter = 0;
 
-    const formData = new FormData();
-    pdfFiles.forEach(file => {
-        formData.append('file', file);
+    // Remove the onclick from HTML and handle click here
+    uploadArea.addEventListener('click', (e) => {
+        e.preventDefault();
+        // Always reset the file input before opening dialog
+        fileInput.value = '';
+        resetUploadArea();
+        fileInput.click();
     });
 
-    try {
-        const response = await fetch('/api/upload-pdf', {
-            method: 'POST',
-            body: formData
-        });
+    // Drag and drop handlers
+    uploadArea.addEventListener('dragenter', (e) => {
+        e.preventDefault();
+        dragCounter++;
+        uploadArea.classList.add('dragover');
+    });
 
-        const data = await response.json();
-
-        if (data.success) {
-            if (data.files && data.files.length > 0) {
-                currentPDF = {
-                    name: data.files[0].filename,
-                    filename: data.files[0].filename,
-                    url: data.files[0].url,
-                    id: data.files[0].file_id
-                };
-            }
-            
-            document.getElementById('pdfActions').classList.add('show');
-            await refreshUploadedFiles();
-            
-            let message = data.message;
-            if (data.errors && data.errors.length > 0) {
-                message += ` (Some files had errors)`;
-            }
-            addSystemMessage(message);
-            
-            uploadArea.innerHTML = `
-                <i class="fas fa-check-circle" style="font-size: 2.5rem; color: var(--primary-green); margin-bottom: 1rem;"></i>
-                <p style="margin-bottom: 0.5rem; font-weight: 500; color: var(--primary-green);">Upload Complete!</p>
-                <p style="color: var(--text-disabled); font-size: 0.85rem;">${data.files.length} PDF(s) ready</p>
-            `;
-            
-            // Reset to normal state after 3 seconds
-            setTimeout(() => {
-                resetUploadArea();
-            }, 3000);
-            
-        } else {
-            throw new Error(data.error || 'Upload failed');
+    uploadArea.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        dragCounter--;
+        if (dragCounter === 0) {
+            uploadArea.classList.remove('dragover');
         }
-    } catch (error) {
-        alert(`Upload failed: ${error.message}`);
-        uploadArea.innerHTML = originalContent;
-    } finally {
-        // CRITICAL: Always reset the file input
-        event.target.value = '';
-    }
+    });
+
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+    });
+
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dragCounter = 0;
+        uploadArea.classList.remove('dragover');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            // Reset file input and handle upload
+            fileInput.value = '';
+            handleFileUpload({ target: { files: files } });
+        }
+    });
 } // Refresh uploaded files list
 async function refreshUploadedFiles() {
     try {
@@ -1248,20 +1226,6 @@ function resetUploadArea() {
         <p style="color: var(--text-disabled); font-size: 0.85rem;">or click to browse</p>
     `;
 }
-// Update your upload area click handler:
-document.getElementById('uploadArea').addEventListener('click', () => {
-    // Reset any previous state
-    const fileInput = document.getElementById('fileInput');
-    fileInput.value = ''; // Clear any previous selection
-    resetUploadArea(); // Reset visual state
-    fileInput.click(); // Open file dialog
-});
-// Update your upload area click to include reset
-document.getElementById('uploadArea').addEventListener('click', () => {
-    resetUploadArea(); // Reset the visual state
-    document.getElementById('fileInput').click();
-});
-        // Select a PDF for processing
 // Select a PDF for processing
 function selectPDF(filename, url, fileId, event) {
     currentPDF = {
@@ -1318,10 +1282,13 @@ async function deletePDF(fileId, filename, event) {
         if (response.ok && data.success) {
             addSystemMessage(`"${filename}" deleted successfully`);
             
-            // If this was the current PDF, clear it
+            // If this was the current PDF, clear it and reset file input
             if (currentPDF && (currentPDF.id === fileId || currentPDF.name === filename)) {
                 currentPDF = null;
                 document.getElementById('pdfActions').classList.remove('show');
+                // CRITICAL: Reset file input after deletion
+                document.getElementById('fileInput').value = '';
+                resetUploadArea();
             }
             
             // Refresh the file list
@@ -1334,13 +1301,6 @@ async function deletePDF(fileId, filename, event) {
         if (deleteBtn) {
             deleteBtn.innerHTML = originalContent;
             deleteBtn.disabled = false;
-      // In the deletePDF function, after the successful deletion and before refreshing files:
-    if (currentPDF && (currentPDF.id === fileId || currentPDF.name === filename)) {
-    currentPDF = null;
-    document.getElementById('pdfActions').classList.remove('show');
-    // Add this line to reset the file input:
-    document.getElementById('fileInput').value = '';
-}
         }
     }
 }
