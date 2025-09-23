@@ -408,6 +408,45 @@
             align-items: center;
             margin-bottom: 1.5rem;
         }
+        .files-header 
+        {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--card-border);
+}
+        .status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--primary-green);
+}
+
+.file-name {
+    color: var(--primary-blue);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+}
+
+.file-name:hover {
+    color: #1d4ed8;
+}
 
         .card-icon {
             width: 45px;
@@ -852,15 +891,17 @@
             simple: "Simplified explanations suitable for beginners"
         };
 
-        // Initialize page
-        document.addEventListener('DOMContentLoaded', () => {
-            setupModeButtons();
-            setupChatInput();
-            updateTimerDisplay();
-            setupFileUpload();
-            refreshUploadedFiles();
-        });
-
+      // Initialize page - SINGLE EVENT LISTENER
+document.addEventListener('DOMContentLoaded', () => {
+    setupModeButtons();
+    setupChatInput();
+    updateTimerDisplay();
+    setupFileUpload();
+    refreshUploadedFiles();
+    
+    // Test connection after a short delay
+    setTimeout(testConnection, 2000);
+});
         // Mode button setup
         function setupModeButtons() {
             const modeButtons = document.querySelectorAll('.mode-btn');
@@ -955,6 +996,7 @@ async function sendMessage() {
     }
 }
 
+// Enhanced error handling for network issues
 // Enhanced error handling for network issues
 async function testConnection() {
     try {
@@ -1166,10 +1208,10 @@ async function refreshUploadedFiles() {
                         </div>
                     </div>
                     <div class="file-actions">
-                        <button class="icon-btn primary" onclick="selectPDF('${file.name}', '${file.url}', ${file.id})" title="Select for processing">
+                      <button class="icon-btn primary" onclick="selectPDF('${file.name}', '${file.url}', ${file.id}, event)" title="Select for processing">
                             <i class="fas fa-mouse-pointer"></i>
                         </button>
-                        <button class="icon-btn danger" onclick="deletePDF(${file.id}, '${file.name}')" title="Delete PDF">
+                        <button class="icon-btn danger" onclick="deletePDF(${file.id}, '${file.name}', event)" title="Delete PDF">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
@@ -1208,7 +1250,8 @@ async function refreshUploadedFiles() {
             uploadedFiles.appendChild(fileItem);
         }
         // Select a PDF for processing
-function selectPDF(filename, url, fileId) {
+// Select a PDF for processing
+function selectPDF(filename, url, fileId, event) {
     currentPDF = {
         name: filename,
         filename: filename,
@@ -1222,7 +1265,12 @@ function selectPDF(filename, url, fileId) {
     });
     
     // Highlight selected file
-    event.target.closest('.file-item').style.border = '2px solid var(--primary-blue)';
+    if (event && event.target) {
+        const fileItem = event.target.closest('.file-item');
+        if (fileItem) {
+            fileItem.style.border = '2px solid var(--primary-blue)';
+        }
+    }
     
     // Show PDF actions
     document.getElementById('pdfActions').classList.add('show');
@@ -1231,15 +1279,22 @@ function selectPDF(filename, url, fileId) {
 }
 
 // Delete a PDF
-async function deletePDF(fileId, filename) {
+// Delete a PDF
+async function deletePDF(fileId, filename, event) {
     if (!confirm(`Are you sure you want to delete "${filename}"?`)) {
         return;
     }
 
-    const deleteBtn = event.target;
-    const originalContent = deleteBtn.innerHTML;
-    deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-    deleteBtn.disabled = true;
+    let deleteBtn = null;
+    if (event && event.target) {
+        deleteBtn = event.target.tagName === 'BUTTON' ? event.target : event.target.closest('button');
+    }
+
+    if (deleteBtn) {
+        const originalContent = deleteBtn.innerHTML;
+        deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        deleteBtn.disabled = true;
+    }
 
     try {
         const response = await fetch(`/api/delete-pdf/${fileId}`, {
@@ -1264,11 +1319,12 @@ async function deletePDF(fileId, filename) {
         }
     } catch (error) {
         alert(`Failed to delete PDF: ${error.message}`);
-        deleteBtn.innerHTML = originalContent;
-        deleteBtn.disabled = false;
+        if (deleteBtn) {
+            deleteBtn.innerHTML = originalContent;
+            deleteBtn.disabled = false;
+        }
     }
 }
-
         // Process PDF with different actions
        // FIXED VERSION - Replace the processPDF function in your dashboard.html
 // Process PDF with different actions
