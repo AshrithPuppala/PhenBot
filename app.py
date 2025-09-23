@@ -753,7 +753,35 @@ def get_history():
     except Exception as e:
         print(f"Get history error: {e}")
         return jsonify({"error": "Failed to get history"}), 500
-
+@app.route("/api/delete-pdf/<int:file_id>", methods=["DELETE"])
+@login_required_json
+def delete_pdf(file_id):
+    try:
+        pdf_file = PDFFile.query.filter_by(id=file_id, user_id=session["user_id"]).first()
+        
+        if not pdf_file:
+            return jsonify({"error": "PDF not found"}), 404
+        
+        file_path = os.path.join(app.config["UPLOAD_FOLDER"], pdf_file.filename)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            print(f"Deleted file from disk: {file_path}")
+        
+        db.session.delete(pdf_file)
+        db.session.commit()
+        
+        print(f"Deleted PDF: {pdf_file.original_name} (ID: {file_id})")
+        
+        return jsonify({
+            "success": True,
+            "message": f"PDF '{pdf_file.original_name}' deleted successfully"
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Delete error: {e}")
+        traceback.print_exc()
+        return jsonify({"error": f"Failed to delete PDF: {str(e)}"}), 500
 # Health check
 @app.route("/health")
 def health():
@@ -834,4 +862,5 @@ if __name__ == "__main__":
         print(f"Groq error: {GROQ_ERROR}")
     
     app.run(host="0.0.0.0", port=port, debug=debug)
+
 
