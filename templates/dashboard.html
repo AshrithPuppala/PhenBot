@@ -551,40 +551,70 @@
         }
 
         .file-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: rgba(15, 23, 42, 0.8);
-            padding: 0.8rem 1rem;
-            border-radius: 8px;
-            margin-bottom: 0.5rem;
-        }
+    background: rgba(15, 23, 42, 0.9);
+    border-radius: 15px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid var(--card-border);
+    transition: all 0.3s ease;
+}
 
-        .file-name {
-            color: var(--primary-blue);
-            text-decoration: none;
-            font-weight: 500;
-            font-size: 0.85rem;
-        }
+.file-item:hover {
+    background: rgba(15, 23, 42, 1);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
 
-        .file-name:hover {
-            color: #1d4ed8;
-        }
+.file-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    flex: 1;
+}
 
-        .status-indicator {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.8rem;
-            color: var(--text-muted);
-        }
+.file-actions {
+    display: flex;
+    gap: 0.75rem;
+}
 
-        .status-dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: var(--primary-green);
-        }
+.icon-btn {
+    width: 45px;
+    height: 45px;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    font-size: 1.1rem;
+}
+
+.icon-btn.primary {
+    background: rgba(79, 70, 229, 0.2);
+    color: var(--primary-blue);
+    border: 1px solid rgba(79, 70, 229, 0.3);
+}
+
+.icon-btn.danger {
+    background: rgba(239, 68, 68, 0.2);
+    color: var(--primary-red);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.icon-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+.icon-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
 
         @media (max-width: 1024px) {
             .main-container {
