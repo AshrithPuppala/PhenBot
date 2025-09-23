@@ -560,20 +560,76 @@ def api_process_pdf():
         if not filename or not action:
             return jsonify({"error": "Filename and action required"}), 400
             
-        file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-        if not os.path.exists(file_path):
-            return jsonify({"error": "PDF file not found"}), 404
-            
+        # FIXED: Find PDF by original_name, not filename
         pdf_record = PDFFile.query.filter_by(
             user_id=session["user_id"], 
-            filename=filename
+            original_name=filename
         ).first()
         
         if not pdf_record:
             return jsonify({"error": "PDF not found in your uploads"}), 404
             
+        # Use the actual stored filename for file operations
+        file_path = os.path.join(app.config["UPLOAD_FOLDER"], pdf_record.filename)
+        if not os.path.exists(file_path):
+            return jsonify({"error": "PDF file not found on disk"}), 404
+            
         if not GROQ_AVAILABLE:
             return jsonify({"error": f"AI service not available: {GROQ_ERROR}"}), 503
+            
+        # Try to extract PDF text
+        pdf_text = extract_pdf_text(file_path) if PDF_EXTRACTION_AVAILABLE else None
+        
+        # Create prompts based on action and available text
+        if pdf_text:
+            prompts = {
+                "summarize": f"Please summarize the following PDF content from '{pdf_record.original_name}':\n\n{pdf_text[:3000]}{'...' if len(pdf_text) > 3000 else ''}",
+                "flashcards": f"Create flashcards based on the content from '{pdf_record.original_name}'. Format each as 'Q: [Question]\\nA: [Answer]\\n\\n'. Here's the content:\n\n{pdf_text[:2500]}{'...' if len(pdf_text) > 2500 else ''}",
+                "quiz": f"Create quiz questions (multiple choice and short answer) based on '{pdf_record.original_name}'. Here's the content:\n\n{pdf_text[:2500]}{'...' if len(pdf_text) > 2500 else ''}",
+                "outline": f"Create a structured outline based on the content from '{pdf_record.original_name}':\n\n{pdf_text[:2500]}{'...' if len(pdf_text) > 2500 else ''}"
+            }
+        else:
+            prompts = {
+                "summarize": f"I can help summarize '{pdf_record.original_name}', but I need you to share the key content first. Please paste the main sections or tell me what topics the PDF covers.",
+                "flashcards": f"I'll create flashcards for '{pdf_record.original_name}'. Please share the main concepts, definitions, or key points, and I'll format them as:\n\nQ: [Question]\nA: [Answer]",
+                "quiz": f"I can create quiz questions for '{pdf_record.original_name}'. Please share the main topics or content, and I'll create various types of questions.",
+                "outline": f"I'll help create an outline for '{pdf_record.original_name}'. Please share the main sections or topics from the document."
+            }
+        
+        prompt = prompts.get(action, "Invalid action specified")
+        
+        if length == "short":
+            prompt += "\n\nPlease keep the response concise."
+        elif length == "detailed":
+            prompt += "\n\nPlease provide a detailed, comprehensive response."
+        
+        response = get_ai_response(prompt, "general")
+        
+        try:
+            hist = QAHistory(
+                user_id=session["user_id"], 
+                question=f"PDF {action}: {pdf_record.original_name}", 
+                answer=response, 
+                subject=f"pdf_{action}"
+            )
+            db.session.add(hist)
+            db.session.commit()
+        except Exception as e:
+            print(f"Failed to save PDF processing to history: {e}")
+            db.session.rollback()
+        
+        return jsonify({
+            "success": True,
+            "result": response,
+            "action": action,
+            "filename": pdf_record.original_name,
+            "text_extracted": pdf_text is not None
+        })
+        
+    except Exception as e:
+        print(f"PDF processing error: {e}")
+        traceback.print_exc()
+        return jsonify({"error": f"Processing failed: {str(e)}"}), 500
             
         # Try to extract PDF text
         pdf_text = extract_pdf_text(file_path) if PDF_EXTRACTION_AVAILABLE else None
@@ -645,15 +701,25 @@ def upload_pdf():
         return jsonify({"error": "No file selected"}), 400
     if not allowed_file(f.filename):
         return jsonify({"error": "Only .pdf allowed"}), 400
+    
     original = secure_filename(f.filename)
     unique = f"{session['user_id']}_{uuid.uuid4().hex}_{original}"
     save_path = os.path.join(app.config["UPLOAD_FOLDER"], unique)
     f.save(save_path)
+    
     rec = PDFFile(user_id=session["user_id"], filename=unique, original_name=original)
     db.session.add(rec)
     db.session.commit()
+    
     url = url_for("static", filename=f"uploads/{unique}")
-    return jsonify({"message": "Uploaded successfully", "filename": original, "url": url}), 201
+    
+    # FIXED: Return both the unique filename for processing and original for display
+    return jsonify({
+        "message": "Uploaded successfully", 
+        "filename": original,  # For display
+        "unique_filename": unique,  # For processing
+        "url": url
+    }), 201
 
 @app.route("/api/upload", methods=["POST"])
 @login_required_json
@@ -738,3 +804,4 @@ if __name__ == "__main__":
     if not GROQ_AVAILABLE:
         print(f"Groq error: {GROQ_ERROR}")
     app.run(host="0.0.0.0", port=port, debug=debug)
+
