@@ -1007,14 +1007,24 @@
                 </div>
 
                 <div class="flashcard-controls">
-                    <button class="generate-flashcards-btn" onclick="generateFlashcards()">
-                        <i class="fas fa-magic"></i>
-                        Generate Flashcards
-                    </button>
-                    <div class="flashcard-counter" id="flashcardCounter">
-                        0 cards available
-                    </div>
-                </div>
+    <button class="generate-flashcards-btn" onclick="generateFlashcards()">
+        <i class="fas fa-magic"></i>
+        Generate Flashcards
+    </button>
+    
+    <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+        <button class="nav-btn" onclick="createCustomFlashcard()" style="flex: 1; font-size: 0.75rem;">
+            <i class="fas fa-plus"></i> Add One
+        </button>
+        <button class="nav-btn" onclick="createMultipleCustomFlashcards()" style="flex: 1; font-size: 0.75rem;">
+            <i class="fas fa-plus-circle"></i> Add Multiple
+        </button>
+    </div>
+    
+    <div class="flashcard-counter" id="flashcardCounter">
+        0 cards available
+    </div>
+</div>
 
                 <div class="flashcard-nav">
                     <button class="nav-btn" id="prevCard" onclick="previousCard()" disabled>
@@ -1499,6 +1509,22 @@ if (action === 'flashcards') {
             // Initialize flashcard system
             updateFlashcardCounter();
         }
+        // Add this debug function after setupFlashcards()
+function debugFlashcards() {
+    console.log('=== FLASHCARD DEBUG ===');
+    console.log('Total flashcards:', flashcards.length);
+    console.log('Current index:', currentCardIndex);
+    console.log('Is flipped:', isCardFlipped);
+    console.log('Prev button disabled:', document.getElementById('prevCard')?.disabled);
+    console.log('Next button disabled:', document.getElementById('nextCard')?.disabled);
+    if (flashcards.length > 0) {
+        console.log('Current card:', flashcards[currentCardIndex]);
+    }
+    console.log('=== END DEBUG ===');
+}
+
+// Add a button to trigger debug (temporary)
+// You can call debugFlashcards() from browser console
 
         function generateFlashcards() {
             if (!currentPDF) {
@@ -1630,7 +1656,9 @@ if (action === 'flashcards') {
 
             const currentCard = flashcards[currentCardIndex];
             container.innerHTML = `
-    <div class="flashcard ${isCardFlipped ? 'flipped' : ''}" onclick="flipCard()">
+    <div class="flashcard ${isCardFlipped ? 'flipped' : ''}" id="currentFlashcard">
+    // Add click event listener to the newly created card
+        document.getElementById('currentFlashcard').addEventListener('click', flipCard);
         <div class="hole"></div>
         <div class="hole"></div>
         <div class="flashcard-content">
@@ -1683,7 +1711,8 @@ if (action === 'flashcards') {
             document.getElementById('nextCard').disabled = false;
             document.getElementById('shuffleBtn').disabled = false;
             updateFlashcardNavigation();
-        }
+            console.log('Navigation enabled, total cards:', flashcards.length);
+}
 
         function updateFlashcardNavigation() {
             document.getElementById('prevCard').disabled = currentCardIndex === 0;
@@ -1736,6 +1765,57 @@ if (action === 'flashcards') {
                 pauseTimer();
             }
         }
+        function createCustomFlashcard() {
+    const question = prompt('Enter the question:');
+    if (!question || !question.trim()) return;
+    
+    const answer = prompt('Enter the answer:');
+    if (!answer || !answer.trim()) return;
+    
+    // Add to flashcards array
+    flashcards.push({
+        question: question.trim(),
+        answer: answer.trim()
+    });
+    
+    // Update display
+    updateFlashcards();
+    enableFlashcardNavigation();
+    updateFlashcardCounter();
+    
+    addSystemMessage(`Custom flashcard added! Total: ${flashcards.length} cards`);
+}
+
+function createMultipleCustomFlashcards() {
+    const count = parseInt(prompt('How many flashcards would you like to create?', '5'));
+    if (!count || count < 1 || count > 20) {
+        alert('Please enter a number between 1 and 20');
+        return;
+    }
+    
+    const newCards = [];
+    
+    for (let i = 0; i < count; i++) {
+        const question = prompt(`Question ${i + 1}/${count}:`);
+        if (!question || !question.trim()) break;
+        
+        const answer = prompt(`Answer ${i + 1}/${count}:`);
+        if (!answer || !answer.trim()) break;
+        
+        newCards.push({
+            question: question.trim(),
+            answer: answer.trim()
+        });
+    }
+    
+    if (newCards.length > 0) {
+        flashcards.push(...newCards);
+        updateFlashcards();
+        enableFlashcardNavigation();
+        updateFlashcardCounter();
+        addSystemMessage(`Added ${newCards.length} custom flashcards! Total: ${flashcards.length} cards`);
+    }
+}
 
         function pauseTimer() {
             if (isRunning) {
