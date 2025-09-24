@@ -1040,8 +1040,6 @@
 
                 <div id="flashcardContainer">
                     <div class="flashcard" id="welcomeCard" style="display: flex;">
-                        <div class="hole"></div>
-                        <div class="hole"></div>
                         <div class="flashcard-content">
                             Click "Generate Flashcards" to create study cards from your chat history or uploaded PDFs!
                         </div>
@@ -1631,47 +1629,53 @@ function debugFlashcards() {
 
     console.log('Parsed flashcards:', newFlashcards);
 
-    if (newFlashcards.length > 0) {
-        flashcards = newFlashcards;
-        currentCardIndex = 0;
-        isCardFlipped = false;
+   if (newFlashcards.length > 0) {
+    flashcards = newFlashcards;
+    currentCardIndex = 0;
+    isCardFlipped = false;
+    
+    // Use setTimeout to ensure DOM is ready
+    setTimeout(() => {
         updateFlashcards();
         enableFlashcardNavigation();
-        console.log(`Successfully created ${newFlashcards.length} flashcards`);
-    } else {
-        console.log('No flashcards could be parsed from the response');
-        addMessage('Could not parse flashcards from the response. The AI might have used an unexpected format.', 'bot');
-    }
+    }, 100);
+    
+    console.log(`Successfully created ${newFlashcards.length} flashcards`);
+} else {
+    console.log('No flashcards could be parsed from the response');
+    addMessage('Could not parse flashcards from the response. The AI might have used an unexpected format.', 'bot');
 }
         function updateFlashcards() {
-            const container = document.getElementById('flashcardContainer');
-            const welcomeCard = document.getElementById('welcomeCard');
+    const container = document.getElementById('flashcardContainer');
+    const welcomeCard = document.getElementById('welcomeCard');
 
-            if (flashcards.length === 0) {
-                welcomeCard.style.display = 'flex';
-                return;
-            }
+    if (flashcards.length === 0) {
+        welcomeCard.style.display = 'flex';
+        return;
+    }
 
-            welcomeCard.style.display = 'none';
+    welcomeCard.style.display = 'none';
 
-            const currentCard = flashcards[currentCardIndex];
-            container.innerHTML = `
-    <div class="flashcard ${isCardFlipped ? 'flipped' : ''}" id="currentFlashcard">
-    // Add click event listener to the newly created card
-        document.getElementById('currentFlashcard').addEventListener('click', flipCard);
-        <div class="hole"></div>
-        <div class="hole"></div>
-        <div class="flashcard-content">
-            ${isCardFlipped ? currentCard.answer : currentCard.question}
+    const currentCard = flashcards[currentCardIndex];
+    container.innerHTML = `
+        <div class="flashcard ${isCardFlipped ? 'flipped' : ''}" id="currentFlashcard">
+            <div class="flashcard-content">
+                ${isCardFlipped ? currentCard.answer : currentCard.question}
+            </div>
+            <div class="flashcard-indicator">
+                ${isCardFlipped ? 'Answer' : 'Question'} - ${currentCardIndex + 1}/${flashcards.length}
+            </div>
         </div>
-        <div class="flashcard-indicator">
-            ${isCardFlipped ? 'Answer' : 'Question'} - ${currentCardIndex + 1}/${flashcards.length}
-        </div>
-    </div>
-`;
+    `;
 
-            updateFlashcardCounter();
-        }
+    // Add click event listener after creating the element
+    const flashcardElement = document.getElementById('currentFlashcard');
+    if (flashcardElement) {
+        flashcardElement.addEventListener('click', flipCard);
+    }
+
+    updateFlashcardCounter();
+}
 
         function flipCard() {
             isCardFlipped = !isCardFlipped;
@@ -1706,18 +1710,33 @@ function debugFlashcards() {
             }
         }
 
-        function enableFlashcardNavigation() {
-            document.getElementById('prevCard').disabled = false;
-            document.getElementById('nextCard').disabled = false;
-            document.getElementById('shuffleBtn').disabled = false;
-            updateFlashcardNavigation();
-            console.log('Navigation enabled, total cards:', flashcards.length);
+       function enableFlashcardNavigation() {
+    const prevBtn = document.getElementById('prevCard');
+    const nextBtn = document.getElementById('nextCard');
+    const shuffleBtn = document.getElementById('shuffleBtn');
+    
+    if (prevBtn) prevBtn.disabled = false;
+    if (nextBtn) nextBtn.disabled = false; 
+    if (shuffleBtn) shuffleBtn.disabled = false;
+    
+    updateFlashcardNavigation();
+    console.log('Navigation enabled, total cards:', flashcards.length);
 }
 
         function updateFlashcardNavigation() {
-            document.getElementById('prevCard').disabled = currentCardIndex === 0;
-            document.getElementById('nextCard').disabled = currentCardIndex === flashcards.length - 1;
-        }
+    const prevBtn = document.getElementById('prevCard');
+    const nextBtn = document.getElementById('nextCard');
+    
+    if (prevBtn) prevBtn.disabled = (currentCardIndex === 0);
+    if (nextBtn) nextBtn.disabled = (currentCardIndex >= flashcards.length - 1);
+    
+    console.log('Navigation updated:', {
+        currentIndex: currentCardIndex,
+        totalCards: flashcards.length,
+        prevDisabled: prevBtn?.disabled,
+        nextDisabled: nextBtn?.disabled
+    });
+}
 
         function updateFlashcardCounter() {
             document.getElementById('flashcardCounter').textContent = 
