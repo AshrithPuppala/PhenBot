@@ -520,10 +520,11 @@ def dashboard():
 # ------------------------
 # API endpoints
 # ------------------------
-@app.route("/chat", methods=["POST"])
+@app.route("/api/chat", methods=["POST"])
 @login_required_json
-def chat():
-    """Main chat endpoint for normal conversation modes"""
+def api_chat():
+    """API chat endpoint - wrapper for the main chat function"""
+    return chat()
     try:
         data = request.get_json() or {}
         message = (data.get("message") or "").strip()
@@ -911,6 +912,7 @@ if __name__ == "__main__":
         print(f"Groq error: {GROQ_ERROR}")
     
     app.run(host="0.0.0.0", port=port, debug=debug)
+
 
 
 
