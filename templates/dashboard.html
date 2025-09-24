@@ -1444,69 +1444,57 @@ async function sendMessage() {
         }
 
         // Process PDF with different actions (FIXED VERSION)
-        async function processPDF(action, buttonElement) {
-            if (!currentPDF) {
-                alert('Please upload and select a PDF first.');
-                return;
-            }
-
-            const actionBtn = buttonElement || event.target;
-            const originalContent = actionBtn.innerHTML;
-            actionBtn.innerHTML = '<div class="spinner"></div> Processing...';
-            actionBtn.disabled = true;
-
-            try {
-                const response = await fetch('/api/process-pdf', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        filename: currentPDF.filename || currentPDF.name,
-                        action: action,
-                        length: responseLength
-                    })
-                });
-
-                const data = await response.json();
-            if (response.ok && data.success) {
-    if (action === 'flashcards') {
-        parseFlashcardsFromResponse(data.result, true); // Add 'true' for append
-        addMessage(`Added flashcards from "${data.filename}" - check the Flashcards section!`, 'bot');
-    } else {
-        // Add other results to chat
-        let actionName = {
-            'summarize': 'PDF Summary',
-            'quiz': 'Quiz Questions',
-            'outline': 'Content Outline'
-        }[action];
-        
-        addMessage(`📄 ${actionName} for "${data.filename}":\n\n${data.result}`, 'bot');
+      // Replace the existing processPDF function with this corrected version
+async function processPDF(action, buttonElement) {
+    if (!currentPDF) {
+        alert('Please upload and select a PDF first.');
+        return;
     }
-} else {
-    throw new Error(data.error || 'Processing failed');
-}
-    // Add other results to chat
-    let actionName = {
-        'summarize': 'PDF Summary',
-        'quiz': 'Quiz Questions',
-        'outline': 'Content Outline'
-    }[action];
-    
-    addMessage(`📄 ${actionName} for "${data.filename}":\n\n${data.result}`, 'bot');
-}
-                } else {
-                    throw new Error(data.error || 'Processing failed');
-                }
-            } catch (error) {
-                console.error('PDF processing error:', error);
-                addMessage(`Error processing PDF: ${error.message}`, 'bot');
-            } finally {
-                actionBtn.innerHTML = originalContent;
-                actionBtn.disabled = false;
-            }
-        }
 
+    const actionBtn = buttonElement || event.target;
+    const originalContent = actionBtn.innerHTML;
+    actionBtn.innerHTML = '<div class="spinner"></div> Processing...';
+    actionBtn.disabled = true;
+
+    try {
+        const response = await fetch('/api/process-pdf', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                filename: currentPDF.filename || currentPDF.name,
+                action: action,
+                length: responseLength
+            })
+        });
+
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            if (action === 'flashcards') {
+                parseFlashcardsFromResponse(data.result, true);
+                addMessage(`Added flashcards from "${data.filename}" - check the Flashcards section!`, 'bot');
+            } else {
+                let actionName = {
+                    'summarize': 'PDF Summary',
+                    'quiz': 'Quiz Questions',
+                    'outline': 'Content Outline'
+                }[action];
+                
+                addMessage(`📄 ${actionName} for "${data.filename}":\n\n${data.result}`, 'bot');
+            }
+        } else {
+            throw new Error(data.error || 'Processing failed');
+        }
+    } catch (error) {
+        console.error('PDF processing error:', error);
+        addMessage(`Error processing PDF: ${error.message}`, 'bot');
+    } finally {
+        actionBtn.innerHTML = originalContent;
+        actionBtn.disabled = false;
+    }
+}
         // Flashcard functionality
         function setupFlashcards() {
             // Initialize flashcard system
@@ -1599,7 +1587,7 @@ function closeFlashcardModal() {
         window.currentModal = null;
     }
 }
-
+// Add this after the existing generateFlashcards function
 async function generateCustomFlashcards() {
     const topic = document.getElementById('flashcardTopic').value.trim();
     const difficulty = document.getElementById('flashcardDifficulty').value;
@@ -1649,6 +1637,17 @@ async function generateCustomFlashcards() {
     }
 }
 
+function generateFromPDF() {
+    closeFlashcardModal();
+    processPDF('flashcards');
+}
+
+function closeFlashcardModal() {
+    if (window.currentModal) {
+        document.body.removeChild(window.currentModal);
+        window.currentModal = null;
+    }
+}
         async function generateFlashcardsFromTopic(topic) {
             const generateBtn = document.querySelector('.generate-flashcards-btn');
             const originalContent = generateBtn.innerHTML;
