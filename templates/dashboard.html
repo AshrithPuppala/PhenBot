@@ -1451,7 +1451,13 @@ async function processPDF(action, buttonElement) {
         return;
     }
 
-    const actionBtn = buttonElement || event.target;
+    // Get the button element correctly
+    const actionBtn = buttonElement;
+    if (!actionBtn) {
+        console.error('Button element not found');
+        return;
+    }
+
     const originalContent = actionBtn.innerHTML;
     actionBtn.innerHTML = '<div class="spinner"></div> Processing...';
     actionBtn.disabled = true;
