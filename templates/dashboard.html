@@ -1471,10 +1471,12 @@ async function sendMessage() {
                 if (response.ok && data.success) {
                     // Add the result to chat
                    // If generating flashcards, parse and add them to flashcard section only
-if (action === 'flashcards') {
-    parseFlashcardsFromResponse(data.result);
-    addMessage(`📚 Generated ${flashcards.length} flashcards from "${data.filename}" - check the Flashcards section!`, 'bot');
-} else {
+                // In processPDF function, change this line:
+                if (action === 'flashcards') {
+                    parseFlashcardsFromResponse(data.result, true); // Add 'true' for append
+                    addMessage(`Added ${flashcards.length} flashcards from "${data.filename}" - check the Flashcards section!`, 'bot');
+}
+                    else {
     // Add other results to chat
     let actionName = {
         'summarize': 'PDF Summary',
@@ -1503,17 +1505,140 @@ if (action === 'flashcards') {
         }
 
         function generateFlashcards() {
-            if (!currentPDF) {
-                // Generate from chat history or ask user for topic
-                const topic = prompt('What topic would you like to create flashcards for?');
-                if (topic) {
-                    generateFlashcardsFromTopic(topic);
-                }
-            } else {
-                // Generate from current PDF
-                processPDF('flashcards');
-            }
+    // Show custom dialog for topic and difficulty
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.8); z-index: 10000; display: flex;
+        align-items: center; justify-content: center;
+    `;
+    
+    modal.innerHTML = `
+        <div style="
+            background: var(--card-bg); padding: 2rem; border-radius: 20px;
+            border: 1px solid var(--card-border); max-width: 500px; width: 90%;
+        ">
+            <h3 style="color: var(--text-primary); margin-bottom: 1.5rem; text-align: center;">
+                Generate Flashcards
+            </h3>
+            
+            ${currentPDF ? `
+                <div style="margin-bottom: 1rem;">
+                    <button onclick="generateFromPDF()" style="
+                        width: 100%; padding: 1rem; background: linear-gradient(145deg, var(--primary-blue), #1d4ed8);
+                        color: white; border: none; border-radius: 10px; margin-bottom: 1rem;
+                        cursor: pointer; font-weight: 600;
+                    ">
+                        Generate from Current PDF: ${currentPDF.name}
+                    </button>
+                </div>
+                <div style="text-align: center; color: var(--text-muted); margin: 1rem 0;">- OR -</div>
+            ` : ''}
+            
+            <div style="margin-bottom: 1rem;">
+                <label style="color: var(--text-secondary); display: block; margin-bottom: 0.5rem;">Topic:</label>
+                <input type="text" id="flashcardTopic" placeholder="e.g., World War 2, Calculus, Biology" style="
+                    width: 100%; padding: 0.75rem; background: rgba(15, 23, 42, 0.8);
+                    border: 1px solid var(--card-border); border-radius: 8px;
+                    color: var(--text-secondary);
+                ">
+            </div>
+            
+            <div style="margin-bottom: 1.5rem;">
+                <label style="color: var(--text-secondary); display: block; margin-bottom: 0.5rem;">Difficulty:</label>
+                <select id="flashcardDifficulty" style="
+                    width: 100%; padding: 0.75rem; background: rgba(15, 23, 42, 0.8);
+                    border: 1px solid var(--card-border); border-radius: 8px;
+                    color: var(--text-secondary);
+                ">
+                    <option value="beginner">Beginner</option>
+                    <option value="intermediate">Intermediate</option>
+                    <option value="advanced">Advanced</option>
+                </select>
+            </div>
+            
+            <div style="display: flex; gap: 1rem;">
+                <button onclick="generateCustomFlashcards()" style="
+                    flex: 1; padding: 1rem; background: linear-gradient(145deg, var(--primary-purple), #8b5cf6);
+                    color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: 600;
+                ">
+                    Generate Cards
+                </button>
+                <button onclick="closeFlashcardModal()" style="
+                    flex: 1; padding: 1rem; background: rgba(71, 85, 105, 0.5);
+                    color: var(--text-secondary); border: 1px solid var(--card-border);
+                    border-radius: 10px; cursor: pointer;
+                ">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    window.currentModal = modal;
+}
+
+function generateFromPDF() {
+    closeFlashcardModal();
+    processPDF('flashcards');
+}
+
+function closeFlashcardModal() {
+    if (window.currentModal) {
+        document.body.removeChild(window.currentModal);
+        window.currentModal = null;
+    }
+}
+
+async function generateCustomFlashcards() {
+    const topic = document.getElementById('flashcardTopic').value.trim();
+    const difficulty = document.getElementById('flashcardDifficulty').value;
+    
+    if (!topic) {
+        alert('Please enter a topic');
+        return;
+    }
+    
+    closeFlashcardModal();
+    
+    const generateBtn = document.querySelector('.generate-flashcards-btn');
+    const originalContent = generateBtn.innerHTML;
+    generateBtn.innerHTML = '<div class="spinner"></div> Generating...';
+    generateBtn.disabled = true;
+
+    try {
+        const difficultyPrompts = {
+            beginner: "simple, basic concepts suitable for beginners",
+            intermediate: "moderate complexity with some advanced concepts", 
+            advanced: "challenging, detailed concepts for advanced learners"
+        };
+
+        const response = await fetch('/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message: `Create 10 ${difficultyPrompts[difficulty]} flashcards about "${topic}". Format each EXACTLY as "Q: [Question] | A: [Answer]" on separate lines. Make sure questions are ${difficulty} level.`,
+                mode: 'teach',
+                length: 'detailed'
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.response) {
+            parseFlashcardsFromResponse(data.response, flashcards.length > 0);
+        } else {
+            throw new Error(data.error || 'Failed to generate flashcards');
         }
+    } catch (error) {
+        console.error('Flashcard generation error:', error);
+        addMessage(`Error generating flashcards: ${error.message}`, 'bot');
+    } finally {
+        generateBtn.innerHTML = originalContent;
+        generateBtn.disabled = false;
+    }
+}
 
         async function generateFlashcardsFromTopic(topic) {
             const generateBtn = document.querySelector('.generate-flashcards-btn');
@@ -1551,10 +1676,34 @@ if (action === 'flashcards') {
             }
         }
 
-      function parseFlashcardsFromResponse(response) {
+     function parseFlashcardsFromResponse(response, append = false) {
     const lines = response.split('\n');
     const newFlashcards = [];
     let currentCard = null;
+
+    // ... existing parsing logic stays the same ...
+
+    if (newFlashcards.length > 0) {
+        if (append) {
+            // Add new flashcards to existing ones
+            flashcards = flashcards.concat(newFlashcards);
+            addMessage(`Added ${newFlashcards.length} new flashcards. Total: ${flashcards.length} cards.`, 'bot');
+        } else {
+            // Replace existing flashcards
+            flashcards = newFlashcards;
+        }
+        
+        // Don't reset index if appending
+        if (!append) {
+            currentCardIndex = 0;
+            isCardFlipped = false;
+        }
+        
+        updateFlashcards();
+        enableFlashcardNavigation();
+        console.log(`Successfully created ${newFlashcards.length} flashcards`);
+    }
+}
 
     // Debug: log the response to see what format we're getting
     console.log('Parsing flashcard response:', response);
@@ -1680,17 +1829,26 @@ if (action === 'flashcards') {
             }
         }
 
-        function enableFlashcardNavigation() {
-            document.getElementById('prevCard').disabled = false;
-            document.getElementById('nextCard').disabled = false;
-            document.getElementById('shuffleBtn').disabled = false;
-            updateFlashcardNavigation();
-        }
+       function enableFlashcardNavigation() {
+    updateFlashcardNavigation(); // Just call the update function
+}
 
         function updateFlashcardNavigation() {
-            document.getElementById('prevCard').disabled = currentCardIndex === 0;
-            document.getElementById('nextCard').disabled = currentCardIndex === flashcards.length - 1;
-        }
+    const prevBtn = document.getElementById('prevCard');
+    const nextBtn = document.getElementById('nextCard');
+    const shuffleBtn = document.getElementById('shuffleBtn');
+    
+    if (flashcards.length === 0) {
+        prevBtn.disabled = true;
+        nextBtn.disabled = true;
+        shuffleBtn.disabled = true;
+        return;
+    }
+    
+    prevBtn.disabled = (currentCardIndex === 0);
+    nextBtn.disabled = (currentCardIndex >= flashcards.length - 1);
+    shuffleBtn.disabled = false;
+}
 
         function updateFlashcardCounter() {
             document.getElementById('flashcardCounter').textContent = 
