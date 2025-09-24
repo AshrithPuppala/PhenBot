@@ -675,6 +675,24 @@
                 gap: 1rem;
             }
         }
+        @media (max-width: 1024px) {
+    .sidebar {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;  /* 3 columns for flashcards */
+        gap: 1rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .sidebar {
+        grid-template-columns: 1fr;
+    }
+    
+    .flashcard-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
 
         @media (max-width: 768px) {
             .chat-controls {
