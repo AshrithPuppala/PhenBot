@@ -520,6 +520,55 @@ def dashboard():
 # ------------------------
 # API endpoints
 # ------------------------
+@app.route("/chat", methods=["POST"])
+@login_required_json
+def chat():
+    """Main chat endpoint for normal conversation modes"""
+    try:
+        data = request.get_json() or {}
+        message = (data.get("message") or "").strip()
+        mode = data.get("mode", "normal")
+        length = data.get("length", "normal")
+        
+        if not message:
+            return jsonify({"error": "Message required"}), 400
+        
+        print(f"Chat: user_id={session.get('user_id')}, mode={mode}, length={length}, message_preview={message[:50]}...")
+        
+        # Check if GROQ is available
+        if not GROQ_AVAILABLE:
+            return jsonify({"error": f"AI service not available: {GROQ_ERROR}"}), 503
+        
+        # Get AI response using the existing function
+        response = get_enhanced_ai_response(message, mode, length)
+        
+        # Save to history
+        try:
+            hist = QAHistory(
+                user_id=session["user_id"], 
+                question=message, 
+                answer=response, 
+                mode=mode,
+                length=length,
+                subject="chat"
+            )
+            db.session.add(hist)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error saving chat history: {e}")
+        
+        return jsonify({
+            "success": True,
+            "response": response,
+            "mode": mode,
+            "length": length
+        })
+        
+    except Exception as e:
+        print(f"Chat error: {e}")
+        traceback.print_exc()
+        return jsonify({"error": f"Chat error: {str(e)}"}), 500
 @app.route("/api/enhanced-chat", methods=["POST"])
 @login_required_json
 def api_enhanced_chat():
@@ -862,5 +911,6 @@ if __name__ == "__main__":
         print(f"Groq error: {GROQ_ERROR}")
     
     app.run(host="0.0.0.0", port=port, debug=debug)
+
 
 
