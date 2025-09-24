@@ -779,24 +779,22 @@
 
         /* REPLACE the nav-btn styles with these: */
 .nav-btn {
-    background: linear-gradient(145deg, #ffffff, #f3f4f6);
-    color: #374151;
-    border: 1px solid #d1d5db;
+    background: rgba(71, 85, 105, 0.7);
+    color: var(--text-secondary);
+    border: 1px solid var(--card-border);
     padding: 0.75rem 1.25rem;
     border-radius: 10px;
     cursor: pointer;
     font-size: 0.875rem;
     font-weight: 500;
     transition: all 0.3s ease;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .nav-btn:hover {
-    background: linear-gradient(145deg, #f9fafb, #ffffff);
+    background: rgba(71, 85, 105, 0.9);
     transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
-
 .nav-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
@@ -1527,12 +1525,11 @@ if (action === 'flashcards') {
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({
-                        message: `Create 10 flashcards about "${topic}". Format each as "Q: [Question]\\nA: [Answer]\\n\\n"`,
-                        message: `Create 10 flashcards about "${topic}". Format each EXACTLY as "Q: [Question] | A: [Answer]" on separate lines. Example:\n\nQ: What is photosynthesis? | A: The process plants use to make food from sunlight\nQ: Where does photosynthesis occur? | A: In the chloroplasts of plant cells`,
-                        mode: 'teach',
-                        length: 'detailed'
-                    })
+                   body: JSON.stringify({
+                   message: `Create 10 flashcards about "${topic}". Format each EXACTLY as "Q: [Question] | A: [Answer]" on separate lines. Example:\n\nQ: What is photosynthesis? | A: The process plants use to make food from sunlight\nQ: Where does photosynthesis occur? | A: In the chloroplasts of plant cells`,
+                   mode: 'teach',
+                   length: 'detailed'
+                })
                 });
 
                 const data = await response.json();
@@ -1553,34 +1550,10 @@ if (action === 'flashcards') {
         }
 
         function parseFlashcardsFromResponse(response) {
-            const lines = response.split('\n');
-            const newFlashcards = [];
-            let currentCard = null;
-      function parseFlashcardsFromResponse(response) {
     const lines = response.split('\n');
     const newFlashcards = [];
     let currentCard = null;
 
-            for (let line of lines) {
-                line = line.trim();
-                if (line.startsWith('Q:') || line.startsWith('Question:')) {
-                    if (currentCard && currentCard.question && currentCard.answer) {
-                        newFlashcards.push(currentCard);
-                    }
-                    currentCard = { 
-                        question: line.replace(/^(Q:|Question:)\s*/, ''), 
-                        answer: '' 
-                    };
-                } else if (line.startsWith('A:') || line.startsWith('Answer:')) {
-                    if (currentCard) {
-                        currentCard.answer = line.replace(/^(A:|Answer:)\s*/, '');
-                    }
-                } else if (currentCard && line && !currentCard.answer) {
-                    currentCard.question += ' ' + line;
-                } else if (currentCard && line && currentCard.answer) {
-                    currentCard.answer += ' ' + line;
-                }
-            }
     // Debug: log the response to see what format we're getting
     console.log('Parsing flashcard response:', response);
 
@@ -1593,15 +1566,6 @@ if (action === 'flashcards') {
             if (currentCard && currentCard.question && currentCard.answer) {
                 newFlashcards.push(currentCard);
             }
-
-            if (newFlashcards.length > 0) {
-                flashcards = newFlashcards;
-                currentCardIndex = 0;
-                isCardFlipped = false;
-                updateFlashcards();
-                enableFlashcardNavigation();
-    // Don't add flashcards to chat - they should only appear in flashcard section
-}
             currentCard = { 
                 question: line.replace(/^(\d+\.|Q:|Question:)\s*/i, ''), 
                 answer: '' 
