@@ -1689,6 +1689,11 @@ function closeFlashcardModal() {
                 generateBtn.disabled = false;
             }
         }
+    // Make functions globally accessible
+    window.generateFromPDF = generateFromPDF;
+    window.closeFlashcardModal = closeFlashcardModal;
+    window.generateCustomFlashcards = generateCustomFlashcards;
+
 
     function parseFlashcardsFromResponse(response, append = false) {
     const lines = response.split('\n');
