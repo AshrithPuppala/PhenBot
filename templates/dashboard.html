@@ -100,15 +100,15 @@
             box-shadow: 0 8px 25px rgba(239, 68, 68, 0.3);
         }
 
-       .main-container {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 2rem;
-    display: grid;
-    grid-template-columns: 1.5fr 1fr;  /* Adjust ratio to give more space to sidebar */
-    gap: 2rem;
-    min-height: calc(100vh - 100px);
-}
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+            display: grid;
+            grid-template-columns: 1.5fr 1fr;
+            gap: 2rem;
+            min-height: calc(100vh - 100px);
+        }
 
         .chat-section {
             display: flex;
@@ -470,6 +470,11 @@
             color: white;
         }
 
+        .flashcards .card-icon {
+            background: linear-gradient(135deg, var(--primary-purple), #8b5cf6);
+            color: white;
+        }
+
         .card-title {
             font-size: 1.2rem;
             font-weight: 600;
@@ -663,6 +668,105 @@
             text-align: center;
         }
 
+        /* Flashcard Styles */
+        .flashcard {
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid var(--card-border);
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            min-height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .flashcard:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .flashcard.flipped {
+            background: rgba(79, 70, 229, 0.1);
+            border-color: var(--primary-blue);
+        }
+
+        .flashcard-content {
+            font-size: 1rem;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+
+        .flashcard-indicator {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 500;
+        }
+
+        .flashcard-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .flashcard-nav {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .nav-btn {
+            background: rgba(71, 85, 105, 0.5);
+            color: var(--text-secondary);
+            border: 1px solid var(--card-border);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.3s ease;
+        }
+
+        .nav-btn:hover {
+            background: rgba(71, 85, 105, 0.8);
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .generate-flashcards-btn {
+            background: linear-gradient(135deg, var(--primary-purple), #8b5cf6);
+            color: white;
+            border: none;
+            padding: 0.7rem 1.3rem;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .generate-flashcards-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(124, 58, 237, 0.3);
+        }
+
+        .flashcard-counter {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
         @media (max-width: 1024px) {
             .main-container {
                 grid-template-columns: 1fr;
@@ -671,30 +775,21 @@
 
             .sidebar {
                 display: grid;
-                grid-template-columns: 1fr 1fr;
+                grid-template-columns: 1fr 1fr 1fr;
                 gap: 1rem;
             }
         }
-        @media (max-width: 1024px) {
-    .sidebar {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;  /* 3 columns for flashcards */
-        gap: 1rem;
-    }
-}
-
-@media (max-width: 768px) {
-    .sidebar {
-        grid-template-columns: 1fr;
-    }
-    
-    .flashcard-controls {
-        flex-direction: column;
-        align-items: stretch;
-    }
-}
 
         @media (max-width: 768px) {
+            .sidebar {
+                grid-template-columns: 1fr;
+            }
+
+            .flashcard-controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
             .chat-controls {
                 flex-direction: column;
                 gap: 1rem;
@@ -703,10 +798,6 @@
 
             .mode-selector {
                 justify-content: center;
-            }
-
-            .sidebar {
-                grid-template-columns: 1fr;
             }
 
             .nav-container {
@@ -844,6 +935,52 @@
                 </div>
             </div>
 
+            <div class="card flashcards">
+                <div class="card-header">
+                    <div class="card-icon">
+                        <i class="fas fa-layer-group"></i>
+                    </div>
+                    <div>
+                        <h3 class="card-title">Flashcards</h3>
+                        <div class="status-indicator">
+                            <span class="status-dot" style="background: var(--primary-purple);"></span>
+                            <span>Ready to study</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flashcard-controls">
+                    <button class="generate-flashcards-btn" onclick="generateFlashcards()">
+                        <i class="fas fa-magic"></i>
+                        Generate Flashcards
+                    </button>
+                    <div class="flashcard-counter" id="flashcardCounter">
+                        0 cards available
+                    </div>
+                </div>
+
+                <div class="flashcard-nav">
+                    <button class="nav-btn" id="prevCard" onclick="previousCard()" disabled>
+                        <i class="fas fa-chevron-left"></i> Previous
+                    </button>
+                    <button class="nav-btn" id="nextCard" onclick="nextCard()" disabled>
+                        Next <i class="fas fa-chevron-right"></i>
+                    </button>
+                    <button class="nav-btn" onclick="shuffleCards()" disabled id="shuffleBtn">
+                        <i class="fas fa-random"></i> Shuffle
+                    </button>
+                </div>
+
+                <div id="flashcardContainer">
+                    <div class="flashcard" id="welcomeCard" style="display: flex;">
+                        <div class="flashcard-content">
+                            Click "Generate Flashcards" to create study cards from your chat history or uploaded PDFs!
+                        </div>
+                        <div class="flashcard-indicator">Welcome</div>
+                    </div>
+                </div>
+            </div>
+
             <div class="card pomodoro">
                 <div class="card-header">
                     <div class="card-icon">
@@ -876,42 +1013,6 @@
     </div>
 
     <script>
-    <div class="card flashcards">
-    <div class="card-header">
-        <div class="card-icon">
-            <i class="fas fa-layer-group"></i>
-        </div>
-        <div>
-            <h3 class="card-title">Flashcards</h3>
-            <div class="status-indicator">
-                <span class="status-dot" style="background: var(--primary-purple);"></span>
-                <span>Study mode</span>
-            </div>
-        </div>
-    </div>
-    
-    <div class="flashcard-controls">
-        <button class="generate-flashcards-btn" onclick="generateFlashcards()">
-            <i class="fas fa-magic"></i> Generate Cards
-        </button>
-        <div class="flashcard-counter" id="flashcardCounter">0 cards</div>
-    </div>
-    
-    <div class="flashcard-nav">
-        <button class="nav-btn" id="prevBtn" onclick="previousCard()" disabled>
-            <i class="fas fa-chevron-left"></i> Previous
-        </button>
-        <button class="nav-btn" id="nextBtn" onclick="nextCard()" disabled>
-            Next <i class="fas fa-chevron-right"></i>
-        </button>
-    </div>
-    
-    <div id="flashcardContainer">
-        <div style="text-align: center; color: var(--text-muted); font-style: italic; padding: 2rem;">
-            No flashcards yet. Generate from PDF or create custom cards.
-        </div>
-    </div>
-</div>
         // Global variables
         let currentMode = 'normal';
         let responseLength = 'normal';
@@ -919,6 +1020,9 @@
         let timerInterval;
         let timeLeft = 25 * 60;
         let isRunning = false;
+        let flashcards = [];
+        let currentCardIndex = 0;
+        let isCardFlipped = false;
 
         // Mode descriptions
         const modeDescriptions = {
@@ -935,11 +1039,28 @@
             setupChatInput();
             updateTimerDisplay();
             setupFileUpload();
-            refreshUploadedFiles();
-
+            loadUploadedFiles();
+            setupFlashcards();
+            
             // Test connection after a short delay
             setTimeout(testConnection, 2000);
         });
+
+        // Enhanced error handling for network issues
+        async function testConnection() {
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+                console.log('System status:', data);
+                
+                if (!data.groq_available) {
+                    addSystemMessage(`⚠️ AI service not available: ${data.error}. Basic functionality will work.`);
+                }
+            } catch (error) {
+                console.error('Connection test failed:', error);
+                addSystemMessage('⚠️ Connection issues detected. Please check your internet connection.');
+            }
+        }
 
         // Mode button setup
         function setupModeButtons() {
@@ -950,12 +1071,12 @@
                     btn.classList.add('active');
                     currentMode = btn.dataset.mode;
                     document.getElementById('modeDescription').textContent = modeDescriptions[currentMode];
-
+                    
                     // Add mode change message to chat
                     addSystemMessage(`Switched to ${currentMode.toUpperCase()} mode. ${modeDescriptions[currentMode]}`);
                 });
             });
-
+            
             // Response length selector
             document.getElementById('responseLength').addEventListener('change', (e) => {
                 responseLength = e.target.value;
@@ -965,14 +1086,14 @@
         // Chat input setup
         function setupChatInput() {
             const chatInput = document.getElementById('chatInput');
-
+            
             chatInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     sendMessage();
                 }
             });
-
+            
             // Auto-resize textarea
             chatInput.addEventListener('input', () => {
                 chatInput.style.height = 'auto';
@@ -980,27 +1101,27 @@
             });
         }
 
-        // Send message function
+        // Enhanced send message function with mode support
         async function sendMessage() {
             const input = document.getElementById('chatInput');
             const message = input.value.trim();
-
+            
             if (!message) return;
-
+            
             const sendBtn = document.getElementById('sendBtn');
             sendBtn.disabled = true;
             sendBtn.innerHTML = '<div class="spinner"></div>';
-
+            
             // Add user message
             addMessage(message, 'user');
             input.value = '';
             input.style.height = 'auto';
-
+            
             // Add loading message
             const loadingMessage = addMessage('Thinking...', 'bot', true);
-
+            
             try {
-                const response = await fetch("/api/enhanced-chat", {
+                const response = await fetch("/api/chat", {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1012,12 +1133,12 @@
                         pdf_context: currentPDF ? currentPDF.name : null
                     })
                 });
-
+                
                 const data = await response.json();
-
+                
                 // Remove loading message
                 loadingMessage.remove();
-
+                
                 // Check if response is successful
                 if (response.ok && data.response) {
                     addMessage(data.response, 'bot');
@@ -1034,50 +1155,34 @@
             }
         }
 
-        // Test connection
-        async function testConnection() {
-            try {
-                const response = await fetch('/health');
-                const data = await response.json();
-                console.log('System status:', data);
-
-                if (!data.groq_available) {
-                    addSystemMessage(`⚠️ AI service not available: ${data.error}. Basic functionality will work.`);
-                }
-            } catch (error) {
-                console.error('Connection test failed:', error);
-                addSystemMessage('⚠️ Connection issues detected. Please check your internet connection.');
-            }
-        }
-
         // Add message to chat
         function addMessage(content, sender, isLoading = false) {
             const chatMessages = document.getElementById('chatMessages');
-
+            
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}${isLoading ? ' loading' : ''}`;
-
+            
             const avatar = document.createElement('div');
             avatar.className = 'message-avatar';
             avatar.innerHTML = sender === 'user' ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>';
-
+            
             const messageContent = document.createElement('div');
             messageContent.className = 'message-content';
             messageContent.textContent = content;
-
+            
             messageDiv.appendChild(avatar);
             messageDiv.appendChild(messageContent);
-
+            
             chatMessages.appendChild(messageDiv);
             chatMessages.scrollTop = chatMessages.scrollHeight;
-
+            
             return messageDiv;
         }
 
         // Add system message
         function addSystemMessage(content) {
             const chatMessages = document.getElementById('chatMessages');
-
+            
             const systemDiv = document.createElement('div');
             systemDiv.style.cssText = `
                 text-align: center;
@@ -1090,7 +1195,7 @@
                 font-style: italic;
             `;
             systemDiv.textContent = content;
-
+            
             chatMessages.appendChild(systemDiv);
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
@@ -1100,17 +1205,11 @@
             const uploadArea = document.getElementById('uploadArea');
             let dragCounter = 0;
 
-            // Single click handler for upload area
-            uploadArea.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                const fileInput = document.getElementById('fileInput');
-                fileInput.value = ''; // Reset before opening
-                fileInput.click(); // Open file dialog
+            // Make upload area clickable
+            uploadArea.addEventListener('click', () => {
+                document.getElementById('fileInput').click();
             });
 
-            // Drag and drop handlers
             uploadArea.addEventListener('dragenter', (e) => {
                 e.preventDefault();
                 dragCounter++;
@@ -1133,213 +1232,39 @@
                 e.preventDefault();
                 dragCounter = 0;
                 uploadArea.classList.remove('dragover');
-
-                const files = e.dataTransfer.files;
-                if (files.length > 0 && files[0].type === 'application/pdf') {
-                    handleFileUpload({ target: { files: files } });
+                
+                const files = Array.from(e.dataTransfer.files);
+                const pdfFiles = files.filter(file => file.type === 'application/pdf');
+                
+                if (pdfFiles.length > 0) {
+                    handleMultipleFileUpload(pdfFiles);
                 }
             });
         }
-        // Flashcards functionality
-let flashcards = [];
-let currentCardIndex = 0;
 
-// Generate flashcards from current PDF or AI
-async function generateFlashcards() {
-    const generateBtn = event.target;
-    const originalContent = generateBtn.innerHTML;
-    generateBtn.innerHTML = '<div class="spinner"></div> Generating...';
-    generateBtn.disabled = true;
-
-    try {
-        let response, data;
-        
-        if (currentPDF) {
-            // Generate from PDF
-            response = await fetch('/api/process-pdf', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    filename: currentPDF.name,
-                    action: 'flashcards',
-                    length: responseLength
-                })
-            });
-            data = await response.json();
-        } else {
-            // Generate AI flashcards on a random topic
-            response = await fetch('/api/enhanced-chat', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    message: "Generate 10 educational flashcards on an interesting academic topic. Format each as 'Q: [Question] | A: [Answer]'",
-                    mode: 'normal',
-                    length: responseLength
-                })
-            });
-            data = await response.json();
-        }
-
-        if (response.ok && (data.success || data.response)) {
-            const content = data.result || data.response;
-            parseFlashcardsFromText(content);
-            addSystemMessage(`Generated ${flashcards.length} flashcards successfully!`);
-        } else {
-            throw new Error(data.error || 'Failed to generate flashcards');
-        }
-    } catch (error) {
-        console.error('Flashcard generation error:', error);
-        addSystemMessage(`Error generating flashcards: ${error.message}`);
-    } finally {
-        generateBtn.innerHTML = originalContent;
-        generateBtn.disabled = false;
-    }
-}
-
-// Parse flashcards from AI response
-function parseFlashcardsFromText(text) {
-    const lines = text.split('\n');
-    const newCards = [];
-    
-    lines.forEach(line => {
-        // Look for Q: ... | A: ... format
-        const match = line.match(/Q:\s*(.+?)\s*\|\s*A:\s*(.+)/i);
-        if (match) {
-            newCards.push({
-                question: match[1].trim(),
-                answer: match[2].trim()
-            });
-        }
-    });
-    
-    // If no Q|A format found, try different parsing
-    if (newCards.length === 0) {
-        const qaPairs = text.split(/\d+\.|\n\n/).filter(pair => pair.trim());
-        qaPairs.forEach(pair => {
-            const parts = pair.split(/[:\-\?]/);
-            if (parts.length >= 2) {
-                newCards.push({
-                    question: parts[0].trim(),
-                    answer: parts.slice(1).join(':').trim()
-                });
+        // Handle multiple file upload
+        async function handleMultipleFileUpload(files) {
+            for (let i = 0; i < files.length; i++) {
+                await handleSingleFileUpload(files[i]);
             }
-        });
-    }
-    
-    // Add fallback cards if parsing failed
-    if (newCards.length === 0) {
-        newCards.push(
-            { question: "What is the main topic discussed?", answer: text.substring(0, 100) + "..." },
-            { question: "Key concept to remember", answer: "Review the generated content for important details" }
-        );
-    }
-    
-    flashcards = newCards;
-    currentCardIndex = 0;
-    displayCurrentCard();
-    updateFlashcardCounter();
-    updateNavigationButtons();
-}
+        }
 
-// Display current flashcard
-function displayCurrentCard() {
-    const container = document.getElementById('flashcardContainer');
-    
-    if (flashcards.length === 0) {
-        container.innerHTML = '<div style="text-align: center; color: var(--text-muted); font-style: italic; padding: 2rem;">No flashcards yet. Generate from PDF or create custom cards.</div>';
-        return;
-    }
-    
-    const card = flashcards[currentCardIndex];
-    container.innerHTML = `
-        <div class="flashcard" onclick="flipCard(this)">
-            <div class="flashcard-indicator">Question</div>
-            <div class="flashcard-content">${card.question}</div>
-        </div>
-    `;
-}
-
-// Flip flashcard to show answer
-function flipCard(cardElement) {
-    const card = flashcards[currentCardIndex];
-    const isFlipped = cardElement.classList.contains('flipped');
-    
-    if (isFlipped) {
-        cardElement.classList.remove('flipped');
-        cardElement.innerHTML = `
-            <div class="flashcard-indicator">Question</div>
-            <div class="flashcard-content">${card.question}</div>
-        `;
-    } else {
-        cardElement.classList.add('flipped');
-        cardElement.innerHTML = `
-            <div class="flashcard-indicator">Answer</div>
-            <div class="flashcard-content">${card.answer}</div>
-        `;
-    }
-}
-
-// Navigation functions
-function nextCard() {
-    if (currentCardIndex < flashcards.length - 1) {
-        currentCardIndex++;
-        displayCurrentCard();
-        updateNavigationButtons();
-    }
-}
-
-function previousCard() {
-    if (currentCardIndex > 0) {
-        currentCardIndex--;
-        displayCurrentCard();
-        updateNavigationButtons();
-    }
-}
-
-function updateNavigationButtons() {
-    const prevBtn = document.getElementById('prevBtn');
-    const nextBtn = document.getElementById('nextBtn');
-    
-    prevBtn.disabled = currentCardIndex === 0;
-    nextBtn.disabled = currentCardIndex === flashcards.length - 1;
-}
-
-function updateFlashcardCounter() {
-    const counter = document.getElementById('flashcardCounter');
-    if (flashcards.length > 0) {
-        counter.textContent = `${currentCardIndex + 1} of ${flashcards.length} cards`;
-    } else {
-        counter.textContent = '0 cards';
-    }
-}
-
-        // Handle file upload
-        async function handleFileUpload(event) {
-            const files = Array.from(event.target.files);
-            const pdfFiles = files.filter(file => file.type === 'application/pdf');
-
-            if (pdfFiles.length === 0) {
-                alert('Please select at least one PDF file.');
-                event.target.value = '';
+        // Handle single file upload
+        async function handleSingleFileUpload(file) {
+            if (!file || file.type !== 'application/pdf') {
+                alert('Please select a PDF file.');
                 return;
             }
 
+            const formData = new FormData();
+            formData.append('file', file);
+
             const uploadArea = document.getElementById('uploadArea');
             const originalContent = uploadArea.innerHTML;
-
             uploadArea.innerHTML = `
                 <div class="spinner" style="width: 30px; height: 30px; border-width: 3px;"></div>
-                <p style="margin-top: 1rem;">Uploading ${pdfFiles.length} PDF(s)...</p>
+                <p style="margin-top: 1rem;">Uploading ${file.name}...</p>
             `;
-
-            const formData = new FormData();
-            pdfFiles.forEach(file => {
-                formData.append('file', file);
-            });
 
             try {
                 const response = await fetch('/api/upload-pdf', {
@@ -1349,68 +1274,61 @@ function updateFlashcardCounter() {
 
                 const data = await response.json();
 
-                if (data.success) {
-                    if (data.files && data.files.length > 0) {
-                        currentPDF = {
-                            name: data.files[0].filename,
-                            filename: data.files[0].filename,
-                            url: data.files[0].url,
-                            id: data.files[0].file_id
-                        };
-                    }
-
+                if (data.message || response.ok) {
+                    currentPDF = {
+                        name: file.name,
+                        url: data.url,
+                        filename: data.filename || file.name
+                    };
+                    
+                    // Show PDF actions
                     document.getElementById('pdfActions').classList.add('show');
-                    await refreshUploadedFiles();
-
-                    let message = data.message;
-                    if (data.errors && data.errors.length > 0) {
-                        message += ` (Some files had errors)`;
-                    }
-                    addSystemMessage(message);
-
-                    uploadArea.innerHTML = `
-                        <i class="fas fa-check-circle" style="font-size: 2.5rem; color: var(--primary-green); margin-bottom: 1rem;"></i>
-                        <p style="margin-bottom: 0.5rem; font-weight: 500; color: var(--primary-green);">Upload Complete!</p>
-                        <p style="color: var(--text-disabled); font-size: 0.85rem;">${data.files.length} PDF(s) ready</p>
-                    `;
-
-                    // Reset to normal state after 3 seconds
-                    setTimeout(() => {
-                        resetUploadArea();
-                    }, 3000);
-
+                    
+                    // Add success message to chat
+                    addSystemMessage(`PDF "${file.name}" uploaded successfully! You can now ask questions about it or use the PDF tools.`);
+                    
+                    // Reload uploaded files list
+                    loadUploadedFiles();
+                    
+                    uploadArea.innerHTML = originalContent;
                 } else {
                     throw new Error(data.error || 'Upload failed');
                 }
             } catch (error) {
                 alert(`Upload failed: ${error.message}`);
                 uploadArea.innerHTML = originalContent;
-            } finally {
-                event.target.value = '';
             }
         }
 
-        // Reset upload area
-        function resetUploadArea() {
-            const uploadArea = document.getElementById('uploadArea');
-            uploadArea.innerHTML = `
-                <i class="fas fa-cloud-upload-alt" style="font-size: 2.5rem; color: var(--primary-blue); margin-bottom: 1rem;"></i>
-                <p style="margin-bottom: 0.5rem; font-weight: 500;">Drop PDF files here</p>
-                <p style="color: var(--text-disabled); font-size: 0.85rem;">or click to browse</p>
-                <input type="file" id="fileInput" class="file-input" accept=".pdf" multiple onchange="handleFileUpload(event)">
-            `;
+        // Handle file upload from input
+        function handleFileUpload(event) {
+            const files = Array.from(event.target.files);
+            const pdfFiles = files.filter(file => file.type === 'application/pdf');
+            
+            if (pdfFiles.length > 0) {
+                handleMultipleFileUpload(pdfFiles);
+            }
+            
+            // Reset input
+            event.target.value = '';
         }
 
-        // Refresh uploaded files list
-        async function refreshUploadedFiles() {
+        // Load uploaded files list
+        async function loadUploadedFiles() {
             try {
                 const response = await fetch('/api/pdfs');
                 const data = await response.json();
-
+                
                 const uploadedFiles = document.getElementById('uploadedFiles');
-                uploadedFiles.innerHTML = '<div class="files-header"><i class="fas fa-folder-open"></i>Your Documents</div>';
-
+                
                 if (data.files && data.files.length > 0) {
+                    uploadedFiles.innerHTML = `
+                        <div class="files-header">
+                            <i class="fas fa-folder"></i>
+                            Your PDFs (${data.files.length})
+                        </div>
+                    `;
+                    
                     data.files.forEach(file => {
                         const fileItem = document.createElement('div');
                         fileItem.className = 'file-item';
@@ -1420,15 +1338,15 @@ function updateFlashcardCounter() {
                                     <i class="fas fa-file-pdf" style="margin-right: 0.5rem; color: var(--primary-red);"></i>
                                     ${file.name}
                                 </a>
-                                <div style="font-size: 0.75rem; color: var(--text-muted);">
-                                    ${new Date(file.uploaded_at).toLocaleDateString()}
+                                <div class="status-indicator" style="font-size: 0.75rem;">
+                                    <span>Uploaded ${new Date(file.uploaded_at).toLocaleDateString()}</span>
                                 </div>
                             </div>
                             <div class="file-actions">
-                              <button class="icon-btn primary" onclick="selectPDF('${file.name}', '${file.url}', ${file.id}, event)" title="Select for processing">
-                                    <i class="fas fa-mouse-pointer"></i>
+                                <button class="icon-btn primary" onclick="selectPDF('${file.name}', '${file.url}')" title="Select for processing">
+                                    <i class="fas fa-check"></i>
                                 </button>
-                                <button class="icon-btn danger" onclick="deletePDF(${file.id}, '${file.name}', event)" title="Delete PDF">
+                                <button class="icon-btn danger" onclick="deletePDF(${file.id})" title="Delete file">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </div>
@@ -1436,104 +1354,33 @@ function updateFlashcardCounter() {
                         uploadedFiles.appendChild(fileItem);
                     });
                 } else {
-                    const emptyDiv = document.createElement('div');
-                    emptyDiv.style.cssText = 'text-align: center; color: var(--text-muted); font-style: italic; padding: 1rem;';
-                    emptyDiv.textContent = 'No PDFs uploaded yet';
-                    uploadedFiles.appendChild(emptyDiv);
+                    uploadedFiles.innerHTML = '';
                 }
             } catch (error) {
-                console.error('Error refreshing file list:', error);
+                console.error('Failed to load uploaded files:', error);
             }
         }
 
-        // Select a PDF for processing
-        function selectPDF(filename, url, fileId, event) {
-            currentPDF = {
-                name: filename,
-                filename: filename,
-                url: url,
-                id: fileId
-            };
-
-            // Visual feedback
-            document.querySelectorAll('.file-item').forEach(item => {
-                item.style.border = '1px solid var(--card-border)';
-            });
-
-            // Highlight selected file
-            if (event && event.target) {
-                const fileItem = event.target.closest('.file-item');
-                if (fileItem) {
-                    fileItem.style.border = '2px solid var(--primary-blue)';
-                }
-            }
-
-            // Show PDF actions
+        // Select PDF for processing
+        function selectPDF(filename, url) {
+            currentPDF = { name: filename, url: url, filename: filename };
             document.getElementById('pdfActions').classList.add('show');
-
-            addSystemMessage(`Selected "${filename}" for processing`);
+            addSystemMessage(`Selected "${filename}" for processing.`);
         }
 
-        // Delete a PDF
-        async function deletePDF(fileId, filename, event) {
-            if (!confirm(`Are you sure you want to delete "${filename}"?`)) {
-                return;
-            }
-
-            let deleteBtn = null;
-            if (event && event.target) {
-                deleteBtn = event.target.tagName === 'BUTTON' ? event.target : event.target.closest('button');
-            }
-
-            if (deleteBtn) {
-                const originalContent = deleteBtn.innerHTML;
-                deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-                deleteBtn.disabled = true;
-            }
-
-            try {
-                const response = await fetch(`/api/delete-pdf/${fileId}`, {
-                    method: 'DELETE'
-                });
-
-                const data = await response.json();
-
-                if (response.ok && data.success) {
-                    addSystemMessage(`"${filename}" deleted successfully`);
-
-                    // If this was the current PDF, clear it
-                    if (currentPDF && (currentPDF.id === fileId || currentPDF.name === filename)) {
-                        currentPDF = null;
-                        document.getElementById('pdfActions').classList.remove('show');
-                    }
-
-                    // Reset the file input
-                    const fileInput = document.getElementById('fileInput');
-                    if (fileInput) {
-                        fileInput.value = '';
-                    }
-                    
-                    // Reset upload area to default state
-                    resetUploadArea();
-
-                    // Refresh the file list
-                    await refreshUploadedFiles();
-                } else {
-                    throw new Error(data.error || 'Delete failed');
-                }
-            } catch (error) {
-                alert(`Failed to delete PDF: ${error.message}`);
-                if (deleteBtn) {
-                    deleteBtn.innerHTML = originalContent;
-                    deleteBtn.disabled = false;
-                }
+        // Delete PDF (placeholder - would need backend implementation)
+        function deletePDF(fileId) {
+            if (confirm('Are you sure you want to delete this PDF?')) {
+                // This would need a DELETE endpoint on the backend
+                console.log('Delete PDF:', fileId);
+                addSystemMessage('PDF deletion feature coming soon!');
             }
         }
 
-        // Process PDF with different actions
+        // Process PDF with different actions (FIXED VERSION)
         async function processPDF(action) {
             if (!currentPDF) {
-                alert('Please upload a PDF first.');
+                alert('Please upload and select a PDF first.');
                 return;
             }
 
@@ -1543,26 +1390,13 @@ function updateFlashcardCounter() {
             actionBtn.disabled = true;
 
             try {
-                // Get the unique filename from the database
-                const pdfListResponse = await fetch('/api/pdfs');
-                const pdfListData = await pdfListResponse.json();
-
-                // Find the matching PDF by original name
-                const matchingPDF = pdfListData.files.find(pdf => 
-                    pdf.name === currentPDF.name || pdf.name === currentPDF.filename
-                );
-
-                if (!matchingPDF) {
-                    throw new Error('PDF not found in database');
-                }
-
                 const response = await fetch('/api/process-pdf', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        filename: matchingPDF.name,
+                        filename: currentPDF.filename || currentPDF.name,
                         action: action,
                         length: responseLength
                     })
@@ -1571,14 +1405,20 @@ function updateFlashcardCounter() {
                 const data = await response.json();
 
                 if (response.ok && data.success) {
+                    // Add the result to chat
                     let actionName = {
                         'summarize': 'PDF Summary',
                         'flashcards': 'Flashcards',
                         'quiz': 'Quiz Questions',
                         'outline': 'Content Outline'
                     }[action];
-
+                    
                     addMessage(`📄 ${actionName} for "${data.filename}":\n\n${data.result}`, 'bot');
+                    
+                    // If generating flashcards, parse and add them
+                    if (action === 'flashcards') {
+                        parseFlashcardsFromResponse(data.result);
+                    }
                 } else {
                     throw new Error(data.error || 'Processing failed');
                 }
@@ -1589,6 +1429,176 @@ function updateFlashcardCounter() {
                 actionBtn.innerHTML = originalContent;
                 actionBtn.disabled = false;
             }
+        }
+
+        // Flashcard functionality
+        function setupFlashcards() {
+            // Initialize flashcard system
+            updateFlashcardCounter();
+        }
+
+        function generateFlashcards() {
+            if (!currentPDF) {
+                // Generate from chat history or ask user for topic
+                const topic = prompt('What topic would you like to create flashcards for?');
+                if (topic) {
+                    generateFlashcardsFromTopic(topic);
+                }
+            } else {
+                // Generate from current PDF
+                processPDF('flashcards');
+            }
+        }
+
+        async function generateFlashcardsFromTopic(topic) {
+            const generateBtn = document.querySelector('.generate-flashcards-btn');
+            const originalContent = generateBtn.innerHTML;
+            generateBtn.innerHTML = '<div class="spinner"></div> Generating...';
+            generateBtn.disabled = true;
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: `Create 10 flashcards about "${topic}". Format each as "Q: [Question]\\nA: [Answer]\\n\\n"`,
+                        mode: 'teach',
+                        length: 'detailed'
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.response) {
+                    parseFlashcardsFromResponse(data.response);
+                    addMessage(`📚 Generated flashcards for "${topic}"`, 'bot');
+                } else {
+                    throw new Error(data.error || 'Failed to generate flashcards');
+                }
+            } catch (error) {
+                console.error('Flashcard generation error:', error);
+                addMessage(`Error generating flashcards: ${error.message}`, 'bot');
+            } finally {
+                generateBtn.innerHTML = originalContent;
+                generateBtn.disabled = false;
+            }
+        }
+
+        function parseFlashcardsFromResponse(response) {
+            const lines = response.split('\n');
+            const newFlashcards = [];
+            let currentCard = null;
+
+            for (let line of lines) {
+                line = line.trim();
+                if (line.startsWith('Q:') || line.startsWith('Question:')) {
+                    if (currentCard && currentCard.question && currentCard.answer) {
+                        newFlashcards.push(currentCard);
+                    }
+                    currentCard = { 
+                        question: line.replace(/^(Q:|Question:)\s*/, ''), 
+                        answer: '' 
+                    };
+                } else if (line.startsWith('A:') || line.startsWith('Answer:')) {
+                    if (currentCard) {
+                        currentCard.answer = line.replace(/^(A:|Answer:)\s*/, '');
+                    }
+                } else if (currentCard && line && !currentCard.answer) {
+                    currentCard.question += ' ' + line;
+                } else if (currentCard && line && currentCard.answer) {
+                    currentCard.answer += ' ' + line;
+                }
+            }
+
+            if (currentCard && currentCard.question && currentCard.answer) {
+                newFlashcards.push(currentCard);
+            }
+
+            if (newFlashcards.length > 0) {
+                flashcards = newFlashcards;
+                currentCardIndex = 0;
+                isCardFlipped = false;
+                updateFlashcards();
+                enableFlashcardNavigation();
+            }
+        }
+
+        function updateFlashcards() {
+            const container = document.getElementById('flashcardContainer');
+            const welcomeCard = document.getElementById('welcomeCard');
+            
+            if (flashcards.length === 0) {
+                welcomeCard.style.display = 'flex';
+                return;
+            }
+
+            welcomeCard.style.display = 'none';
+
+            const currentCard = flashcards[currentCardIndex];
+            container.innerHTML = `
+                <div class="flashcard ${isCardFlipped ? 'flipped' : ''}" onclick="flipCard()">
+                    <div class="flashcard-content">
+                        ${isCardFlipped ? currentCard.answer : currentCard.question}
+                    </div>
+                    <div class="flashcard-indicator">
+                        ${isCardFlipped ? 'Answer' : 'Question'} - ${currentCardIndex + 1}/${flashcards.length}
+                    </div>
+                </div>
+            `;
+
+            updateFlashcardCounter();
+        }
+
+        function flipCard() {
+            isCardFlipped = !isCardFlipped;
+            updateFlashcards();
+        }
+
+        function nextCard() {
+            if (currentCardIndex < flashcards.length - 1) {
+                currentCardIndex++;
+                isCardFlipped = false;
+                updateFlashcards();
+                updateFlashcardNavigation();
+            }
+        }
+
+        function previousCard() {
+            if (currentCardIndex > 0) {
+                currentCardIndex--;
+                isCardFlipped = false;
+                updateFlashcards();
+                updateFlashcardNavigation();
+            }
+        }
+
+        function shuffleCards() {
+            if (flashcards.length > 0) {
+                flashcards = flashcards.sort(() => Math.random() - 0.5);
+                currentCardIndex = 0;
+                isCardFlipped = false;
+                updateFlashcards();
+                addSystemMessage('Flashcards shuffled!');
+            }
+        }
+
+        function enableFlashcardNavigation() {
+            document.getElementById('prevCard').disabled = false;
+            document.getElementById('nextCard').disabled = false;
+            document.getElementById('shuffleBtn').disabled = false;
+            updateFlashcardNavigation();
+        }
+
+        function updateFlashcardNavigation() {
+            document.getElementById('prevCard').disabled = currentCardIndex === 0;
+            document.getElementById('nextCard').disabled = currentCardIndex === flashcards.length - 1;
+        }
+
+        function updateFlashcardCounter() {
+            document.getElementById('flashcardCounter').textContent = 
+                `${flashcards.length} cards available`;
         }
 
         // Timer functionality
@@ -1605,17 +1615,17 @@ function updateFlashcardCounter() {
                 const startBtn = document.getElementById('startBtn');
                 startBtn.innerHTML = '<i class="fas fa-pause"></i> Running...';
                 startBtn.classList.remove('start');
-
+                
                 timerInterval = setInterval(() => {
                     timeLeft--;
                     updateTimerDisplay();
-
+                    
                     if (timeLeft <= 0) {
                         clearInterval(timerInterval);
                         isRunning = false;
                         startBtn.innerHTML = '<i class="fas fa-play"></i> Start';
                         startBtn.classList.add('start');
-
+                        
                         // Show notification
                         if ('Notification' in window && Notification.permission === 'granted') {
                             new Notification('PhenBOT Timer', {
@@ -1623,7 +1633,7 @@ function updateFlashcardCounter() {
                                 icon: '/static/favicon.ico'
                             });
                         }
-
+                        
                         alert('Pomodoro session completed! Take a break.');
                         resetTimer();
                     }
