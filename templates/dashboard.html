@@ -1122,6 +1122,182 @@
                 }
             });
         }
+        // Flashcards functionality
+let flashcards = [];
+let currentCardIndex = 0;
+
+// Generate flashcards from current PDF or AI
+async function generateFlashcards() {
+    const generateBtn = event.target;
+    const originalContent = generateBtn.innerHTML;
+    generateBtn.innerHTML = '<div class="spinner"></div> Generating...';
+    generateBtn.disabled = true;
+
+    try {
+        let response, data;
+        
+        if (currentPDF) {
+            // Generate from PDF
+            response = await fetch('/api/process-pdf', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    filename: currentPDF.name,
+                    action: 'flashcards',
+                    length: responseLength
+                })
+            });
+            data = await response.json();
+        } else {
+            // Generate AI flashcards on a random topic
+            response = await fetch('/api/enhanced-chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: "Generate 10 educational flashcards on an interesting academic topic. Format each as 'Q: [Question] | A: [Answer]'",
+                    mode: 'normal',
+                    length: responseLength
+                })
+            });
+            data = await response.json();
+        }
+
+        if (response.ok && (data.success || data.response)) {
+            const content = data.result || data.response;
+            parseFlashcardsFromText(content);
+            addSystemMessage(`Generated ${flashcards.length} flashcards successfully!`);
+        } else {
+            throw new Error(data.error || 'Failed to generate flashcards');
+        }
+    } catch (error) {
+        console.error('Flashcard generation error:', error);
+        addSystemMessage(`Error generating flashcards: ${error.message}`);
+    } finally {
+        generateBtn.innerHTML = originalContent;
+        generateBtn.disabled = false;
+    }
+}
+
+// Parse flashcards from AI response
+function parseFlashcardsFromText(text) {
+    const lines = text.split('\n');
+    const newCards = [];
+    
+    lines.forEach(line => {
+        // Look for Q: ... | A: ... format
+        const match = line.match(/Q:\s*(.+?)\s*\|\s*A:\s*(.+)/i);
+        if (match) {
+            newCards.push({
+                question: match[1].trim(),
+                answer: match[2].trim()
+            });
+        }
+    });
+    
+    // If no Q|A format found, try different parsing
+    if (newCards.length === 0) {
+        const qaPairs = text.split(/\d+\.|\n\n/).filter(pair => pair.trim());
+        qaPairs.forEach(pair => {
+            const parts = pair.split(/[:\-\?]/);
+            if (parts.length >= 2) {
+                newCards.push({
+                    question: parts[0].trim(),
+                    answer: parts.slice(1).join(':').trim()
+                });
+            }
+        });
+    }
+    
+    // Add fallback cards if parsing failed
+    if (newCards.length === 0) {
+        newCards.push(
+            { question: "What is the main topic discussed?", answer: text.substring(0, 100) + "..." },
+            { question: "Key concept to remember", answer: "Review the generated content for important details" }
+        );
+    }
+    
+    flashcards = newCards;
+    currentCardIndex = 0;
+    displayCurrentCard();
+    updateFlashcardCounter();
+    updateNavigationButtons();
+}
+
+// Display current flashcard
+function displayCurrentCard() {
+    const container = document.getElementById('flashcardContainer');
+    
+    if (flashcards.length === 0) {
+        container.innerHTML = '<div style="text-align: center; color: var(--text-muted); font-style: italic; padding: 2rem;">No flashcards yet. Generate from PDF or create custom cards.</div>';
+        return;
+    }
+    
+    const card = flashcards[currentCardIndex];
+    container.innerHTML = `
+        <div class="flashcard" onclick="flipCard(this)">
+            <div class="flashcard-indicator">Question</div>
+            <div class="flashcard-content">${card.question}</div>
+        </div>
+    `;
+}
+
+// Flip flashcard to show answer
+function flipCard(cardElement) {
+    const card = flashcards[currentCardIndex];
+    const isFlipped = cardElement.classList.contains('flipped');
+    
+    if (isFlipped) {
+        cardElement.classList.remove('flipped');
+        cardElement.innerHTML = `
+            <div class="flashcard-indicator">Question</div>
+            <div class="flashcard-content">${card.question}</div>
+        `;
+    } else {
+        cardElement.classList.add('flipped');
+        cardElement.innerHTML = `
+            <div class="flashcard-indicator">Answer</div>
+            <div class="flashcard-content">${card.answer}</div>
+        `;
+    }
+}
+
+// Navigation functions
+function nextCard() {
+    if (currentCardIndex < flashcards.length - 1) {
+        currentCardIndex++;
+        displayCurrentCard();
+        updateNavigationButtons();
+    }
+}
+
+function previousCard() {
+    if (currentCardIndex > 0) {
+        currentCardIndex--;
+        displayCurrentCard();
+        updateNavigationButtons();
+    }
+}
+
+function updateNavigationButtons() {
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    
+    prevBtn.disabled = currentCardIndex === 0;
+    nextBtn.disabled = currentCardIndex === flashcards.length - 1;
+}
+
+function updateFlashcardCounter() {
+    const counter = document.getElementById('flashcardCounter');
+    if (flashcards.length > 0) {
+        counter.textContent = `${currentCardIndex + 1} of ${flashcards.length} cards`;
+    } else {
+        counter.textContent = '0 cards';
+    }
+}
 
         // Handle file upload
         async function handleFileUpload(event) {
