@@ -892,6 +892,7 @@
         };
 
       // Initialize page - SINGLE EVENT LISTENER
+// Initialize page - SINGLE EVENT LISTENER  
 document.addEventListener('DOMContentLoaded', () => {
     setupModeButtons();
     setupChatInput();
@@ -901,6 +902,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Test connection after a short delay
     setTimeout(testConnection, 2000);
+
+    // Upload area click handler with proper reset
+    const uploadArea = document.getElementById('uploadArea');
+    uploadArea.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const fileInput = document.getElementById('fileInput');
+        // Always reset before opening
+        fileInput.value = '';
+        resetUploadArea();
+        
+        // Small delay to ensure reset is processed
+        setTimeout(() => {
+            fileInput.click();
+        }, 50);
+    });
 });
         // Mode button setup
         function setupModeButtons() {
@@ -1109,8 +1127,8 @@ async function handleFileUpload(event) {
 
     if (pdfFiles.length === 0) {
         alert('Please select at least one PDF file.');
-        event.target.value = ''; // Reset here too
-        event.target.value = ''; // Reset here
+        // Reset file input
+        event.target.value = '';
         return;
     }
 
@@ -1172,11 +1190,11 @@ async function handleFileUpload(event) {
         alert(`Upload failed: ${error.message}`);
         uploadArea.innerHTML = originalContent;
     } finally {
-        // Always reset the file input - this is the key fix
-        // CRITICAL: Always reset the file input
+        // CRITICAL FIX: Always reset the file input
         event.target.value = '';
     }
-} // Refresh uploaded files list
+}
+ // Refresh uploaded files list
 async function refreshUploadedFiles() {
     try {
         const response = await fetch('/api/pdfs');
@@ -1248,6 +1266,7 @@ function resetUploadArea() {
         <i class="fas fa-cloud-upload-alt" style="font-size: 2.5rem; color: var(--primary-blue); margin-bottom: 1rem;"></i>
         <p style="margin-bottom: 0.5rem; font-weight: 500;">Drop PDF files here</p>
         <p style="color: var(--text-disabled); font-size: 0.85rem;">or click to browse</p>
+        <input type="file" id="fileInput" class="file-input" accept=".pdf" multiple onchange="handleFileUpload(event)">
     `;
 }
 
@@ -1327,6 +1346,13 @@ async function deletePDF(fileId, filename, event) {
                 document.getElementById('pdfActions').classList.remove('show');
             }
 
+            // CRITICAL FIX: Reset the file input after deletion
+            const fileInput = document.getElementById('fileInput');
+            fileInput.value = '';
+            
+            // Reset upload area to default state
+            resetUploadArea();
+
             // Refresh the file list
             await refreshUploadedFiles();
         } else {
@@ -1337,13 +1363,6 @@ async function deletePDF(fileId, filename, event) {
         if (deleteBtn) {
             deleteBtn.innerHTML = originalContent;
             deleteBtn.disabled = false;
-      // In the deletePDF function, after the successful deletion and before refreshing files:
-    if (currentPDF && (currentPDF.id === fileId || currentPDF.name === filename)) {
-    currentPDF = null;
-    document.getElementById('pdfActions').classList.remove('show');
-    // Add this line to reset the file input:
-    document.getElementById('fileInput').value = '';
-}
         }
     }
 }
