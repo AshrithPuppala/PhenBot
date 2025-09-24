@@ -63,7 +63,7 @@ class User(db.Model):
     email = db.Column(db.String(150), unique=True, nullable=True)
     password_hash = db.Column(db.String(256), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
     def __repr__(self):
         return f'<User {self.username}>'
 
@@ -92,18 +92,18 @@ def init_database():
             # Create all tables
             db.create_all()
             print("Database tables created successfully")
-            
+
             # Check if email column exists and add if missing
             inspector = db.inspect(db.engine)
             columns = [col['name'] for col in inspector.get_columns('user')]
-            
+
             if 'email' not in columns:
                 print("Adding email column to user table...")
                 with db.engine.connect() as conn:
                     conn.execute(db.text('ALTER TABLE user ADD COLUMN email VARCHAR(150)'))
                     conn.commit()
                 print("Email column added successfully")
-            
+
             return True
         except Exception as e:
             print(f"Database initialization error: {e}")
@@ -155,19 +155,19 @@ def extract_pdf_text(file_path, max_pages=5):
     """Extract text from PDF file"""
     if not PDF_EXTRACTION_AVAILABLE:
         return None
-        
+
     try:
         with open(file_path, 'rb') as file:
             pdf_reader = PyPDF2.PdfReader(file)
             text = ""
-            
+
             # Limit to max_pages to avoid huge prompts
             pages_to_read = min(len(pdf_reader.pages), max_pages)
-            
+
             for page_num in range(pages_to_read):
                 page = pdf_reader.pages[page_num]
                 text += page.extract_text() + "\n\n"
-                
+
             return text.strip()
     except Exception as e:
         print(f"PDF extraction error: {e}")
@@ -182,26 +182,26 @@ def get_system_prompt(mode, length):
         "teach": "You are PhenBOT in teaching mode. Break down complex topics into step-by-step lessons with examples, practice problems, and clear explanations. Use a structured approach.",
         "simple": "You are PhenBOT in simple mode. Explain everything in very simple terms that a beginner can understand. Use basic vocabulary and short sentences."
     }
-    
+
     length_modifiers = {
         "short": " Keep your response concise and to the point, under 100 words.",
         "normal": " Provide a well-balanced response with appropriate detail.",
         "detailed": " Give a comprehensive, detailed explanation with examples and thorough coverage of the topic."
     }
-    
+
     return base_prompts.get(mode, base_prompts["normal"]) + length_modifiers.get(length, length_modifiers["normal"])
 
 def get_enhanced_ai_response(question, mode="normal", length="normal", pdf_context=None):
     """Enhanced AI response with different modes and lengths"""
     if not groq_client or not GROQ_AVAILABLE:
         return "AI system not available on server. Check GROQ_API_KEY and Groq SDK installation."
-    
+
     system_prompt = get_system_prompt(mode, length)
-    
+
     # Add PDF context if available
     if pdf_context:
         system_prompt += f"\n\nThe user has uploaded a PDF: '{pdf_context}'. You can reference this document in your responses when relevant."
-    
+
     try:
         response = groq_client.chat.completions.create(
             model="llama-3.1-8b-instant",
@@ -213,9 +213,9 @@ def get_enhanced_ai_response(question, mode="normal", length="normal", pdf_conte
             max_tokens=150 if length == "short" else (300 if length == "normal" else 800),
             top_p=0.9
         )
-        
+
         return response.choices[0].message.content
-        
+
     except Exception as e:
         traceback.print_exc()
         return f"Error calling AI: {e}"
@@ -224,17 +224,17 @@ def process_pdf_content(text, action, length="normal"):
     """Process PDF content based on the requested action"""
     if not groq_client or not GROQ_AVAILABLE:
         return "AI system not available for PDF processing."
-    
+
     prompts = {
         "summarize": f"Summarize the following PDF content in a {'brief' if length == 'short' else ('comprehensive' if length == 'detailed' else 'clear')} manner:\n\n{text[:3000]}",
-        
+
         "flashcards": f"Create {'5' if length == 'short' else ('15' if length == 'detailed' else '10')} flashcards from this PDF content. Format each as 'Q: [Question] | A: [Answer]':\n\n{text[:3000]}",
-        
+
         "quiz": f"Generate {'3' if length == 'short' else ('8' if length == 'detailed' else '5')} quiz questions with answers from this PDF content. Include multiple choice and short answer questions:\n\n{text[:3000]}",
-        
+
         "outline": f"Create a {'basic' if length == 'short' else ('detailed' if length == 'detailed' else 'structured')} outline of the main topics and subtopics from this PDF:\n\n{text[:3000]}"
     }
-    
+
     try:
         response = groq_client.chat.completions.create(
             model="llama-3.1-8b-instant",
@@ -246,9 +246,9 @@ def process_pdf_content(text, action, length="normal"):
             max_tokens=200 if length == "short" else (400 if length == "normal" else 1000),
             top_p=0.9
         )
-        
+
         return response.choices[0].message.content
-        
+
     except Exception as e:
         return f"Error processing PDF: {e}"
 
@@ -280,38 +280,38 @@ def validate_password_strength(password):
     """Check password strength and return score and feedback"""
     if not password:
         return 0, "Password is required"
-    
+
     score = 0
     feedback = []
-    
+
     if len(password) >= 8:
         score += 25
     else:
         feedback.append("At least 8 characters")
-        
+
     if len(password) >= 12:
         score += 15
-        
+
     if re.search(r'[A-Z]', password):
         score += 20
     else:
         feedback.append("At least one uppercase letter")
-        
+
     if re.search(r'[a-z]', password):
         score += 15
     else:
         feedback.append("At least one lowercase letter")
-        
+
     if re.search(r'[0-9]', password):
         score += 15
     else:
         feedback.append("At least one number")
-        
+
     if re.search(r'[^A-Za-z0-9]', password):
         score += 10
     else:
         feedback.append("At least one special character")
-    
+
     if score < 40:
         return score, "Weak password. " + ", ".join(feedback)
     elif score < 70:
@@ -332,48 +332,48 @@ def home():
 def register():
     if "user_id" in session:
         return redirect(url_for("dashboard"))
-    
+
     if request.method == "POST":
         try:
             if request.is_json:
                 data = request.get_json()
             else:
                 data = request.form
-                
+
             username = (data.get("username") or "").strip().lower()
             email = (data.get("email") or "").strip().lower()
             password = data.get("password") or ""
             confirm_password = data.get("confirmPassword") or ""
-            
+
             print(f"Registration attempt: username='{username}', email='{email}'")
-            
+
             # Validation
             errors = []
-            
+
             if not username or len(username) < 3:
                 errors.append("Username must be at least 3 characters long")
-                
+
             if not email or not validate_email(email):
                 errors.append("Please enter a valid email address")
-                
+
             if not password or len(password) < 8:
                 errors.append("Password must be at least 8 characters long")
-                
+
             if password != confirm_password:
                 errors.append("Passwords do not match")
-                
+
             strength, strength_msg = validate_password_strength(password)
             if strength < 40:
                 errors.append("Password is too weak. Please choose a stronger password")
-            
+
             existing_username = User.query.filter_by(username=username).first()
             existing_email = User.query.filter_by(email=email).first()
-            
+
             if existing_username:
                 errors.append("Username already exists")
             if existing_email:
                 errors.append("Email already registered")
-            
+
             if errors:
                 print(f"Registration errors: {errors}")
                 if request.is_json:
@@ -382,21 +382,21 @@ def register():
                     for error in errors:
                         flash(error, "danger")
                     return render_template("register.html")
-            
+
             hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
             user = User(username=username, email=email, password_hash=hashed_password)
-            
+
             db.session.add(user)
             db.session.commit()
-            
+
             print(f"User created successfully: id={user.id}, username={user.username}, email={user.email}")
-            
+
             if request.is_json:
                 return jsonify({"success": True, "message": "Account created successfully"})
             else:
                 flash("Account created successfully! Please log in.", "success")
                 return redirect(url_for("login"))
-                
+
         except Exception as e:
             db.session.rollback()
             print(f"Registration error: {e}")
@@ -407,26 +407,26 @@ def register():
             else:
                 flash(error_msg, "danger")
                 return render_template("register.html")
-    
+
     return render_template("register.html")
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if "user_id" in session:
         return redirect(url_for("dashboard"))
-    
+
     if request.method == "POST":
         try:
             if request.is_json:
                 data = request.get_json()
             else:
                 data = request.form
-                
+
             username_or_email = (data.get("username") or "").strip().lower()
             password = data.get("password") or ""
-            
+
             print(f"Login attempt: input='{username_or_email}', password_length={len(password)}")
-            
+
             if not username_or_email or not password:
                 error_msg = "Please fill in all fields"
                 print("Missing username/email or password")
@@ -435,21 +435,21 @@ def login():
                 else:
                     flash(error_msg, "danger")
                     return render_template("login.html")
-            
+
             user = None
-            
+
             if validate_email(username_or_email):
                 print(f"Input looks like email, searching by email: {username_or_email}")
                 user = User.query.filter(User.email == username_or_email).first()
                 if user:
                     print(f"Found user by email: {user.username}")
-            
+
             if not user:
                 print(f"Searching by username: {username_or_email}")
                 user = User.query.filter(User.username == username_or_email).first()
                 if user:
                     print(f"Found user by username: {user.username}")
-            
+
             if not user:
                 print("User not found in database")
                 error_msg = "Invalid username/email or password"
@@ -458,12 +458,12 @@ def login():
                 else:
                     flash(error_msg, "danger")
                     return render_template("login.html")
-            
+
             print(f"Verifying password for user: {user.username}")
-            
+
             password_valid = check_password_hash(user.password_hash, password)
             print(f"Password verification result: {password_valid}")
-            
+
             if password_valid:
                 print("Login successful, setting session")
                 session.clear()
@@ -471,9 +471,9 @@ def login():
                 session["username"] = user.username
                 session["email"] = user.email or ""
                 session.permanent = True
-                
+
                 print(f"Session set: user_id={session.get('user_id')}, username={session.get('username')}")
-                
+
                 if request.is_json:
                     return jsonify({
                         "success": True, 
@@ -491,7 +491,7 @@ def login():
                 else:
                     flash(error_msg, "danger")
                     return render_template("login.html")
-                    
+
         except Exception as e:
             print(f"Login error: {e}")
             traceback.print_exc()
@@ -501,7 +501,7 @@ def login():
             else:
                 flash(error_msg, "danger")
                 return render_template("login.html")
-    
+
     return render_template("login.html")
 
 @app.route("/logout")
@@ -520,10 +520,10 @@ def dashboard():
 # ------------------------
 # API endpoints
 # ------------------------
-@app.route("/api/chat", methods=["POST"])
+@app.route("/chat", methods=["POST"])
 @login_required_json
-def api_chat():
-    """Alternative chat endpoint for flashcard generation"""
+def chat():
+    """Main chat endpoint for normal conversation modes"""
     try:
         data = request.get_json() or {}
         message = (data.get("message") or "").strip()
@@ -533,20 +533,42 @@ def api_chat():
         if not message:
             return jsonify({"error": "Message required"}), 400
         
+        print(f"Chat: user_id={session.get('user_id')}, mode={mode}, length={length}, message_preview={message[:50]}...")
+        
+        # Check if GROQ is available
         if not GROQ_AVAILABLE:
             return jsonify({"error": f"AI service not available: {GROQ_ERROR}"}), 503
         
+        # Get AI response using the existing function
         response = get_enhanced_ai_response(message, mode, length)
+        
+        # Save to history
+        try:
+            hist = QAHistory(
+                user_id=session["user_id"], 
+                question=message, 
+                answer=response, 
+                mode=mode,
+                length=length,
+                subject="chat"
+            )
+            db.session.add(hist)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error saving chat history: {e}")
         
         return jsonify({
             "success": True,
-            "response": response
+            "response": response,
+            "mode": mode,
+            "length": length
         })
         
     except Exception as e:
-        print(f"API Chat error: {e}")
+        print(f"Chat error: {e}")
         traceback.print_exc()
-        return jsonify({"error": f"Chat error: {str(e)}"}), 500
+        return jsonify({"error": f"Chat error: {str(e)}"}), 500
 @app.route("/api/enhanced-chat", methods=["POST"])
 @login_required_json
 def api_enhanced_chat():
@@ -557,14 +579,14 @@ def api_enhanced_chat():
         mode = data.get("mode", "normal")
         length = data.get("length", "normal")
         pdf_context = data.get("pdf_context")
-        
+
         if not message:
             return jsonify({"error": "Message required"}), 400
-        
+
         print(f"Enhanced chat: user_id={session.get('user_id')}, mode={mode}, length={length}")
-        
+
         response = get_enhanced_ai_response(message, mode, length, pdf_context)
-        
+
         # Save to history
         try:
             hist = QAHistory(
@@ -580,7 +602,7 @@ def api_enhanced_chat():
         except Exception as e:
             db.session.rollback()
             print(f"Error saving chat history: {e}")
-        
+
         return jsonify({
             "success": True,
             "response": response,
@@ -588,7 +610,7 @@ def api_enhanced_chat():
             "length": length,
             "timestamp": datetime.now().isoformat()
         })
-        
+
     except Exception as e:
         print(f"Enhanced chat error: {e}")
         traceback.print_exc()
@@ -603,29 +625,29 @@ def api_process_pdf():
         filename = data.get("filename", "").strip()
         action = data.get("action", "").strip()
         length = data.get("length", "normal")
-        
+
         if not filename or not action:
             return jsonify({"error": "Filename and action required"}), 400
-            
+
         # Find PDF by original_name
         pdf_record = PDFFile.query.filter_by(
             user_id=session["user_id"], 
             original_name=filename
         ).first()
-        
+
         if not pdf_record:
             return jsonify({"error": "PDF not found in your uploads"}), 404
-            
+
         file_path = os.path.join(app.config["UPLOAD_FOLDER"], pdf_record.filename)
         if not os.path.exists(file_path):
             return jsonify({"error": "PDF file not found on disk"}), 404
-            
+
         if not GROQ_AVAILABLE:
             return jsonify({"error": f"AI service not available: {GROQ_ERROR}"}), 503
-        
+
         # Try to extract PDF text
         pdf_text = extract_pdf_text(file_path) if PDF_EXTRACTION_AVAILABLE else None
-        
+
         # Create prompts based on action and available text
         if pdf_text:
             prompts = {
@@ -641,19 +663,19 @@ def api_process_pdf():
                 "quiz": f"I can create quiz questions for '{pdf_record.original_name}'. Please share the main topics or content, and I'll create various types of questions.",
                 "outline": f"I'll help create an outline for '{pdf_record.original_name}'. Please share the main sections or topics from the document."
             }
-        
+
         prompt = prompts.get(action, "Invalid action specified")
-        
+
         if length == "short":
             prompt += "\n\nPlease keep the response concise."
         elif length == "detailed":
             prompt += "\n\nPlease provide a detailed, comprehensive response."
-        
+
         if pdf_text:
             response = process_pdf_content(pdf_text, action, length)
         else:
             response = get_enhanced_ai_response(prompt, "normal", length)
-        
+
         try:
             hist = QAHistory(
                 user_id=session["user_id"], 
@@ -668,7 +690,7 @@ def api_process_pdf():
         except Exception as e:
             print(f"Failed to save PDF processing to history: {e}")
             db.session.rollback()
-        
+
         return jsonify({
             "success": True,
             "result": response,
@@ -676,7 +698,7 @@ def api_process_pdf():
             "filename": pdf_record.original_name,
             "text_extracted": pdf_text is not None
         })
-        
+
     except Exception as e:
         print(f"PDF processing error: {e}")
         traceback.print_exc()
@@ -693,38 +715,38 @@ def allowed_file(filename):
 def upload_pdf():
     if "file" not in request.files:
         return jsonify({"error": "No file part"}), 400
-    
+
     files = request.files.getlist("file")  # Handle multiple files
     if not files or files[0].filename == "":
         return jsonify({"error": "No files selected"}), 400
-    
+
     uploaded_files = []
     errors = []
-    
+
     try:
         for file in files:
             if not allowed_file(file.filename):
                 errors.append(f"{file.filename}: Only PDF files allowed")
                 continue
-                
+
             original = secure_filename(file.filename)
             unique = f"{session['user_id']}_{uuid.uuid4().hex}_{original}"
             save_path = os.path.join(app.config["UPLOAD_FOLDER"], unique)
             file.save(save_path)
-            
+
             rec = PDFFile(user_id=session["user_id"], filename=unique, original_name=original)
             db.session.add(rec)
             db.session.commit()
-            
+
             url = url_for("static", filename=f"uploads/{unique}")
-            
+
             uploaded_files.append({
                 "filename": original,
                 "unique_filename": unique,
                 "file_id": rec.id,
                 "url": url
             })
-        
+
         if uploaded_files:
             return jsonify({
                 "success": True,
@@ -734,7 +756,7 @@ def upload_pdf():
             }), 201
         else:
             return jsonify({"error": "No valid PDF files uploaded", "errors": errors}), 400
-            
+
     except Exception as e:
         db.session.rollback()
         print(f"Upload error: {e}")
@@ -785,25 +807,25 @@ def get_history():
 def delete_pdf(file_id):
     try:
         pdf_file = PDFFile.query.filter_by(id=file_id, user_id=session["user_id"]).first()
-        
+
         if not pdf_file:
             return jsonify({"error": "PDF not found"}), 404
-        
+
         file_path = os.path.join(app.config["UPLOAD_FOLDER"], pdf_file.filename)
         if os.path.exists(file_path):
             os.remove(file_path)
             print(f"Deleted file from disk: {file_path}")
-        
+
         db.session.delete(pdf_file)
         db.session.commit()
-        
+
         print(f"Deleted PDF: {pdf_file.original_name} (ID: {file_id})")
-        
+
         return jsonify({
             "success": True,
             "message": f"PDF '{pdf_file.original_name}' deleted successfully"
         })
-        
+
     except Exception as e:
         db.session.rollback()
         print(f"Delete error: {e}")
@@ -840,7 +862,7 @@ def debug_users():
                 "password_hash": user.password_hash[:50] + "...",
                 "created_at": user.created_at.isoformat() if user.created_at else None
             })
-        
+
         return jsonify({
             "users": user_list, 
             "count": len(user_list),
@@ -887,11 +909,5 @@ if __name__ == "__main__":
     print(f"PDF extraction available: {PDF_EXTRACTION_AVAILABLE}")
     if not GROQ_AVAILABLE:
         print(f"Groq error: {GROQ_ERROR}")
-    
+
     app.run(host="0.0.0.0", port=port, debug=debug)
-
-
-
-
-
-
