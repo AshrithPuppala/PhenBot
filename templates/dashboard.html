@@ -858,6 +858,42 @@
     </div>
 
     <script>
+    <div class="card flashcards">
+    <div class="card-header">
+        <div class="card-icon">
+            <i class="fas fa-layer-group"></i>
+        </div>
+        <div>
+            <h3 class="card-title">Flashcards</h3>
+            <div class="status-indicator">
+                <span class="status-dot" style="background: var(--primary-purple);"></span>
+                <span>Study mode</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="flashcard-controls">
+        <button class="generate-flashcards-btn" onclick="generateFlashcards()">
+            <i class="fas fa-magic"></i> Generate Cards
+        </button>
+        <div class="flashcard-counter" id="flashcardCounter">0 cards</div>
+    </div>
+    
+    <div class="flashcard-nav">
+        <button class="nav-btn" id="prevBtn" onclick="previousCard()" disabled>
+            <i class="fas fa-chevron-left"></i> Previous
+        </button>
+        <button class="nav-btn" id="nextBtn" onclick="nextCard()" disabled>
+            Next <i class="fas fa-chevron-right"></i>
+        </button>
+    </div>
+    
+    <div id="flashcardContainer">
+        <div style="text-align: center; color: var(--text-muted); font-style: italic; padding: 2rem;">
+            No flashcards yet. Generate from PDF or create custom cards.
+        </div>
+    </div>
+</div>
         // Global variables
         let currentMode = 'normal';
         let responseLength = 'normal';
