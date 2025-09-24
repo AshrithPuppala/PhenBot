@@ -971,19 +971,19 @@
                 </div>
 
                 <div class="pdf-actions" id="pdfActions">
-                    <button class="pdf-action-btn" onclick="processPDF('summarize')">
+                    <button class="pdf-action-btn" onclick="processPDF('summarize', this)">
                         <i class="fas fa-file-text"></i>
                         Summarize PDF
                     </button>
-                    <button class="pdf-action-btn" onclick="processPDF('flashcards')">
+                    <button class="pdf-action-btn" onclick="processPDF('flashcards', this)">
                         <i class="fas fa-layer-group"></i>
                         Create Flashcards
                     </button>
-                    <button class="pdf-action-btn" onclick="processPDF('quiz')">
+                    <button class="pdf-action-btn" onclick="processPDF('quiz', this)">
                         <i class="fas fa-question-circle"></i>
                         Generate Quiz
                     </button>
-                    <button class="pdf-action-btn" onclick="processPDF('outline')">
+                    <button class="pdf-action-btn" onclick="processPDF('outline', this)">
                         <i class="fas fa-list"></i>
                         Create Outline
                     </button>
@@ -1165,6 +1165,10 @@
         // Enhanced send message function with mode support
        // REPLACE the existing sendMessage function with this:
 async function sendMessage() {
+    console.log("sendMessage called"); // Add this debug line
+    const input = document.getElementById('chatInput');
+    // ... rest of function
+
     const input = document.getElementById('chatInput');
     const message = input.value.trim();
     
@@ -1270,9 +1274,11 @@ async function sendMessage() {
             let dragCounter = 0;
 
             // Make upload area clickable
-            uploadArea.addEventListener('click', () => {
-                document.getElementById('fileInput').click();
-            });
+           uploadArea.addEventListener('click', (e) => {
+               e.preventDefault();
+               e.stopPropagation();
+               document.getElementById('fileInput').click();
+});
 
             uploadArea.addEventListener('dragenter', (e) => {
                 e.preventDefault();
@@ -1442,13 +1448,13 @@ async function sendMessage() {
         }
 
         // Process PDF with different actions (FIXED VERSION)
-        async function processPDF(action) {
+        async function processPDF(action, buttonElement) {
             if (!currentPDF) {
                 alert('Please upload and select a PDF first.');
                 return;
             }
 
-            const actionBtn = event.target;
+            const actionBtn = buttonElement || event.target;
             const originalContent = actionBtn.innerHTML;
             actionBtn.innerHTML = '<div class="spinner"></div> Processing...';
             actionBtn.disabled = true;
