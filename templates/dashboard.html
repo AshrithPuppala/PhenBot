@@ -1528,7 +1528,7 @@ if (action === 'flashcards') {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        message: `Create 10 flashcards about "${topic}". Format each as "Q: [Question]\\nA: [Answer]\\n\\n"`,
+                        message: `Create 10 flashcards about "${topic}". Format each EXACTLY as "Q: [Question] | A: [Answer]" on separate lines. Example:\n\nQ: What is photosynthesis? | A: The process plants use to make food from sunlight\nQ: Where does photosynthesis occur? | A: In the chloroplasts of plant cells`,
                         mode: 'teach',
                         length: 'detailed'
                     })
@@ -1551,46 +1551,74 @@ if (action === 'flashcards') {
             }
         }
 
-        function parseFlashcardsFromResponse(response) {
-            const lines = response.split('\n');
-            const newFlashcards = [];
-            let currentCard = null;
+      function parseFlashcardsFromResponse(response) {
+    const lines = response.split('\n');
+    const newFlashcards = [];
+    let currentCard = null;
 
-            for (let line of lines) {
-                line = line.trim();
-                if (line.startsWith('Q:') || line.startsWith('Question:')) {
-                    if (currentCard && currentCard.question && currentCard.answer) {
-                        newFlashcards.push(currentCard);
-                    }
-                    currentCard = { 
-                        question: line.replace(/^(Q:|Question:)\s*/, ''), 
-                        answer: '' 
-                    };
-                } else if (line.startsWith('A:') || line.startsWith('Answer:')) {
-                    if (currentCard) {
-                        currentCard.answer = line.replace(/^(A:|Answer:)\s*/, '');
-                    }
-                } else if (currentCard && line && !currentCard.answer) {
-                    currentCard.question += ' ' + line;
-                } else if (currentCard && line && currentCard.answer) {
-                    currentCard.answer += ' ' + line;
-                }
-            }
+    // Debug: log the response to see what format we're getting
+    console.log('Parsing flashcard response:', response);
 
+    for (let line of lines) {
+        line = line.trim();
+        
+        // Handle different formats: "Q:" or "Question:" or numbered questions
+        if (line.match(/^(\d+\.|Q:|Question:)/i)) {
+            // Save previous card if it exists
             if (currentCard && currentCard.question && currentCard.answer) {
                 newFlashcards.push(currentCard);
             }
-
-            if (newFlashcards.length > 0) {
-                flashcards = newFlashcards;
-                currentCardIndex = 0;
-                isCardFlipped = false;
-                updateFlashcards();
-                enableFlashcardNavigation();
-    // Don't add flashcards to chat - they should only appear in flashcard section
-}
+            currentCard = { 
+                question: line.replace(/^(\d+\.|Q:|Question:)\s*/i, ''), 
+                answer: '' 
+            };
+        } 
+        // Handle answers: "A:" or "Answer:" or lines after "|"
+        else if (line.match(/^(A:|Answer:)/i)) {
+            if (currentCard) {
+                currentCard.answer = line.replace(/^(A:|Answer:)\s*/i, '');
+            }
         }
+        // Handle "Q: question | A: answer" format
+        else if (line.includes('|') && line.match(/Q:/i) && line.match(/A:/i)) {
+            const parts = line.split('|');
+            if (parts.length >= 2) {
+                const question = parts[0].replace(/^(Q:|Question:)\s*/i, '').trim();
+                const answer = parts[1].replace(/^(A:|Answer:)\s*/i, '').trim();
+                if (question && answer) {
+                    newFlashcards.push({ question, answer });
+                }
+            }
+        }
+        // Continue building current question or answer
+        else if (currentCard && line) {
+            if (!currentCard.answer) {
+                currentCard.question += ' ' + line;
+            } else {
+                currentCard.answer += ' ' + line;
+            }
+        }
+    }
 
+    // Don't forget the last card
+    if (currentCard && currentCard.question && currentCard.answer) {
+        newFlashcards.push(currentCard);
+    }
+
+    console.log('Parsed flashcards:', newFlashcards);
+
+    if (newFlashcards.length > 0) {
+        flashcards = newFlashcards;
+        currentCardIndex = 0;
+        isCardFlipped = false;
+        updateFlashcards();
+        enableFlashcardNavigation();
+        console.log(`Successfully created ${newFlashcards.length} flashcards`);
+    } else {
+        console.log('No flashcards could be parsed from the response');
+        addMessage('Could not parse flashcards from the response. The AI might have used an unexpected format.', 'bot');
+    }
+}
         function updateFlashcards() {
             const container = document.getElementById('flashcardContainer');
             const welcomeCard = document.getElementById('welcomeCard');
