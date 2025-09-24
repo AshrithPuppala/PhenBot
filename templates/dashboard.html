@@ -1165,10 +1165,7 @@
         // Enhanced send message function with mode support
        // REPLACE the existing sendMessage function with this:
 async function sendMessage() {
-    console.log("sendMessage called"); // Add this debug line
-    const input = document.getElementById('chatInput');
-    // ... rest of function
-
+    console.log("sendMessage called");
     const input = document.getElementById('chatInput');
     const message = input.value.trim();
     
@@ -1222,7 +1219,6 @@ async function sendMessage() {
         sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
     }
 }
-
         // Add message to chat
         function addMessage(content, sender, isLoading = false) {
             const chatMessages = document.getElementById('chatMessages');
