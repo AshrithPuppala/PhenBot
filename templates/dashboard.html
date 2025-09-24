@@ -1467,16 +1467,23 @@ async function sendMessage() {
                 });
 
                 const data = await response.json();
-
-                if (response.ok && data.success) {
-                    // Add the result to chat
-                   // If generating flashcards, parse and add them to flashcard section only
-                // In processPDF function, change this line:
-                if (action === 'flashcards') {
-                    parseFlashcardsFromResponse(data.result, true); // Add 'true' for append
-                    addMessage(`Added ${flashcards.length} flashcards from "${data.filename}" - check the Flashcards section!`, 'bot');
+            if (response.ok && data.success) {
+    if (action === 'flashcards') {
+        parseFlashcardsFromResponse(data.result, true); // Add 'true' for append
+        addMessage(`Added flashcards from "${data.filename}" - check the Flashcards section!`, 'bot');
+    } else {
+        // Add other results to chat
+        let actionName = {
+            'summarize': 'PDF Summary',
+            'quiz': 'Quiz Questions',
+            'outline': 'Content Outline'
+        }[action];
+        
+        addMessage(`📄 ${actionName} for "${data.filename}":\n\n${data.result}`, 'bot');
+    }
+} else {
+    throw new Error(data.error || 'Processing failed');
 }
-                    else {
     // Add other results to chat
     let actionName = {
         'summarize': 'PDF Summary',
@@ -1676,12 +1683,61 @@ async function generateCustomFlashcards() {
             }
         }
 
-     function parseFlashcardsFromResponse(response, append = false) {
+    function parseFlashcardsFromResponse(response, append = false) {
     const lines = response.split('\n');
     const newFlashcards = [];
     let currentCard = null;
 
-    // ... existing parsing logic stays the same ...
+    // Debug: log the response to see what format we're getting
+    console.log('Parsing flashcard response:', response);
+
+    for (let line of lines) {
+        line = line.trim();
+        
+        // Handle different formats: "Q:" or "Question:" or numbered questions
+        if (line.match(/^(\d+\.|Q:|Question:)/i)) {
+            // Save previous card if it exists
+            if (currentCard && currentCard.question && currentCard.answer) {
+                newFlashcards.push(currentCard);
+            }
+            currentCard = { 
+                question: line.replace(/^(\d+\.|Q:|Question:)\s*/i, ''), 
+                answer: '' 
+            };
+        } 
+        // Handle answers: "A:" or "Answer:" or lines after "|"
+        else if (line.match(/^(A:|Answer:)/i)) {
+            if (currentCard) {
+                currentCard.answer = line.replace(/^(A:|Answer:)\s*/i, '');
+            }
+        }
+        // Handle "Q: question | A: answer" format
+        else if (line.includes('|') && line.match(/Q:/i) && line.match(/A:/i)) {
+            const parts = line.split('|');
+            if (parts.length >= 2) {
+                const question = parts[0].replace(/^(Q:|Question:)\s*/i, '').trim();
+                const answer = parts[1].replace(/^(A:|Answer:)\s*/i, '').trim();
+                if (question && answer) {
+                    newFlashcards.push({ question, answer });
+                }
+            }
+        }
+        // Continue building current question or answer
+        else if (currentCard && line) {
+            if (!currentCard.answer) {
+                currentCard.question += ' ' + line;
+            } else {
+                currentCard.answer += ' ' + line;
+            }
+        }
+    }
+
+    // Don't forget the last card
+    if (currentCard && currentCard.question && currentCard.answer) {
+        newFlashcards.push(currentCard);
+    }
+
+    console.log('Parsed flashcards:', newFlashcards);
 
     if (newFlashcards.length > 0) {
         if (append) {
@@ -1702,8 +1758,13 @@ async function generateCustomFlashcards() {
         updateFlashcards();
         enableFlashcardNavigation();
         console.log(`Successfully created ${newFlashcards.length} flashcards`);
+    } else {
+        console.log('No flashcards could be parsed from the response');
+        addMessage('Could not parse flashcards from the response. The AI might have used an unexpected format.', 'bot');
     }
 }
+    // ... existing parsing logic stays the same ...
+
 
     // Debug: log the response to see what format we're getting
     console.log('Parsing flashcard response:', response);
