@@ -1629,21 +1629,17 @@ function debugFlashcards() {
 
     console.log('Parsed flashcards:', newFlashcards);
 
-   if (newFlashcards.length > 0) {
-    flashcards = newFlashcards;
-    currentCardIndex = 0;
-    isCardFlipped = false;
-    
-    // Use setTimeout to ensure DOM is ready
-    setTimeout(() => {
+    if (newFlashcards.length > 0) {
+        flashcards = newFlashcards;
+        currentCardIndex = 0;
+        isCardFlipped = false;
         updateFlashcards();
         enableFlashcardNavigation();
-    }, 100);
-    
-    console.log(`Successfully created ${newFlashcards.length} flashcards`);
-} else {
-    console.log('No flashcards could be parsed from the response');
-    addMessage('Could not parse flashcards from the response. The AI might have used an unexpected format.', 'bot');
+        console.log(`Successfully created ${newFlashcards.length} flashcards`);
+    } else {
+        console.log('No flashcards could be parsed from the response');
+        addMessage('Could not parse flashcards from the response. The AI might have used an unexpected format.', 'bot');
+    }
 }
         function updateFlashcards() {
     const container = document.getElementById('flashcardContainer');
