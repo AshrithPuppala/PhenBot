@@ -408,45 +408,46 @@
             align-items: center;
             margin-bottom: 1.5rem;
         }
-        .files-header 
-        {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 1rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--card-border);
-}
+
+        .files-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--card-border);
+        }
+
         .status-indicator {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.8rem;
-    color: var(--text-muted);
-}
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
 
-.status-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--primary-green);
-}
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--primary-green);
+        }
 
-.file-name {
-    color: var(--primary-blue);
-    text-decoration: none;
-    font-weight: 500;
-    font-size: 0.85rem;
-    display: flex;
-    align-items: center;
-}
+        .file-name {
+            color: var(--primary-blue);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+        }
 
-.file-name:hover {
-    color: #1d4ed8;
-}
+        .file-name:hover {
+            color: #1d4ed8;
+        }
 
         .card-icon {
             width: 45px;
@@ -497,23 +498,6 @@
 
         .file-input {
             display: none;
-        }
-
-        .upload-btn {
-            background: linear-gradient(135deg, var(--primary-blue), #1d4ed8);
-            color: white;
-            border: none;
-            padding: 0.7rem 1.3rem;
-            border-radius: 10px;
-            cursor: pointer;
-            font-weight: 500;
-            font-size: 0.9rem;
-            transition: all 0.3s ease;
-        }
-
-        .upload-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
         }
 
         .pdf-actions {
@@ -590,70 +574,94 @@
         }
 
         .file-item {
-    background: rgba(15, 23, 42, 0.9);
-    border-radius: 15px;
-    padding: 1.5rem;
-    margin-bottom: 1rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border: 1px solid var(--card-border);
-    transition: all 0.3s ease;
-}
+            background: rgba(15, 23, 42, 0.9);
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid var(--card-border);
+            transition: all 0.3s ease;
+        }
 
-.file-item:hover {
-    background: rgba(15, 23, 42, 1);
-    transform: translateY(-2px);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-}
+        .file-item:hover {
+            background: rgba(15, 23, 42, 1);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
 
-.file-info {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    flex: 1;
-}
+        .file-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            flex: 1;
+        }
 
-.file-actions {
-    display: flex;
-    gap: 0.75rem;
-}
+        .file-actions {
+            display: flex;
+            gap: 0.75rem;
+        }
 
-.icon-btn {
-    width: 45px;
-    height: 45px;
-    border: none;
-    border-radius: 12px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s ease;
-    font-size: 1.1rem;
-}
+        .icon-btn {
+            width: 45px;
+            height: 45px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            font-size: 1.1rem;
+        }
 
-.icon-btn.primary {
-    background: rgba(79, 70, 229, 0.2);
-    color: var(--primary-blue);
-    border: 1px solid rgba(79, 70, 229, 0.3);
-}
+        .icon-btn.primary {
+            background: rgba(79, 70, 229, 0.2);
+            color: var(--primary-blue);
+            border: 1px solid rgba(79, 70, 229, 0.3);
+        }
 
-.icon-btn.danger {
-    background: rgba(239, 68, 68, 0.2);
-    color: var(--primary-red);
-    border: 1px solid rgba(239, 68, 68, 0.3);
-}
+        .icon-btn.danger {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--primary-red);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
 
-.icon-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
-}
+        .icon-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        }
 
-.icon-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
-}
+        .icon-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top: 2px solid currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .mode-description {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            font-style: italic;
+            margin-top: 0.5rem;
+            text-align: center;
+        }
 
         @media (max-width: 1024px) {
             .main-container {
@@ -690,30 +698,6 @@
             .chat-container {
                 height: 60vh;
             }
-        }
-
-        .spinner {
-            display: inline-block;
-            width: 16px;
-            height: 16px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-top: 2px solid currentColor;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-right: 0.5rem;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .mode-description {
-            font-size: 0.7rem;
-            color: var(--text-muted);
-            font-style: italic;
-            margin-top: 0.5rem;
-            text-align: center;
         }
     </style>
 </head>
@@ -811,7 +795,7 @@
                     </div>
                 </div>
 
-                <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                <div class="upload-area" id="uploadArea">
                     <i class="fas fa-cloud-upload-alt" style="font-size: 2.5rem; color: var(--primary-blue); margin-bottom: 1rem;"></i>
                     <p style="margin-bottom: 0.5rem; font-weight: 500;">Drop PDF files here</p>
                     <p style="color: var(--text-disabled); font-size: 0.85rem;">or click to browse</p>
@@ -891,35 +875,18 @@
             simple: "Simplified explanations suitable for beginners"
         };
 
-      // Initialize page - SINGLE EVENT LISTENER
-// Initialize page - SINGLE EVENT LISTENER  
-document.addEventListener('DOMContentLoaded', () => {
-    setupModeButtons();
-    setupChatInput();
-    updateTimerDisplay();
-    setupFileUpload();
-    refreshUploadedFiles();
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', () => {
+            setupModeButtons();
+            setupChatInput();
+            updateTimerDisplay();
+            setupFileUpload();
+            refreshUploadedFiles();
 
-    // Test connection after a short delay
-    setTimeout(testConnection, 2000);
+            // Test connection after a short delay
+            setTimeout(testConnection, 2000);
+        });
 
-    // Upload area click handler with proper reset
-    const uploadArea = document.getElementById('uploadArea');
-    uploadArea.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        const fileInput = document.getElementById('fileInput');
-        // Always reset before opening
-        fileInput.value = '';
-        resetUploadArea();
-        
-        // Small delay to ensure reset is processed
-        setTimeout(() => {
-            fileInput.click();
-        }, 50);
-    });
-});
         // Mode button setup
         function setupModeButtons() {
             const modeButtons = document.querySelectorAll('.mode-btn');
@@ -960,84 +927,75 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Send message function
-// ENHANCED VERSION - Send message function with mode support
-async function sendMessage() {
-    const input = document.getElementById('chatInput');
-    const message = input.value.trim();
+        async function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
 
-    if (!message) return;
+            if (!message) return;
 
-    const sendBtn = document.getElementById('sendBtn');
-    sendBtn.disabled = true;
-    sendBtn.innerHTML = '<div class="spinner"></div>';
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<div class="spinner"></div>';
 
-    // Add user message
-    addMessage(message, 'user');
-    input.value = '';
-    input.style.height = 'auto';
+            // Add user message
+            addMessage(message, 'user');
+            input.value = '';
+            input.style.height = 'auto';
 
-    // Add loading message
-    const loadingMessage = addMessage('Thinking...', 'bot', true);
+            // Add loading message
+            const loadingMessage = addMessage('Thinking...', 'bot', true);
 
-    try {
-        const response = await fetch("/api/enhanced-chat", {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                message: message,
-                mode: currentMode,
-                length: responseLength,
-                pdf_context: currentPDF ? currentPDF.name : null
-            })
-        });
+            try {
+                const response = await fetch("/api/enhanced-chat", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        mode: currentMode,
+                        length: responseLength,
+                        pdf_context: currentPDF ? currentPDF.name : null
+                    })
+                });
 
-        const data = await response.json();
+                const data = await response.json();
 
-        // Remove loading message
-        loadingMessage.remove();
+                // Remove loading message
+                loadingMessage.remove();
 
-        // Check if response is successful
-        if (response.ok && data.response) {
-            addMessage(data.response, 'bot');
-        } else {
-            addMessage(`Error: ${data.error || 'Failed to get response'}`, 'bot');
+                // Check if response is successful
+                if (response.ok && data.response) {
+                    addMessage(data.response, 'bot');
+                } else {
+                    addMessage(`Error: ${data.error || 'Failed to get response'}`, 'bot');
+                }
+            } catch (error) {
+                loadingMessage.remove();
+                addMessage(`Network error: ${error.message}`, 'bot');
+                console.error('Chat error:', error);
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
+            }
         }
-    } catch (error) {
-        loadingMessage.remove();
-        addMessage(`Network error: ${error.message}`, 'bot');
-        console.error('Chat error:', error);
-    } finally {
-        sendBtn.disabled = false;
-        sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
-    }
-}
 
-// Enhanced error handling for network issues
-// Enhanced error handling for network issues
-async function testConnection() {
-    try {
-        const response = await fetch('/health');
-        const data = await response.json();
-        console.log('System status:', data);
+        // Test connection
+        async function testConnection() {
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+                console.log('System status:', data);
 
-        if (!data.groq_available) {
-            addSystemMessage(`⚠️ AI service not available: ${data.error}. Basic functionality will work.`);
+                if (!data.groq_available) {
+                    addSystemMessage(`⚠️ AI service not available: ${data.error}. Basic functionality will work.`);
+                }
+            } catch (error) {
+                console.error('Connection test failed:', error);
+                addSystemMessage('⚠️ Connection issues detected. Please check your internet connection.');
+            }
         }
-    } catch (error) {
-        console.error('Connection test failed:', error);
-        addSystemMessage('⚠️ Connection issues detected. Please check your internet connection.');
-    }
-}
 
-// Call connection test on page load
-document.addEventListener('DOMContentLoaded', () => {
-    // ... existing initialization code ...
-
-    // Test connection after a short delay
-    setTimeout(testConnection, 2000);
-});
         // Add message to chat
         function addMessage(content, sender, isLoading = false) {
             const chatMessages = document.getElementById('chatMessages');
@@ -1088,6 +1046,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const uploadArea = document.getElementById('uploadArea');
             let dragCounter = 0;
 
+            // Single click handler for upload area
+            uploadArea.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const fileInput = document.getElementById('fileInput');
+                fileInput.value = ''; // Reset before opening
+                fileInput.click(); // Open file dialog
+            });
+
+            // Drag and drop handlers
             uploadArea.addEventListener('dragenter', (e) => {
                 e.preventDefault();
                 dragCounter++;
@@ -1119,327 +1088,278 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Handle file upload
-        // Handle file upload
-// Handle multiple file uploads
-async function handleFileUpload(event) {
-    const files = Array.from(event.target.files);
-    const pdfFiles = files.filter(file => file.type === 'application/pdf');
+        async function handleFileUpload(event) {
+            const files = Array.from(event.target.files);
+            const pdfFiles = files.filter(file => file.type === 'application/pdf');
 
-    if (pdfFiles.length === 0) {
-        alert('Please select at least one PDF file.');
-        event.target.value = ''; // Reset here too
-        event.target.value = ''; // Reset here
-        // Reset file input
-        event.target.value = '';
-        return;
-    }
-
-    const uploadArea = document.getElementById('uploadArea');
-    const originalContent = uploadArea.innerHTML;
-
-    uploadArea.innerHTML = `
-        <div class="spinner" style="width: 30px; height: 30px; border-width: 3px;"></div>
-        <p style="margin-top: 1rem;">Uploading ${pdfFiles.length} PDF(s)...</p>
-    `;
-
-    const formData = new FormData();
-    pdfFiles.forEach(file => {
-        formData.append('file', file);
-    });
-
-    try {
-        const response = await fetch('/api/upload-pdf', {
-            method: 'POST',
-            body: formData
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
-            if (data.files && data.files.length > 0) {
-                currentPDF = {
-                    name: data.files[0].filename,
-                    filename: data.files[0].filename,
-                    url: data.files[0].url,
-                    id: data.files[0].file_id
-                };
+            if (pdfFiles.length === 0) {
+                alert('Please select at least one PDF file.');
+                event.target.value = '';
+                return;
             }
 
-            document.getElementById('pdfActions').classList.add('show');
-            await refreshUploadedFiles();
-
-            let message = data.message;
-            if (data.errors && data.errors.length > 0) {
-                message += ` (Some files had errors)`;
-            }
-            addSystemMessage(message);
+            const uploadArea = document.getElementById('uploadArea');
+            const originalContent = uploadArea.innerHTML;
 
             uploadArea.innerHTML = `
-                <i class="fas fa-check-circle" style="font-size: 2.5rem; color: var(--primary-green); margin-bottom: 1rem;"></i>
-                <p style="margin-bottom: 0.5rem; font-weight: 500; color: var(--primary-green);">Upload Complete!</p>
-                <p style="color: var(--text-disabled); font-size: 0.85rem;">${data.files.length} PDF(s) ready</p>
+                <div class="spinner" style="width: 30px; height: 30px; border-width: 3px;"></div>
+                <p style="margin-top: 1rem;">Uploading ${pdfFiles.length} PDF(s)...</p>
             `;
 
-            // Reset to normal state after 3 seconds
-            setTimeout(() => {
-                resetUploadArea();
-            }, 3000);
-
-        } else {
-            throw new Error(data.error || 'Upload failed');
-        }
-    } catch (error) {
-        alert(`Upload failed: ${error.message}`);
-        uploadArea.innerHTML = originalContent;
-    } finally {
-        // Always reset the file input - this is the key fix
-        // CRITICAL: Always reset the file input
-        // CRITICAL FIX: Always reset the file input
-        event.target.value = '';
-    }
-} // Refresh uploaded files list
-}
- // Refresh uploaded files list
-async function refreshUploadedFiles() {
-    try {
-        const response = await fetch('/api/pdfs');
-        const data = await response.json();
-
-        const uploadedFiles = document.getElementById('uploadedFiles');
-        uploadedFiles.innerHTML = '<div class="files-header"><i class="fas fa-folder-open"></i>Your Documents</div>';
-
-        if (data.files && data.files.length > 0) {
-            data.files.forEach(file => {
-                const fileItem = document.createElement('div');
-                fileItem.className = 'file-item';
-                fileItem.innerHTML = `
-                    <div class="file-info">
-                        <a href="${file.url}" target="_blank" class="file-name">
-                            <i class="fas fa-file-pdf" style="margin-right: 0.5rem; color: var(--primary-red);"></i>
-                            ${file.name}
-                        </a>
-                        <div style="font-size: 0.75rem; color: var(--text-muted);">
-                            ${new Date(file.uploaded_at).toLocaleDateString()}
-                        </div>
-                    </div>
-                    <div class="file-actions">
-                      <button class="icon-btn primary" onclick="selectPDF('${file.name}', '${file.url}', ${file.id}, event)" title="Select for processing">
-                            <i class="fas fa-mouse-pointer"></i>
-                        </button>
-                        <button class="icon-btn danger" onclick="deletePDF(${file.id}, '${file.name}', event)" title="Delete PDF">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                `;
-                uploadedFiles.appendChild(fileItem);
+            const formData = new FormData();
+            pdfFiles.forEach(file => {
+                formData.append('file', file);
             });
-        } else {
-            const emptyDiv = document.createElement('div');
-            emptyDiv.style.cssText = 'text-align: center; color: var(--text-muted); font-style: italic; padding: 1rem;';
-            emptyDiv.textContent = 'No PDFs uploaded yet';
-            uploadedFiles.appendChild(emptyDiv);
+
+            try {
+                const response = await fetch('/api/upload-pdf', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    if (data.files && data.files.length > 0) {
+                        currentPDF = {
+                            name: data.files[0].filename,
+                            filename: data.files[0].filename,
+                            url: data.files[0].url,
+                            id: data.files[0].file_id
+                        };
+                    }
+
+                    document.getElementById('pdfActions').classList.add('show');
+                    await refreshUploadedFiles();
+
+                    let message = data.message;
+                    if (data.errors && data.errors.length > 0) {
+                        message += ` (Some files had errors)`;
+                    }
+                    addSystemMessage(message);
+
+                    uploadArea.innerHTML = `
+                        <i class="fas fa-check-circle" style="font-size: 2.5rem; color: var(--primary-green); margin-bottom: 1rem;"></i>
+                        <p style="margin-bottom: 0.5rem; font-weight: 500; color: var(--primary-green);">Upload Complete!</p>
+                        <p style="color: var(--text-disabled); font-size: 0.85rem;">${data.files.length} PDF(s) ready</p>
+                    `;
+
+                    // Reset to normal state after 3 seconds
+                    setTimeout(() => {
+                        resetUploadArea();
+                    }, 3000);
+
+                } else {
+                    throw new Error(data.error || 'Upload failed');
+                }
+            } catch (error) {
+                alert(`Upload failed: ${error.message}`);
+                uploadArea.innerHTML = originalContent;
+            } finally {
+                event.target.value = '';
+            }
         }
-    } catch (error) {
-        console.error('Error refreshing file list:', error);
-    }
-}
 
-        // Add uploaded file to list
-        function addUploadedFile(fileInfo) {
-            const uploadedFiles = document.getElementById('uploadedFiles');
-
-            const fileItem = document.createElement('div');
-            fileItem.className = 'file-item';
-            fileItem.innerHTML = `
-                <a href="${fileInfo.url}" target="_blank" class="file-name">
-                    <i class="fas fa-file-pdf" style="margin-right: 0.5rem; color: var(--primary-red);"></i>
-                    ${fileInfo.name}
-                </a>
-                <span style="color: var(--primary-green); font-size: 0.8rem;">
-                    <i class="fas fa-check"></i> Ready
-                </span>
+        // Reset upload area
+        function resetUploadArea() {
+            const uploadArea = document.getElementById('uploadArea');
+            uploadArea.innerHTML = `
+                <i class="fas fa-cloud-upload-alt" style="font-size: 2.5rem; color: var(--primary-blue); margin-bottom: 1rem;"></i>
+                <p style="margin-bottom: 0.5rem; font-weight: 500;">Drop PDF files here</p>
+                <p style="color: var(--text-disabled); font-size: 0.85rem;">or click to browse</p>
+                <input type="file" id="fileInput" class="file-input" accept=".pdf" multiple onchange="handleFileUpload(event)">
             `;
-
-            // Remove any existing files (for now, support single file)
-            uploadedFiles.innerHTML = '';
-            uploadedFiles.appendChild(fileItem);
         }
-// Add this to your upload area click handler
-function resetUploadArea() {
-    const uploadArea = document.getElementById('uploadArea');
-    uploadArea.innerHTML = `
-        <i class="fas fa-cloud-upload-alt" style="font-size: 2.5rem; color: var(--primary-blue); margin-bottom: 1rem;"></i>
-        <p style="margin-bottom: 0.5rem; font-weight: 500;">Drop PDF files here</p>
-        <p style="color: var(--text-disabled); font-size: 0.85rem;">or click to browse</p>
-        <input type="file" id="fileInput" class="file-input" accept=".pdf" multiple onchange="handleFileUpload(event)">
-    `;
-}
 
-// Update your upload area click handler:
-document.getElementById('uploadArea').addEventListener('click', () => {
-    // Reset any previous state
-    const fileInput = document.getElementById('fileInput');
-    fileInput.value = ''; // Clear any previous selection
-    resetUploadArea(); // Reset visual state
-    fileInput.click(); // Open file dialog
-});
-// Update your upload area click to include reset
-document.getElementById('uploadArea').addEventListener('click', () => {
-    resetUploadArea(); // Reset the visual state
-    document.getElementById('fileInput').click();
-});
+        // Refresh uploaded files list
+        async function refreshUploadedFiles() {
+            try {
+                const response = await fetch('/api/pdfs');
+                const data = await response.json();
+
+                const uploadedFiles = document.getElementById('uploadedFiles');
+                uploadedFiles.innerHTML = '<div class="files-header"><i class="fas fa-folder-open"></i>Your Documents</div>';
+
+                if (data.files && data.files.length > 0) {
+                    data.files.forEach(file => {
+                        const fileItem = document.createElement('div');
+                        fileItem.className = 'file-item';
+                        fileItem.innerHTML = `
+                            <div class="file-info">
+                                <a href="${file.url}" target="_blank" class="file-name">
+                                    <i class="fas fa-file-pdf" style="margin-right: 0.5rem; color: var(--primary-red);"></i>
+                                    ${file.name}
+                                </a>
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">
+                                    ${new Date(file.uploaded_at).toLocaleDateString()}
+                                </div>
+                            </div>
+                            <div class="file-actions">
+                              <button class="icon-btn primary" onclick="selectPDF('${file.name}', '${file.url}', ${file.id}, event)" title="Select for processing">
+                                    <i class="fas fa-mouse-pointer"></i>
+                                </button>
+                                <button class="icon-btn danger" onclick="deletePDF(${file.id}, '${file.name}', event)" title="Delete PDF">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        `;
+                        uploadedFiles.appendChild(fileItem);
+                    });
+                } else {
+                    const emptyDiv = document.createElement('div');
+                    emptyDiv.style.cssText = 'text-align: center; color: var(--text-muted); font-style: italic; padding: 1rem;';
+                    emptyDiv.textContent = 'No PDFs uploaded yet';
+                    uploadedFiles.appendChild(emptyDiv);
+                }
+            } catch (error) {
+                console.error('Error refreshing file list:', error);
+            }
+        }
+
         // Select a PDF for processing
-// Select a PDF for processing
-function selectPDF(filename, url, fileId, event) {
-    currentPDF = {
-        name: filename,
-        filename: filename,
-        url: url,
-        id: fileId
-    };
+        function selectPDF(filename, url, fileId, event) {
+            currentPDF = {
+                name: filename,
+                filename: filename,
+                url: url,
+                id: fileId
+            };
 
-    // Visual feedback
-    document.querySelectorAll('.file-item').forEach(item => {
-        item.style.border = '1px solid var(--card-border)';
-    });
+            // Visual feedback
+            document.querySelectorAll('.file-item').forEach(item => {
+                item.style.border = '1px solid var(--card-border)';
+            });
 
-    // Highlight selected file
-    if (event && event.target) {
-        const fileItem = event.target.closest('.file-item');
-        if (fileItem) {
-            fileItem.style.border = '2px solid var(--primary-blue)';
-        }
-    }
-
-    // Show PDF actions
-    document.getElementById('pdfActions').classList.add('show');
-
-    addSystemMessage(`Selected "${filename}" for processing`);
-}
-
-// Delete a PDF
-// Delete a PDF
-async function deletePDF(fileId, filename, event) {
-    if (!confirm(`Are you sure you want to delete "${filename}"?`)) {
-        return;
-    }
-
-    let deleteBtn = null;
-    if (event && event.target) {
-        deleteBtn = event.target.tagName === 'BUTTON' ? event.target : event.target.closest('button');
-    }
-
-    if (deleteBtn) {
-        const originalContent = deleteBtn.innerHTML;
-        deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-        deleteBtn.disabled = true;
-    }
-
-    try {
-        const response = await fetch(`/api/delete-pdf/${fileId}`, {
-            method: 'DELETE'
-        });
-
-        const data = await response.json();
-
-        if (response.ok && data.success) {
-            addSystemMessage(`"${filename}" deleted successfully`);
-
-            // If this was the current PDF, clear it
-            if (currentPDF && (currentPDF.id === fileId || currentPDF.name === filename)) {
-                currentPDF = null;
-                document.getElementById('pdfActions').classList.remove('show');
+            // Highlight selected file
+            if (event && event.target) {
+                const fileItem = event.target.closest('.file-item');
+                if (fileItem) {
+                    fileItem.style.border = '2px solid var(--primary-blue)';
+                }
             }
 
-            // CRITICAL FIX: Reset the file input after deletion
-            const fileInput = document.getElementById('fileInput');
-            fileInput.value = '';
-            
-            // Reset upload area to default state
-            resetUploadArea();
+            // Show PDF actions
+            document.getElementById('pdfActions').classList.add('show');
 
-            // Refresh the file list
-            await refreshUploadedFiles();
-        } else {
-            throw new Error(data.error || 'Delete failed');
+            addSystemMessage(`Selected "${filename}" for processing`);
         }
-    } catch (error) {
-        alert(`Failed to delete PDF: ${error.message}`);
-        if (deleteBtn) {
-            deleteBtn.innerHTML = originalContent;
-            deleteBtn.disabled = false;
-      // In the deletePDF function, after the successful deletion and before refreshing files:
-    if (currentPDF && (currentPDF.id === fileId || currentPDF.name === filename)) {
-    currentPDF = null;
-    document.getElementById('pdfActions').classList.remove('show');
-    // Add this line to reset the file input:
-    document.getElementById('fileInput').value = '';
-}
+
+        // Delete a PDF
+        async function deletePDF(fileId, filename, event) {
+            if (!confirm(`Are you sure you want to delete "${filename}"?`)) {
+                return;
+            }
+
+            let deleteBtn = null;
+            if (event && event.target) {
+                deleteBtn = event.target.tagName === 'BUTTON' ? event.target : event.target.closest('button');
+            }
+
+            if (deleteBtn) {
+                const originalContent = deleteBtn.innerHTML;
+                deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                deleteBtn.disabled = true;
+            }
+
+            try {
+                const response = await fetch(`/api/delete-pdf/${fileId}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    addSystemMessage(`"${filename}" deleted successfully`);
+
+                    // If this was the current PDF, clear it
+                    if (currentPDF && (currentPDF.id === fileId || currentPDF.name === filename)) {
+                        currentPDF = null;
+                        document.getElementById('pdfActions').classList.remove('show');
+                    }
+
+                    // Reset the file input
+                    const fileInput = document.getElementById('fileInput');
+                    if (fileInput) {
+                        fileInput.value = '';
+                    }
+                    
+                    // Reset upload area to default state
+                    resetUploadArea();
+
+                    // Refresh the file list
+                    await refreshUploadedFiles();
+                } else {
+                    throw new Error(data.error || 'Delete failed');
+                }
+            } catch (error) {
+                alert(`Failed to delete PDF: ${error.message}`);
+                if (deleteBtn) {
+                    deleteBtn.innerHTML = originalContent;
+                    deleteBtn.disabled = false;
+                }
+            }
         }
-    }
-}
+
         // Process PDF with different actions
-       // FIXED VERSION - Replace the processPDF function in your dashboard.html
-// Process PDF with different actions
-async function processPDF(action) {
-    if (!currentPDF) {
-        alert('Please upload a PDF first.');
-        return;
-    }
+        async function processPDF(action) {
+            if (!currentPDF) {
+                alert('Please upload a PDF first.');
+                return;
+            }
 
-    const actionBtn = event.target;
-    const originalContent = actionBtn.innerHTML;
-    actionBtn.innerHTML = '<div class="spinner"></div> Processing...';
-    actionBtn.disabled = true;
+            const actionBtn = event.target;
+            const originalContent = actionBtn.innerHTML;
+            actionBtn.innerHTML = '<div class="spinner"></div> Processing...';
+            actionBtn.disabled = true;
 
-    try {
-        // Get the unique filename from the database
-        const pdfListResponse = await fetch('/api/pdfs');
-        const pdfListData = await pdfListResponse.json();
+            try {
+                // Get the unique filename from the database
+                const pdfListResponse = await fetch('/api/pdfs');
+                const pdfListData = await pdfListResponse.json();
 
-        // Find the matching PDF by original name
-        const matchingPDF = pdfListData.files.find(pdf => 
-            pdf.name === currentPDF.name || pdf.name === currentPDF.filename
-        );
+                // Find the matching PDF by original name
+                const matchingPDF = pdfListData.files.find(pdf => 
+                    pdf.name === currentPDF.name || pdf.name === currentPDF.filename
+                );
 
-        if (!matchingPDF) {
-            throw new Error('PDF not found in database');
+                if (!matchingPDF) {
+                    throw new Error('PDF not found in database');
+                }
+
+                const response = await fetch('/api/process-pdf', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        filename: matchingPDF.name,
+                        action: action,
+                        length: responseLength
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    let actionName = {
+                        'summarize': 'PDF Summary',
+                        'flashcards': 'Flashcards',
+                        'quiz': 'Quiz Questions',
+                        'outline': 'Content Outline'
+                    }[action];
+
+                    addMessage(`📄 ${actionName} for "${data.filename}":\n\n${data.result}`, 'bot');
+                } else {
+                    throw new Error(data.error || 'Processing failed');
+                }
+            } catch (error) {
+                console.error('PDF processing error:', error);
+                addMessage(`Error processing PDF: ${error.message}`, 'bot');
+            } finally {
+                actionBtn.innerHTML = originalContent;
+                actionBtn.disabled = false;
+            }
         }
-
-        const response = await fetch('/api/process-pdf', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                filename: matchingPDF.name, // Use the original name from database
-                action: action,
-                length: responseLength
-            })
-        });
-
-        const data = await response.json();
-
-        if (response.ok && data.success) {
-            let actionName = {
-                'summarize': 'PDF Summary',
-                'flashcards': 'Flashcards',
-                'quiz': 'Quiz Questions',
-                'outline': 'Content Outline'
-            }[action];
-
-            addMessage(`📄 ${actionName} for "${data.filename}":\n\n${data.result}`, 'bot');
-        } else {
-            throw new Error(data.error || 'Processing failed');
-        }
-    } catch (error) {
-        console.error('PDF processing error:', error);
-        addMessage(`Error processing PDF: ${error.message}`, 'bot');
-    } finally {
-        actionBtn.innerHTML = originalContent;
-        actionBtn.disabled = false;
-    }
-}
 
         // Timer functionality
         function updateTimerDisplay() {
