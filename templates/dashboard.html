@@ -904,15 +904,21 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(testConnection, 2000);
 
     // Upload area click handler with proper reset
-   // Upload area click handler with proper reset - SINGLE HANDLER ONLY
-const uploadArea = document.getElementById('uploadArea');
-uploadArea.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    const fileInput = document.getElementById('fileInput');
-    fileInput.value = ''; // Reset before opening
-    fileInput.click(); // Open file dialog
+    const uploadArea = document.getElementById('uploadArea');
+    uploadArea.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const fileInput = document.getElementById('fileInput');
+        // Always reset before opening
+        fileInput.value = '';
+        resetUploadArea();
+        
+        // Small delay to ensure reset is processed
+        setTimeout(() => {
+            fileInput.click();
+        }, 50);
+    });
 });
         // Mode button setup
         function setupModeButtons() {
@@ -1121,6 +1127,8 @@ async function handleFileUpload(event) {
 
     if (pdfFiles.length === 0) {
         alert('Please select at least one PDF file.');
+        event.target.value = ''; // Reset here too
+        event.target.value = ''; // Reset here
         // Reset file input
         event.target.value = '';
         return;
@@ -1171,12 +1179,12 @@ async function handleFileUpload(event) {
                 <p style="margin-bottom: 0.5rem; font-weight: 500; color: var(--primary-green);">Upload Complete!</p>
                 <p style="color: var(--text-disabled); font-size: 0.85rem;">${data.files.length} PDF(s) ready</p>
             `;
-            
+
             // Reset to normal state after 3 seconds
             setTimeout(() => {
                 resetUploadArea();
             }, 3000);
-            
+
         } else {
             throw new Error(data.error || 'Upload failed');
         }
@@ -1184,9 +1192,12 @@ async function handleFileUpload(event) {
         alert(`Upload failed: ${error.message}`);
         uploadArea.innerHTML = originalContent;
     } finally {
+        // Always reset the file input - this is the key fix
+        // CRITICAL: Always reset the file input
         // CRITICAL FIX: Always reset the file input
         event.target.value = '';
     }
+} // Refresh uploaded files list
 }
  // Refresh uploaded files list
 async function refreshUploadedFiles() {
@@ -1264,6 +1275,19 @@ function resetUploadArea() {
     `;
 }
 
+// Update your upload area click handler:
+document.getElementById('uploadArea').addEventListener('click', () => {
+    // Reset any previous state
+    const fileInput = document.getElementById('fileInput');
+    fileInput.value = ''; // Clear any previous selection
+    resetUploadArea(); // Reset visual state
+    fileInput.click(); // Open file dialog
+});
+// Update your upload area click to include reset
+document.getElementById('uploadArea').addEventListener('click', () => {
+    resetUploadArea(); // Reset the visual state
+    document.getElementById('fileInput').click();
+});
         // Select a PDF for processing
 // Select a PDF for processing
 function selectPDF(filename, url, fileId, event) {
@@ -1344,6 +1368,13 @@ async function deletePDF(fileId, filename, event) {
         if (deleteBtn) {
             deleteBtn.innerHTML = originalContent;
             deleteBtn.disabled = false;
+      // In the deletePDF function, after the successful deletion and before refreshing files:
+    if (currentPDF && (currentPDF.id === fileId || currentPDF.name === filename)) {
+    currentPDF = null;
+    document.getElementById('pdfActions').classList.remove('show');
+    // Add this line to reset the file input:
+    document.getElementById('fileInput').value = '';
+}
         }
     }
 }
