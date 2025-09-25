@@ -1209,8 +1209,7 @@
                     <i class="fas fa-cloud-upload-alt" style="font-size: 2.5rem; color: var(--primary-blue); margin-bottom: 1rem;"></i>
                     <p style="margin-bottom: 0.5rem; font-weight: 500;">Drop PDF files here</p>
                     <p style="color: var(--text-disabled); font-size: 0.85rem;">or click to browse</p>
-                    <input type="file" id="fileInput" class="file-input" accept=".pdf" multiple onchange="handleFileUpload(event)">
-                </div>
+                    <input type="file" id="fileInput" class="file-input" accept=".pdf" multiple>
 
                 <div class="pdf-actions" id="pdfActions">
                     <button class="pdf-action-btn" onclick="processPDF('summarize')">
@@ -2123,26 +2122,7 @@ function setupChatInput() {
     }
 }
 
-    function addMessage(content, type) {
-        const messagesContainer = document.getElementById('chatMessages');
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${type}`;
-
-        const avatar = document.createElement('div');
-        avatar.className = 'message-avatar';
-        avatar.innerHTML = type === 'user' ? 
-            '<i class="fas fa-user"></i>' : 
-            '<i class="fas fa-robot"></i>';
-
-        const messageContent = document.createElement('div');
-        messageContent.className = 'message-content';
-        messageContent.textContent = content;
-
-        messageDiv.appendChild(avatar);
-        messageDiv.appendChild(messageContent);
-        messagesContainer.appendChild(messageDiv);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    }
+    
 
     async function generateAIResponse(message, mode, length) {
         // Simulate AI response based on mode
@@ -2160,94 +2140,7 @@ function setupChatInput() {
             }, 1000 + Math.random() * 1000);
         });
     }
-    function setupAllButtonListeners() {
-    try {
-        // Timer buttons
-        const startBtn = document.getElementById('startBtn');
-        const timerButtons = document.querySelectorAll('.timer-btn');
-        
-        if (startBtn) {
-            startBtn.removeAttribute('onclick');
-            startBtn.addEventListener('click', startTimer);
-        }
-        
-        timerButtons.forEach(btn => {
-            const text = btn.textContent.toLowerCase();
-            btn.removeAttribute('onclick');
-            if (text.includes('pause')) {
-                btn.addEventListener('click', pauseTimer);
-            } else if (text.includes('reset')) {
-                btn.addEventListener('click', resetTimer);
-            }
-        });
-
-        // Flashcard buttons
-        const generateFlashcardsBtn = document.querySelector('.generate-flashcards-btn');
-        const prevCardBtn = document.getElementById('prevCard');
-        const nextCardBtn = document.getElementById('nextCard');
-        const shuffleBtn = document.getElementById('shuffleBtn');
-
-        if (generateFlashcardsBtn) {
-            generateFlashcardsBtn.removeAttribute('onclick');
-            generateFlashcardsBtn.addEventListener('click', generateFlashcards);
-        }
-
-        if (prevCardBtn) {
-            prevCardBtn.removeAttribute('onclick');
-            prevCardBtn.addEventListener('click', previousCard);
-        }
-
-        if (nextCardBtn) {
-            nextCardBtn.removeAttribute('onclick');
-            nextCardBtn.addEventListener('click', nextCard);
-        }
-
-        if (shuffleBtn) {
-            shuffleBtn.removeAttribute('onclick');
-            shuffleBtn.addEventListener('click', shuffleCards);
-        }
-
-        // Custom flashcard buttons
-        const customButtons = document.querySelectorAll('.nav-btn');
-        customButtons.forEach(btn => {
-            const text = btn.textContent.toLowerCase();
-            btn.removeAttribute('onclick');
-            if (text.includes('add one')) {
-                btn.addEventListener('click', createCustomFlashcard);
-            } else if (text.includes('add multiple')) {
-                btn.addEventListener('click', createMultipleCustomFlashcards);
-            }
-        });
-
-        // PDF action buttons
-        const pdfActionBtns = document.querySelectorAll('.pdf-action-btn');
-        pdfActionBtns.forEach(btn => {
-            const text = btn.textContent.toLowerCase();
-            btn.removeAttribute('onclick');
-            
-            if (text.includes('summarize')) {
-                btn.addEventListener('click', () => processPDF('summarize'));
-            } else if (text.includes('flashcards')) {
-                btn.addEventListener('click', () => processPDF('flashcards'));
-            } else if (text.includes('quiz')) {
-                btn.addEventListener('click', () => processPDF('quiz'));
-            } else if (text.includes('outline')) {
-                btn.addEventListener('click', () => processPDF('outline'));
-            }
-        });
-
-        // Logout button
-        const logoutBtn = document.querySelector('.logout-btn');
-        if (logoutBtn) {
-            logoutBtn.removeAttribute('onclick');
-            logoutBtn.addEventListener('click', logout);
-        }
-
-        console.log('All button listeners setup completed');
-    } catch (error) {
-        console.error('Error setting up button listeners:', error);
-    }
-}
+   
 
     function generateNormalResponse(message) {
         const responses = [
@@ -2308,27 +2201,34 @@ function setupChatInput() {
         currentPDF = fileItem;
     }
 
-    function displayUploadedFile(fileItem) {
-        const container = document.getElementById('uploadedFiles');
-        const fileDiv = document.createElement('div');
-        fileDiv.className = 'file-item';
-        fileDiv.innerHTML = `
-            <div class="file-info">
-                <div class="file-name">${fileItem.name}</div>
-                <div style="color: var(--text-muted); font-size: 0.8rem;">${fileItem.size} MB</div>
-            </div>
-            <div class="file-actions">
-                <button class="icon-btn primary" onclick="selectFile('${fileItem.id}')" title="Select">
-                    <i class="fas fa-check"></i>
-                </button>
-                <button class="icon-btn danger" onclick="removeFile('${fileItem.id}')" title="Remove">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </div>
-        `;
-        container.appendChild(fileDiv);
-    }
-
+   function displayUploadedFile(fileItem) {
+    const container = document.getElementById('uploadedFiles');
+    const fileDiv = document.createElement('div');
+    fileDiv.className = 'file-item';
+    fileDiv.innerHTML = `
+        <div class="file-info">
+            <div class="file-name">${fileItem.name}</div>
+            <div style="color: var(--text-muted); font-size: 0.8rem;">${fileItem.size} MB</div>
+        </div>
+        <div class="file-actions">
+            <button class="icon-btn primary" data-file-id="${fileItem.id}" data-action="select" title="Select">
+                <i class="fas fa-check"></i>
+            </button>
+            <button class="icon-btn danger" data-file-id="${fileItem.id}" data-action="remove" title="Remove">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    `;
+    
+    // Add event listeners to the buttons
+    const selectBtn = fileDiv.querySelector('[data-action="select"]');
+    const removeBtn = fileDiv.querySelector('[data-action="remove"]');
+    
+    selectBtn.addEventListener('click', () => selectFile(fileItem.id));
+    removeBtn.addEventListener('click', () => removeFile(fileItem.id));
+    
+    container.appendChild(fileDiv);
+}
     function selectFile(fileId) {
         const file = uploadedFiles.find(f => f.id == fileId);
         if (file) {
@@ -2656,3 +2556,5 @@ window.previousCard = previousCard;
 window.nextCard = nextCard;
 window.shuffleCards = shuffleCards;
 window.logout = logout;
+// Initialize page when DOM is ready
+document.addEventListener('DOMContentLoaded', initializePhenBot);
