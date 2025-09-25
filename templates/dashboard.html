@@ -113,7 +113,7 @@
             margin: 0 auto;
             padding: 2rem;
             display: grid;
-            grid-template-columns: 1.2fr 1fr 0.8fr;
+            grid-template-columns: 1.5fr 1fr;
             gap: 2rem;
             min-height: calc(100vh - 100px);
         }
@@ -1205,11 +1205,12 @@
                     </div>
                 </div>
 
-                <div class="upload-area" id="uploadArea">
+                <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
                     <i class="fas fa-cloud-upload-alt" style="font-size: 2.5rem; color: var(--primary-blue); margin-bottom: 1rem;"></i>
                     <p style="margin-bottom: 0.5rem; font-weight: 500;">Drop PDF files here</p>
                     <p style="color: var(--text-disabled); font-size: 0.85rem;">or click to browse</p>
-                    <input type="file" id="fileInput" class="file-input" accept=".pdf" multiple>
+                    <input type="file" id="fileInput" class="file-input" accept=".pdf" multiple onchange="handleFileUpload(event)">
+                </div>
 
                 <div class="pdf-actions" id="pdfActions">
                     <button class="pdf-action-btn" onclick="processPDF('summarize')">
@@ -2383,19 +2384,28 @@ function setupChatInput() {
         trackAction('flashcard', sampleFlashcards.length);
     }
 
- function parseFlashcardsFromResponse(history) {
-    const cards = [];
+ function parseFlashcardsFromResponse(response, appendMode = true) {
+    const lines = response.split('\n');
+    const newFlashcards = [];
     
-    // Generate flashcards based on chat history
-    for (let i = 0; i < Math.min(3, history.length); i++) {
-        const entry = history[i];
-        cards.push({
-            question: `What did we discuss about: "${entry.user.substring(0, 50)}..."?`,
-            answer: entry.bot.substring(0, 200) + (entry.bot.length > 200 ? '...' : '')
+    // Simple parsing for demo
+    for (let i = 0; i < 3; i++) {
+        newFlashcards.push({
+            question: `Sample Question ${i + 1}`,
+            answer: `Sample Answer ${i + 1}`
         });
     }
     
-    return cards;
+    if (appendMode && flashcards.length > 0) {
+        flashcards.push(...newFlashcards);
+    } else {
+        flashcards = newFlashcards;
+        currentCardIndex = 0;
+    }
+    
+    isCardFlipped = false;
+    updateFlashcardDisplay();
+    updateFlashcardCounter();
 }
     function createCustomFlashcard() {
         const question = prompt('Enter the question:');
@@ -2569,4 +2579,15 @@ window.addEventListener('error', function(event) {
 window.addEventListener('unhandledrejection', function(event) {
     console.error('Unhandled promise rejection:', event.reason);
 });
-document.addEventListener('DOMContentLoaded', initializePhenBot);
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing...');
+    setupModeButtons();
+    setupChatInput();
+    updateTimerDisplay();
+    setupFileUpload();
+    setupFlashcards();
+    initializeProgressTracking();
+    
+    setTimeout(testConnection, 1000);
+});
