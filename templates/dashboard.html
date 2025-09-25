@@ -1573,20 +1573,18 @@ function debugFlashcards() {
             }
         }
 
-        function parseFlashcardsFromResponse(response) {
+     // 5. FIND AND REPLACE this function (around line 750-820):
+function parseFlashcardsFromResponse(response) {
     const lines = response.split('\n');
     const newFlashcards = [];
     let currentCard = null;
 
-    // Debug: log the response to see what format we're getting
     console.log('Parsing flashcard response:', response);
 
     for (let line of lines) {
         line = line.trim();
         
-        // Handle different formats: "Q:" or "Question:" or numbered questions
         if (line.match(/^(\d+\.|Q:|Question:)/i)) {
-            // Save previous card if it exists
             if (currentCard && currentCard.question && currentCard.answer) {
                 newFlashcards.push(currentCard);
             }
@@ -1595,13 +1593,11 @@ function debugFlashcards() {
                 answer: '' 
             };
         } 
-        // Handle answers: "A:" or "Answer:" or lines after "|"
         else if (line.match(/^(A:|Answer:)/i)) {
             if (currentCard) {
                 currentCard.answer = line.replace(/^(A:|Answer:)\s*/i, '');
             }
         }
-        // Handle "Q: question | A: answer" format
         else if (line.includes('|') && line.match(/Q:/i) && line.match(/A:/i)) {
             const parts = line.split('|');
             if (parts.length >= 2) {
@@ -1612,7 +1608,6 @@ function debugFlashcards() {
                 }
             }
         }
-        // Continue building current question or answer
         else if (currentCard && line) {
             if (!currentCard.answer) {
                 currentCard.question += ' ' + line;
@@ -1622,7 +1617,6 @@ function debugFlashcards() {
         }
     }
 
-    // Don't forget the last card
     if (currentCard && currentCard.question && currentCard.answer) {
         newFlashcards.push(currentCard);
     }
@@ -1633,26 +1627,36 @@ function debugFlashcards() {
         flashcards = newFlashcards;
         currentCardIndex = 0;
         isCardFlipped = false;
+        
+        // Enable navigation buttons
+        const prevBtn = document.getElementById('prevCard');
+        const nextBtn = document.getElementById('nextCard');
+        const shuffleBtn = document.getElementById('shuffleBtn');
+        
+        if (prevBtn) prevBtn.disabled = false;
+        if (nextBtn) nextBtn.disabled = false; 
+        if (shuffleBtn) shuffleBtn.disabled = false;
+        
         updateFlashcards();
-        enableFlashcardNavigation();
         console.log(`Successfully created ${newFlashcards.length} flashcards`);
     } else {
         console.log('No flashcards could be parsed from the response');
-        addMessage('Could not parse flashcards from the response. The AI might have used an unexpected format.', 'bot');
     }
 }
-        function updateFlashcards() {
+       // 1. FIND AND REPLACE this function (around line 800-830):
+function updateFlashcards() {
     const container = document.getElementById('flashcardContainer');
     const welcomeCard = document.getElementById('welcomeCard');
 
     if (flashcards.length === 0) {
-        welcomeCard.style.display = 'flex';
+        if (welcomeCard) welcomeCard.style.display = 'flex';
         return;
     }
 
-    welcomeCard.style.display = 'none';
+    if (welcomeCard) welcomeCard.style.display = 'none';
 
     const currentCard = flashcards[currentCardIndex];
+    
     container.innerHTML = `
         <div class="flashcard ${isCardFlipped ? 'flipped' : ''}" id="currentFlashcard">
             <div class="flashcard-content">
@@ -1664,38 +1668,46 @@ function debugFlashcards() {
         </div>
     `;
 
-    // Add click event listener after creating the element
-    const flashcardElement = document.getElementById('currentFlashcard');
-    if (flashcardElement) {
-        flashcardElement.addEventListener('click', flipCard);
-    }
+    // Re-add click event listener after creating the HTML
+    setTimeout(() => {
+        const flashcardElement = document.getElementById('currentFlashcard');
+        if (flashcardElement) {
+            flashcardElement.style.cursor = 'pointer';
+            flashcardElement.addEventListener('click', flipCard);
+            console.log('Click listener added to flashcard');
+        }
+    }, 10);
 
     updateFlashcardCounter();
+    updateFlashcardNavigation();
 }
 
-        function flipCard() {
-            isCardFlipped = !isCardFlipped;
-            updateFlashcards();
-        }
+// 2. FIND AND REPLACE this function (around line 850):
+function flipCard() {
+    console.log('Flipcard clicked! Current state:', isCardFlipped);
+    isCardFlipped = !isCardFlipped;
+    updateFlashcards();
+}
 
-        function nextCard() {
-            if (currentCardIndex < flashcards.length - 1) {
-                currentCardIndex++;
-                isCardFlipped = false;
-                updateFlashcards();
-                updateFlashcardNavigation();
-            }
-        }
+// 3. FIND AND REPLACE this function (around line 860):
+function nextCard() {
+    console.log('Next card clicked');
+    if (currentCardIndex < flashcards.length - 1) {
+        currentCardIndex++;
+        isCardFlipped = false;
+        updateFlashcards();
+    }
+}
 
-        function previousCard() {
-            if (currentCardIndex > 0) {
-                currentCardIndex--;
-                isCardFlipped = false;
-                updateFlashcards();
-                updateFlashcardNavigation();
-            }
-        }
-
+// 4. FIND AND REPLACE this function (around line 870):
+function previousCard() {
+    console.log('Previous card clicked');
+    if (currentCardIndex > 0) {
+        currentCardIndex--;
+        isCardFlipped = false;
+        updateFlashcards();
+    }
+}
         function shuffleCards() {
             if (flashcards.length > 0) {
                 flashcards = flashcards.sort(() => Math.random() - 0.5);
