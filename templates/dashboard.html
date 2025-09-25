@@ -1532,19 +1532,66 @@ function debugFlashcards() {
 
 // Add a button to trigger debug (temporary)
 // You can call debugFlashcards() from browser console
-
-        function generateFlashcards() {
-            if (!currentPDF) {
-                // Generate from chat history or ask user for topic
-                const topic = prompt('What topic would you like to create flashcards for?');
-                if (topic) {
-                    generateFlashcardsFromTopic(topic);
-                }
-            } else {
-                // Generate from current PDF
-                processPDF('flashcards');
-            }
+        function generateFlashcardsOptions() {
+    const options = [
+        'Generate from current PDF',
+        'Generate from all uploaded PDFs', 
+        'Generate from topic (manual)',
+        'Clear all flashcards and start fresh'
+    ];
+    
+    let choice = prompt(`Choose an option:\n${options.map((opt, i) => `${i+1}. ${opt}`).join('\n')}\n\nEnter number (1-4):`);
+    
+    if (choice === '4') {
+        if (confirm('This will delete all current flashcards. Continue?')) {
+            flashcards = [];
+            currentCardIndex = 0;
+            updateFlashcards();
+            updateFlashcardCounter();
+            addSystemMessage('All flashcards cleared!');
         }
+        return;
+    }
+    
+    if (choice === '3') {
+        const topic = prompt('What topic would you like to create flashcards for?');
+        if (topic) {
+            generateFlashcardsFromTopic(topic);
+        }
+        return;
+    }
+    
+    if (choice === '2') {
+        // This would need backend support to process all PDFs
+        alert('Processing all PDFs feature coming soon!');
+        return;
+    }
+    
+    // Default: Generate from current PDF
+    if (currentPDF) {
+        processPDF('flashcards');
+    } else {
+        alert('Please select a PDF first.');
+    }
+}
+
+
+       function generateFlashcards() {
+    if (flashcards.length > 0) {
+        // Show options if flashcards already exist
+        generateFlashcardsOptions();
+    } else {
+        // Direct generation if no flashcards exist
+        if (!currentPDF) {
+            const topic = prompt('What topic would you like to create flashcards for?');
+            if (topic) {
+                generateFlashcardsFromTopic(topic);
+            }
+        } else {
+            processPDF('flashcards');
+        }
+    }
+}
 
         async function generateFlashcardsFromTopic(topic) {
             const generateBtn = document.querySelector('.generate-flashcards-btn');
@@ -1583,7 +1630,8 @@ function debugFlashcards() {
         }
 
      // 5. FIND AND REPLACE this function (around line 750-820):
-function parseFlashcardsFromResponse(response) {
+/ REPLACE the parseFlashcardsFromResponse function with this version:
+function parseFlashcardsFromResponse(response, appendMode = true) {
     const lines = response.split('\n');
     const newFlashcards = [];
     let currentCard = null;
@@ -1633,8 +1681,16 @@ function parseFlashcardsFromResponse(response) {
     console.log('Parsed flashcards:', newFlashcards);
 
     if (newFlashcards.length > 0) {
-        flashcards = newFlashcards;
-        currentCardIndex = 0;
+        // APPEND to existing flashcards instead of replacing
+        if (appendMode && flashcards.length > 0) {
+            flashcards.push(...newFlashcards);
+            console.log(`Added ${newFlashcards.length} new flashcards. Total: ${flashcards.length}`);
+        } else {
+            flashcards = newFlashcards;
+            currentCardIndex = 0;
+            console.log(`Created ${newFlashcards.length} flashcards`);
+        }
+        
         isCardFlipped = false;
         
         // Enable navigation buttons
@@ -1647,11 +1703,11 @@ function parseFlashcardsFromResponse(response) {
         if (shuffleBtn) shuffleBtn.disabled = false;
         
         updateFlashcards();
-        console.log(`Successfully created ${newFlashcards.length} flashcards`);
     } else {
         console.log('No flashcards could be parsed from the response');
     }
 }
+
        // 1. FIND AND REPLACE this function (around line 800-830):
 function updateFlashcards() {
     const container = document.getElementById('flashcardContainer');
