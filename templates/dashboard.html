@@ -1967,48 +1967,61 @@ function setupChatInput() {
     }
 
     // Chat functions
-    async function sendMessage() {
-    console.log('sendMessage called');
-    
+ async function sendMessage() {
+    console.log("sendMessage called");
     const input = document.getElementById('chatInput');
-    const message = input?.value?.trim();
+    const message = input.value.trim();
     
-    if (!message) {
-        console.log('No message to send');
-        return;
-    }
-
-    console.log('Sending message:', message);
+    if (!message) return;
     
+    const sendBtn = document.getElementById('sendBtn');
+    sendBtn.disabled = true;
+    sendBtn.innerHTML = '<div class="spinner"></div>';
+    
+    // Add user message
     addMessage(message, 'user');
     input.value = '';
     input.style.height = 'auto';
-
-    const sendBtn = document.getElementById('sendBtn');
-    if (sendBtn) {
-        sendBtn.disabled = true;
-        sendBtn.innerHTML = '<div class="spinner"></div>';
-    }
-
-    generateAIResponse(message, currentMode, responseLength)
-        .then(response => {
-            console.log('AI response received:', response);
-            addMessage(response, 'bot');
-            chatHistory.push({ user: message, bot: response, mode: currentMode });
-            trackAction('message');
-        })
-        .catch(error => {
-            console.error('Error generating AI response:', error);
-            addMessage('Sorry, I encountered an error. Please try again.', 'bot');
-        })
-        .finally(() => {
-            if (sendBtn) {
-                sendBtn.disabled = false;
-                sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
-            }
+    
+    // Add loading message
+    const loadingMessage = addMessage('Thinking...', 'bot', true);
+    
+    try {
+        const response = await fetch("/chat", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                message: message,
+                mode: currentMode,
+                length: responseLength
+            })
         });
+        
+        if (!response.ok) {
+            throw new Error(`Server error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Remove loading message
+        loadingMessage.remove();
+        
+        if (data.response) {
+            addMessage(data.response, 'bot');
+        } else {
+            addMessage(`Error: ${data.error || 'No response received'}`, 'bot');
+        }
+    } catch (error) {
+        loadingMessage.remove();
+        addMessage(`Connection error: ${error.message}. Please check if the server is running.`, 'bot');
+        console.error('Chat error:', error);
+    } finally {
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
+    }
 }
-
 
     function addMessage(content, type) {
         const messagesContainer = document.getElementById('chatMessages');
