@@ -1,190 +1,4 @@
-// Initialize page
-        document.addEventListener('DOMContentLoaded', () => {
-            setupModeButtons();
-            setupChatInput();
-            updateTimerDisplay();
-            setupFileUpload();
-            loadUploadedFiles();
-            setupFlashcards();
-            initializeProgressTracking();
-
-            // Test connection after a short delay
-            setTimeout(testConnection, 2000);
-        });
-
-        // Progress tracking functions
-        function loadUserProgress() {
-            try {
-                const saved = localStorage.getItem('phenbot_progress');
-                if (saved) {
-                    const savedProgress = JSON.parse(saved);
-                    userProgress = { ...userProgress, ...savedProgress };
-                    userProgress.sessionStartTime = Date.now();
-                    updateStudyStreak();
-                }
-            } catch (error) {
-                console.error('Error loading progress:', error);
-            }
-            updateProgressDisplay();
-        }
-
-        function saveUserProgress() {
-            try {
-                localStorage.setItem('phenbot_progress', JSON.stringify(userProgress));
-            } catch (error) {
-                console.error('Error saving progress:', error);
-            }
-        }
-
-        function updateStudyStreak() {
-            const today = new Date().toDateString();
-            const lastStudy = userProgress.lastStudyDate;
-            
-            if (lastStudy) {
-                const daysDiff = Math.floor((new Date() - new Date(lastStudy)) / (1000 * 60 * 60 * 24));
-                
-                if (daysDiff === 1) {
-                    userProgress.streakDays++;
-                } else if (daysDiff > 1) {
-                    userProgress.streakDays = 1;
-                }
-            } else {
-                userProgress.streakDays = 1;
-            }
-            
-            userProgress.lastStudyDate = today;
-            checkAchievements();
-        }
-
-        function updateProgressDisplay() {
-            document.getElementById('messagesCount').textContent = userProgress.messagesCount;
-            document.getElementById('totalStudyTime').textContent = Math.floor(userProgress.studyTimeTotal / 60) + 'h';
-            document.getElementById('pdfsProcessed').textContent = userProgress.pdfsProcessed;
-            document.getElementById('flashcardsCreated').textContent = userProgress.flashcardsCreated;
-            document.getElementById('streakDays').textContent = userProgress.streakDays;
-            
-            updateSkillProgress('criticalThinking', userProgress.skills.criticalThinking);
-            updateSkillProgress('problemSolving', userProgress.skills.problemSolving);
-            updateSkillProgress('researchSkills', userProgress.skills.researchSkills);
-            updateSkillProgress('studyHabits', userProgress.skills.studyHabits);
-            
-            updateAchievementsDisplay();
-            updateStudyInsights();
-        }
-
-        function updateSkillProgress(skillName, value) {
-            const progressBar = document.getElementById(skillName + 'Progress');
-            const levelSpan = document.getElementById(skillName + 'Level');
-            
-            if (progressBar) {
-                progressBar.style.width = Math.min(value, 100) + '%';
-            }
-            
-            if (levelSpan) {
-                let level = 'Beginner';
-                if (value >= 80) level = 'Expert';
-                else if (value >= 60) level = 'Advanced';
-                else if (value >= 30) level = 'Intermediate';
-                
-                levelSpan.textContent = level;
-            }
-        }
-
-        function checkAchievements() {
-            const achievements = userProgress.achievements;
-            
-            if (userProgress.messagesCount >= 1 && !achievements.firstMessage) {
-                unlockAchievement('firstMessage', 'First Message Sent!');
-            }
-            
-            if (userProgress.pdfsProcessed >= 3 && !achievements.pdfMaster) {
-                unlockAchievement('pdfMaster', 'PDF Master Unlocked!');
-            }
-            
-            if (userProgress.flashcardsCreated >= 15 && !achievements.flashcardHero) {
-                unlockAchievement('flashcardHero', 'Flashcard Hero!');
-            }
-            
-            if (userProgress.studyTimeTotal >= 1800 && !achievements.timeManager) {
-                unlockAchievement('timeManager', 'Time Manager!');
-            }
-            
-            if (userProgress.streakDays >= 7 && !achievements.streakWarrior) {
-                unlockAchievement('streakWarrior', '7-Day Streak Warrior!');
-            }
-            
-            if (userProgress.messagesCount >= 25 && !achievements.knowledgeSeeker) {
-                unlockAchievement('knowledgeSeeker', 'Knowledge Seeker!');
-            }
-            
-            if (userProgress.messagesCount >= 10 && userProgress.flashcardsCreated >= 5 && !achievements.studyBuddy) {
-                unlockAchievement('studyBuddy', 'Study Buddy!');
-            }
-            
-            const hour = new Date().getHours();
-            if ((hour >= 22 || hour <= 5) && userProgress.messagesCount >= 5 && !achievements.nightOwl) {
-                unlockAchievement('nightOwl', 'Night Owl!');
-            }
-            
-            saveUserProgress();
-        }
-
-        function unlockAchievement(achievementId, message) {
-            userProgress.achievements[achievementId] = true;
-            
-            const badge = document.getElementById(achievementId);
-            if (badge) {
-                badge.classList.remove('locked');
-                badge.classList.add('earned');
-                
-                showAchievementNotification(message);
-            }
-            
-            updateAchievementsDisplay();
-        }
-
-        function showAchievementNotification(message) {
-            const notification = document.createElement('div');
-            notification.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                background: linear-gradient(135deg, var(--achievement-gold), #d97706);
-                color: white;
-                padding: 1rem 1.5rem;
-                border-radius: 12px;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-                z-index: 10000;
-                font-weight: 600;
-                animation: slideInRight 0.5s ease;
-            `;
-            
-            const style = document.createElement('style');
-            style.textContent = `
-                @keyframes slideInRight {
-                    from { transform: translateX(100%); opacity: 0; }
-                    to { transform: translateX(0); opacity: 1; }
-                }
-            `;
-            document.head.appendChild(style);
-            
-            notification.innerHTML = `<i class="fas fa-trophy" style="margin-right: 0.5rem;"></i>${message}`;
-            
-            document.body.appendChild(notification);
-            
-            setTimeout(() => {
-                notification.remove();
-                style.remove();
-            }, 3000);
-        }
-
-        function updateAchievementsDisplay() {
-            const earned = Object.values(userProgress.achievements).filter(Boolean).length;
-            document.getElementById('achievementsEarned').textContent = earned;
-        }
-
-        function updateStudyInsights() {
-            const insights =<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -1307,7 +1121,7 @@
             <div class="nav-actions">
                 <div class="user-info">
                     <i class="fas fa-user-circle"></i>
-                    <span>{{ username or 'Student' }}</span>
+                    <span>Student</span>
                 </div>
                 <button class="logout-btn" onclick="logout()">
                     <i class="fas fa-sign-out-alt"></i>
@@ -1685,8 +1499,10 @@
         let flashcards = [];
         let currentCardIndex = 0;
         let isCardFlipped = false;
+        let chatHistory = [];
+        let uploadedFiles = [];
 
-        // Progress tracking variables
+        // Progress tracking variables (using in-memory storage for Claude artifacts)
         let userProgress = {
             messagesCount: 0,
             studyTimeTotal: 0,
@@ -1722,804 +1538,842 @@
             teach: "Step-by-step teaching mode with examples and practice",
             simple: "Simplified explanations suitable for beginners"
         };
-        <!-- ADD THESE CSS VARIABLES TO YOUR :root SECTION (after line 20) -->
-<style>
-:root {
-    /* Add these to your existing CSS variables */
-    --progress-bg: rgba(71, 85, 105, 0.3);
-    --progress-fill: linear-gradient(90deg, var(--primary-green), var(--primary-cyan));
-    --skill-primary: #4f46e5;
-    --skill-secondary: #7c3aed;
-    --skill-tertiary: #10b981;
-    --achievement-gold: #f59e0b;
-    --achievement-silver: #94a3b8;
-    --achievement-bronze: #d97706;
-}
 
-/* ADD THESE NEW CSS CLASSES (after existing card styles around line 600) */
-.progress-section {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-}
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', () => {
+            setupModeButtons();
+            setupChatInput();
+            updateTimerDisplay();
+            setupFileUpload();
+            loadUploadedFiles();
+            setupFlashcards();
+            initializeProgressTracking();
 
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-}
-
-.stat-item {
-    background: rgba(15, 23, 42, 0.9);
-    border: 1px solid var(--card-border);
-    border-radius: 12px;
-    padding: 1rem;
-    text-align: center;
-    transition: all 0.3s ease;
-}
-
-.stat-item:hover {
-    background: rgba(15, 23, 42, 1);
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-}
-
-.stat-number {
-    font-size: 1.8rem;
-    font-weight: 700;
-    color: var(--primary-blue);
-    display: block;
-    margin-bottom: 0.25rem;
-}
-
-.stat-label {
-    font-size: 0.7rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    font-weight: 500;
-    letter-spacing: 0.5px;
-}
-
-.skill-progress {
-    background: rgba(15, 23, 42, 0.9);
-    border: 1px solid var(--card-border);
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-bottom: 1rem;
-}
-
-.skill-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.75rem;
-}
-
-.skill-name {
-    font-weight: 600;
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-}
-
-.skill-level {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    background: rgba(79, 70, 229, 0.2);
-    padding: 0.2rem 0.5rem;
-    border-radius: 10px;
-    border: 1px solid rgba(79, 70, 229, 0.3);
-}
-
-.progress-bar {
-    background: var(--progress-bg);
-    border-radius: 10px;
-    height: 8px;
-    overflow: hidden;
-    position: relative;
-}
-
-.progress-fill {
-    background: var(--progress-fill);
-    height: 100%;
-    border-radius: 10px;
-    transition: width 0.8s ease;
-    position: relative;
-}
-
-.progress-fill::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-    animation: shimmer 2s infinite;
-}
-
-@keyframes shimmer {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(100%); }
-}
-
-.achievements-section {
-    background: rgba(15, 23, 42, 0.9);
-    border: 1px solid var(--card-border);
-    border-radius: 12px;
-    padding: 1.5rem;
-}
-
-.achievements-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
-    gap: 0.75rem;
-    margin-top: 1rem;
-}
-
-.achievement-badge {
-    aspect-ratio: 1;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-    transition: all 0.3s ease;
-    cursor: pointer;
-    position: relative;
-}
-
-.achievement-badge.earned {
-    background: linear-gradient(135deg, var(--achievement-gold), #d97706);
-    color: white;
-    box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
-}
-
-.achievement-badge.locked {
-    background: rgba(71, 85, 105, 0.3);
-    color: var(--text-disabled);
-    border: 2px dashed var(--card-border);
-}
-
-.achievement-badge:hover {
-    transform: scale(1.1);
-}
-
-.achievement-tooltip {
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(15, 23, 42, 0.95);
-    color: var(--text-secondary);
-    padding: 0.5rem;
-    border-radius: 8px;
-    font-size: 0.7rem;
-    white-space: nowrap;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s ease;
-    border: 1px solid var(--card-border);
-    z-index: 1000;
-}
-
-.achievement-badge:hover .achievement-tooltip {
-    opacity: 1;
-}
-
-.learning-streak {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(217, 119, 6, 0.2));
-    border: 1px solid rgba(245, 158, 11, 0.3);
-    border-radius: 20px;
-    padding: 0.75rem 1rem;
-    margin-bottom: 1rem;
-}
-
-.streak-fire {
-    font-size: 1.2rem;
-    color: var(--achievement-gold);
-}
-
-.streak-text {
-    font-weight: 600;
-    color: var(--text-secondary);
-}
-
-.study-insights {
-    background: rgba(15, 23, 42, 0.9);
-    border: 1px solid var(--card-border);
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-top: 1rem;
-}
-
-.insight-item {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem 0;
-    border-bottom: 1px solid rgba(71, 85, 105, 0.3);
-}
-
-.insight-item:last-child {
-    border-bottom: none;
-}
-
-.insight-icon {
-    width: 35px;
-    height: 35px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1rem;
-    background: linear-gradient(135deg, var(--primary-blue), var(--primary-purple));
-    color: white;
-}
-
-.insight-text {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    line-height: 1.4;
-}
-
-/* UPDATE MEDIA QUERIES */
-@media (max-width: 1024px) {
-    .main-container {
-        grid-template-columns: 1fr;
-        padding: 1rem;
-    }
-
-    .sidebar, .progress-sidebar {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 1rem;
-    }
-    
-    .progress-sidebar {
-        margin-top: 2rem;
-    }
-}
-
-@media (max-width: 768px) {
-    .sidebar, .progress-sidebar {
-        grid-template-columns: 1fr;
-    }
-
-    .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-    
-    .achievements-grid {
-        grid-template-columns: repeat(4, 1fr);
-    }
-    
-    .progress-section {
-        gap: 1rem;
-    }
-}
-</style>
-
-<!-- UPDATE YOUR MAIN CONTAINER CSS -->
-<style>
-.main-container {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 2rem;
-    display: grid;
-    grid-template-columns: 1.2fr 1fr 0.8fr; /* Changed from 1.5fr 1fr to add third column */
-    gap: 2rem;
-    min-height: calc(100vh - 100px);
-}
-</style>
-
-<!-- ADD THIS HTML AFTER YOUR EXISTING SIDEBAR (before closing main-container div) -->
-<div class="progress-sidebar">
-    <div class="card progress-tracker">
-        <div class="card-header">
-            <div class="card-icon" style="background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan));">
-                <i class="fas fa-chart-line"></i>
-            </div>
-            <div>
-                <h3 class="card-title">Learning Analytics</h3>
-                <div class="status-indicator">
-                    <span class="status-dot" style="background: var(--primary-green);"></span>
-                    <span>Tracking progress</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="learning-streak">
-            <span class="streak-fire">🔥</span>
-            <span class="streak-text"><span id="streakDays">0</span> day streak</span>
-        </div>
-
-        <div class="stats-grid">
-            <div class="stat-item">
-                <span class="stat-number" id="totalStudyTime">0h</span>
-                <span class="stat-label">Study Time</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-number" id="messagesCount">0</span>
-                <span class="stat-label">Messages</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-number" id="pdfsProcessed">0</span>
-                <span class="stat-label">PDFs</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-number" id="flashcardsCreated">0</span>
-                <span class="stat-label">Flashcards</span>
-            </div>
-        </div>
-    </div>
-
-    <div class="card skills-tracker">
-        <div class="card-header">
-            <div class="card-icon" style="background: linear-gradient(135deg, var(--primary-purple), #8b5cf6);">
-                <i class="fas fa-brain"></i>
-            </div>
-            <div>
-                <h3 class="card-title">Skills Development</h3>
-                <div class="status-indicator">
-                    <span class="status-dot" style="background: var(--primary-purple);"></span>
-                    <span>Growing stronger</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="progress-section">
-            <div class="skill-progress">
-                <div class="skill-header">
-                    <span class="skill-name">Critical Thinking</span>
-                    <span class="skill-level" id="criticalThinkingLevel">Beginner</span>
-                </div>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="criticalThinkingProgress" style="width: 15%;"></div>
-                </div>
-            </div>
-
-            <div class="skill-progress">
-                <div class="skill-header">
-                    <span class="skill-name">Problem Solving</span>
-                    <span class="skill-level" id="problemSolvingLevel">Beginner</span>
-                </div>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="problemSolvingProgress" style="width: 10%;"></div>
-                </div>
-            </div>
-
-            <div class="skill-progress">
-                <div class="skill-header">
-                    <span class="skill-name">Research Skills</span>
-                    <span class="skill-level" id="researchSkillsLevel">Beginner</span>
-                </div>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="researchSkillsProgress" style="width: 20%;"></div>
-                </div>
-            </div>
-
-            <div class="skill-progress">
-                <div class="skill-header">
-                    <span class="skill-name">Study Habits</span>
-                    <span class="skill-level" id="studyHabitsLevel">Beginner</span>
-                </div>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="studyHabitsProgress" style="width: 25%;"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="card achievements-tracker">
-        <div class="card-header">
-            <div class="card-icon" style="background: linear-gradient(135deg, var(--achievement-gold), #d97706);">
-                <i class="fas fa-trophy"></i>
-            </div>
-            <div>
-                <h3 class="card-title">Achievements</h3>
-                <div class="status-indicator">
-                    <span class="status-dot" style="background: var(--achievement-gold);"></span>
-                    <span><span id="achievementsEarned">0</span>/8 earned</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="achievements-section">
-            <div class="achievements-grid">
-                <div class="achievement-badge locked" id="firstMessage">
-                    <i class="fas fa-comment"></i>
-                    <div class="achievement-tooltip">First Message</div>
-                </div>
-                <div class="achievement-badge locked" id="pdfMaster">
-                    <i class="fas fa-file-pdf"></i>
-                    <div class="achievement-tooltip">PDF Master</div>
-                </div>
-                <div class="achievement-badge locked" id="flashcardHero">
-                    <i class="fas fa-layer-group"></i>
-                    <div class="achievement-tooltip">Flashcard Hero</div>
-                </div>
-                <div class="achievement-badge locked" id="timeManager">
-                    <i class="fas fa-clock"></i>
-                    <div class="achievement-tooltip">Time Manager</div>
-                </div>
-                <div class="achievement-badge locked" id="streakWarrior">
-                    <i class="fas fa-fire"></i>
-                    <div class="achievement-tooltip">7-day Streak</div>
-                </div>
-                <div class="achievement-badge locked" id="knowledgeSeeker">
-                    <i class="fas fa-search"></i>
-                    <div class="achievement-tooltip">Knowledge Seeker</div>
-                </div>
-                <div class="achievement-badge locked" id="studyBuddy">
-                    <i class="fas fa-user-friends"></i>
-                    <div class="achievement-tooltip">Study Buddy</div>
-                </div>
-                <div class="achievement-badge locked" id="nightOwl">
-                    <i class="fas fa-moon"></i>
-                    <div class="achievement-tooltip">Night Owl</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="study-insights">
-            <h4 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 1rem;">
-                <i class="fas fa-lightbulb" style="color: var(--achievement-gold); margin-right: 0.5rem;"></i>
-                Study Insights
-            </h4>
-            <div id="studyInsights">
-                <div class="insight-item">
-                    <div class="insight-icon">
-                        <i class="fas fa-chart-line"></i>
-                    </div>
-                    <div class="insight-text">Start your learning journey by asking your first question!</div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-// ADD THESE JAVASCRIPT VARIABLES AFTER YOUR EXISTING VARIABLES (around line 900)
-let userProgress = {
-    messagesCount: 0,
-    studyTimeTotal: 0,
-    pdfsProcessed: 0,
-    flashcardsCreated: 0,
-    streakDays: 0,
-    lastStudyDate: null,
-    skills: {
-        criticalThinking: 0,
-        problemSolving: 0,
-        researchSkills: 0,
-        studyHabits: 0
-    },
-    achievements: {
-        firstMessage: false,
-        pdfMaster: false,
-        flashcardHero: false,
-        timeManager: false,
-        streakWarrior: false,
-        knowledgeSeeker: false,
-        studyBuddy: false,
-        nightOwl: false
-    },
-    sessionStartTime: Date.now(),
-    totalSessions: 0
-};
-
-// ADD THESE PROGRESS TRACKING FUNCTIONS
-function loadUserProgress() {
-    try {
-        const saved = localStorage.getItem('phenbot_progress');
-        if (saved) {
-            const savedProgress = JSON.parse(saved);
-            userProgress = { ...userProgress, ...savedProgress };
-            userProgress.sessionStartTime = Date.now();
-            updateStudyStreak();
-        }
-    } catch (error) {
-        console.error('Error loading progress:', error);
-    }
-    updateProgressDisplay();
-}
-
-function saveUserProgress() {
-    try {
-        localStorage.setItem('phenbot_progress', JSON.stringify(userProgress));
-    } catch (error) {
-        console.error('Error saving progress:', error);
-    }
-}
-
-function updateStudyStreak() {
-    const today = new Date().toDateString();
-    const lastStudy = userProgress.lastStudyDate;
-    
-    if (lastStudy) {
-        const daysDiff = Math.floor((new Date() - new Date(lastStudy)) / (1000 * 60 * 60 * 24));
-        
-        if (daysDiff === 1) {
-            userProgress.streakDays++;
-        } else if (daysDiff > 1) {
-            userProgress.streakDays = 1;
-        }
-    } else {
-        userProgress.streakDays = 1;
-    }
-    
-    userProgress.lastStudyDate = today;
-    checkAchievements();
-}
-
-function updateProgressDisplay() {
-    document.getElementById('messagesCount').textContent = userProgress.messagesCount;
-    document.getElementById('totalStudyTime').textContent = Math.floor(userProgress.studyTimeTotal / 60) + 'h';
-    document.getElementById('pdfsProcessed').textContent = userProgress.pdfsProcessed;
-    document.getElementById('flashcardsCreated').textContent = userProgress.flashcardsCreated;
-    document.getElementById('streakDays').textContent = userProgress.streakDays;
-    
-    updateSkillProgress('criticalThinking', userProgress.skills.criticalThinking);
-    updateSkillProgress('problemSolving', userProgress.skills.problemSolving);
-    updateSkillProgress('researchSkills', userProgress.skills.researchSkills);
-    updateSkillProgress('studyHabits', userProgress.skills.studyHabits);
-    
-    updateAchievementsDisplay();
-    updateStudyInsights();
-}
-
-function updateSkillProgress(skillName, value) {
-    const progressBar = document.getElementById(skillName + 'Progress');
-    const levelSpan = document.getElementById(skillName + 'Level');
-    
-    if (progressBar) {
-        progressBar.style.width = Math.min(value, 100) + '%';
-    }
-    
-    if (levelSpan) {
-        let level = 'Beginner';
-        if (value >= 80) level = 'Expert';
-        else if (value >= 60) level = 'Advanced';
-        else if (value >= 30) level = 'Intermediate';
-        
-        levelSpan.textContent = level;
-    }
-}
-
-function checkAchievements() {
-    const achievements = userProgress.achievements;
-    
-    if (userProgress.messagesCount >= 1 && !achievements.firstMessage) {
-        unlockAchievement('firstMessage', 'First Message Sent!');
-    }
-    
-    if (userProgress.pdfsProcessed >= 3 && !achievements.pdfMaster) {
-        unlockAchievement('pdfMaster', 'PDF Master Unlocked!');
-    }
-    
-    if (userProgress.flashcardsCreated >= 15 && !achievements.flashcardHero) {
-        unlockAchievement('flashcardHero', 'Flashcard Hero!');
-    }
-    
-    if (userProgress.studyTimeTotal >= 1800 && !achievements.timeManager) {
-        unlockAchievement('timeManager', 'Time Manager!');
-    }
-    
-    if (userProgress.streakDays >= 7 && !achievements.streakWarrior) {
-        unlockAchievement('streakWarrior', '7-Day Streak Warrior!');
-    }
-    
-    if (userProgress.messagesCount >= 25 && !achievements.knowledgeSeeker) {
-        unlockAchievement('knowledgeSeeker', 'Knowledge Seeker!');
-    }
-    
-    if (userProgress.messagesCount >= 10 && userProgress.flashcardsCreated >= 5 && !achievements.studyBuddy) {
-        unlockAchievement('studyBuddy', 'Study Buddy!');
-    }
-    
-    const hour = new Date().getHours();
-    if ((hour >= 22 || hour <= 5) && userProgress.messagesCount >= 5 && !achievements.nightOwl) {
-        unlockAchievement('nightOwl', 'Night Owl!');
-    }
-    
-    saveUserProgress();
-}
-
-function unlockAchievement(achievementId, message) {
-    userProgress.achievements[achievementId] = true;
-    
-    const badge = document.getElementById(achievementId);
-    if (badge) {
-        badge.classList.remove('locked');
-        badge.classList.add('earned');
-        
-        showAchievementNotification(message);
-    }
-    
-    updateAchievementsDisplay();
-}
-
-function showAchievementNotification(message) {
-    const notification = document.createElement('div');
-    notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: linear-gradient(135deg, var(--achievement-gold), #d97706);
-        color: white;
-        padding: 1rem 1.5rem;
-        border-radius: 12px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-        z-index: 10000;
-        font-weight: 600;
-        animation: slideInRight 0.5s ease;
-    `;
-    
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes slideInRight {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-    `;
-    document.head.appendChild(style);
-    
-    notification.innerHTML = `<i class="fas fa-trophy" style="margin-right: 0.5rem;"></i>${message}`;
-    
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-        notification.remove();
-        style.remove();
-    }, 3000);
-}
-
-function updateAchievementsDisplay() {
-    const earned = Object.values(userProgress.achievements).filter(Boolean).length;
-    document.getElementById('achievementsEarned').textContent = earned;
-}
-// Replace your incomplete function with this:
-function updateStudyInsights() {
-    const insights = document.getElementById('studyInsights');
-    const insightsList = [];
-    
-    if (userProgress.messagesCount === 0) {
-        insightsList.push({
-            icon: 'fas fa-chart-line',
-            text: 'Start your learning journey by asking your first question!'
+            // Test connection after a short delay
+            setTimeout(testConnection, 2000);
         });
-    } else {
-        if (userProgress.streakDays >= 3) {
-            insightsList.push({
-                icon: 'fas fa-fire',
-                text: `Amazing! You're on a ${userProgress.streakDays}-day learning streak!`
-            });
-        }
-        
-        if (userProgress.messagesCount >= 10) {
-            insightsList.push({
-                icon: 'fas fa-star',
-                text: 'You\'re becoming more engaged with learning!'
-            });
-        }
-        
-        if (userProgress.pdfsProcessed >= 1) {
-            insightsList.push({
-                icon: 'fas fa-file-pdf',
-                text: 'Great use of PDF analysis tools!'
-            });
-        }
-        
-        if (userProgress.flashcardsCreated >= 5) {
-            insightsList.push({
-                icon: 'fas fa-brain',
-                text: 'Flashcards are boosting your memory skills!'
-            });
-        }
-    }
-function trackAction(actionType, value = 1) {
-    switch(actionType) {
-        case 'message':
-            userProgress.messagesCount++;
-            userProgress.skills.criticalThinking += 0.5;
-            break;
-        case 'pdf':
-            userProgress.pdfsProcessed++;
-            userProgress.skills.researchSkills += 2;
-            break;
-        case 'flashcard':
-            userProgress.flashcardsCreated += value;
-            userProgress.skills.studyHabits += 1;
-            break;
-        case 'timer':
-            userProgress.studyTimeTotal += value;
-            userProgress.skills.studyHabits += 0.5;
-            break;
-        case 'quiz_mode':
-            userProgress.skills.problemSolving += 1;
-            break;
-    }
-    
-    updateStudyStreak();
-    checkAchievements();
-    updateProgressDisplay();
-    saveUserProgress();
-}
-function initializeProgressTracking() {
-    loadUserProgress();
-    
-    // Track session time every minute
-    setInterval(() => {
-        userProgress.studyTimeTotal += 1; // Add 1 second every minute (simplified)
-        updateProgressDisplay();
-        saveUserProgress();
-    }, 60000);
-}
 
-function trackAction(actionType, value = 1) {
-    switch(actionType) {
-        case 'message':
-            userProgress.messagesCount++;
-            userProgress.skills.criticalThinking += 0.5;
-            break;
-        case 'pdf':
-            userProgress.pdfsProcessed++;
-            userProgress.skills.researchSkills += 2;
-            break;
-        case 'flashcard':
-            userProgress.flashcardsCreated += value;
-            userProgress.skills.studyHabits += 1;
-            break;
-        case 'timer':
-            userProgress.studyTimeTotal += value;
-            userProgress.skills.studyHabits += 0.5;
-            break;
-        case 'quiz_mode':
-            userProgress.skills.problemSolving += 1;
-            break;
-    }
-    
-    updateStudyStreak();
-    checkAchievements();
-    updateProgressDisplay();
-    saveUserProgress();
-}
-
-function initializeProgressTracking() {
-    loadUserProgress();
-    
-    // Track session time
-    setInterval(() => {
-        const sessionTime = Math.floor((Date.now() - userProgress.sessionStartTime) / 1000);
-        if (sessionTime > 0) {
-            userProgress.studyTimeTotal += 1;
+        // Progress tracking functions
+        function loadUserProgress() {
+            // In Claude artifacts, we start with default values since localStorage isn't available
+            updateStudyStreak();
             updateProgressDisplay();
+        }
+
+        function saveUserProgress() {
+            // In Claude artifacts, we can't save to localStorage, so this is a no-op
+            // In a real environment, you would save to localStorage or a backend
+            console.log('Progress updated:', userProgress);
+        }
+
+        function updateStudyStreak() {
+            const today = new Date().toDateString();
+            const lastStudy = userProgress.lastStudyDate;
+            
+            if (lastStudy) {
+                const daysDiff = Math.floor((new Date() - new Date(lastStudy)) / (1000 * 60 * 60 * 24));
+                
+                if (daysDiff === 1) {
+                    userProgress.streakDays++;
+                } else if (daysDiff > 1) {
+                    userProgress.streakDays = 1;
+                }
+            } else {
+                userProgress.streakDays = 1;
+            }
+            
+            userProgress.lastStudyDate = today;
+            checkAchievements();
+        }
+
+        function updateProgressDisplay() {
+            document.getElementById('messagesCount').textContent = userProgress.messagesCount;
+            document.getElementById('totalStudyTime').textContent = Math.floor(userProgress.studyTimeTotal / 60) + 'h';
+            document.getElementById('pdfsProcessed').textContent = userProgress.pdfsProcessed;
+            document.getElementById('flashcardsCreated').textContent = userProgress.flashcardsCreated;
+            document.getElementById('streakDays').textContent = userProgress.streakDays;
+            
+            updateSkillProgress('criticalThinking', userProgress.skills.criticalThinking);
+            updateSkillProgress('problemSolving', userProgress.skills.problemSolving);
+            updateSkillProgress('researchSkills', userProgress.skills.researchSkills);
+            updateSkillProgress('studyHabits', userProgress.skills.studyHabits);
+            
+            updateAchievementsDisplay();
+            updateStudyInsights();
+        }
+
+        function updateSkillProgress(skillName, value) {
+            const progressBar = document.getElementById(skillName + 'Progress');
+            const levelSpan = document.getElementById(skillName + 'Level');
+            
+            if (progressBar) {
+                progressBar.style.width = Math.min(value, 100) + '%';
+            }
+            
+            if (levelSpan) {
+                let level = 'Beginner';
+                if (value >= 80) level = 'Expert';
+                else if (value >= 60) level = 'Advanced';
+                else if (value >= 30) level = 'Intermediate';
+                
+                levelSpan.textContent = level;
+            }
+        }
+
+        function checkAchievements() {
+            const achievements = userProgress.achievements;
+            
+            if (userProgress.messagesCount >= 1 && !achievements.firstMessage) {
+                unlockAchievement('firstMessage', 'First Message Sent!');
+            }
+            
+            if (userProgress.pdfsProcessed >= 3 && !achievements.pdfMaster) {
+                unlockAchievement('pdfMaster', 'PDF Master Unlocked!');
+            }
+            
+            if (userProgress.flashcardsCreated >= 15 && !achievements.flashcardHero) {
+                unlockAchievement('flashcardHero', 'Flashcard Hero!');
+            }
+            
+            if (userProgress.studyTimeTotal >= 1800 && !achievements.timeManager) {
+                unlockAchievement('timeManager', 'Time Manager!');
+            }
+            
+            if (userProgress.streakDays >= 7 && !achievements.streakWarrior) {
+                unlockAchievement('streakWarrior', '7-Day Streak Warrior!');
+            }
+            
+            if (userProgress.messagesCount >= 25 && !achievements.knowledgeSeeker) {
+                unlockAchievement('knowledgeSeeker', 'Knowledge Seeker!');
+            }
+            
+            if (userProgress.messagesCount >= 10 && userProgress.flashcardsCreated >= 5 && !achievements.studyBuddy) {
+                unlockAchievement('studyBuddy', 'Study Buddy!');
+            }
+            
+            const hour = new Date().getHours();
+            if ((hour >= 22 || hour <= 5) && userProgress.messagesCount >= 5 && !achievements.nightOwl) {
+                unlockAchievement('nightOwl', 'Night Owl!');
+            }
+            
             saveUserProgress();
         }
-    }, 60000); // Update every minute
-}
 
-// UPDATE YOUR DOMContentLoaded EVENT LISTENER TO INCLUDE:
-// Add this line to your existing DOMContentLoaded function:
-// initializeProgressTracking();
+        function unlockAchievement(achievementId, message) {
+            userProgress.achievements[achievementId] = true;
+            
+            const badge = document.getElementById(achievementId);
+            if (badge) {
+                badge.classList.remove('locked');
+                badge.classList.add('earned');
+                
+                showAchievementNotification(message);
+            }
+            
+            updateAchievementsDisplay();
+        }
 
-// UPDATE YOUR EXISTING FUNCTIONS TO TRACK PROGRESS:
+        function showAchievementNotification(message) {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: linear-gradient(135deg, var(--achievement-gold), #d97706);
+                color: white;
+                padding: 1rem 1.5rem;
+                border-radius: 12px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                z-index: 10000;
+                font-weight: 600;
+                animation: slideInRight 0.5s ease;
+            `;
+            
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes slideInRight {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+            `;
+            document.head.appendChild(style);
+            
+            notification.innerHTML = `<i class="fas fa-trophy" style="margin-right: 0.5rem;"></i>${message}`;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+                style.remove();
+            }, 3000);
+        }
 
-// In your sendMessage function, add this after successful message send:
-// trackAction('message');
+        function updateAchievementsDisplay() {
+            const earned = Object.values(userProgress.achievements).filter(Boolean).length;
+            document.getElementById('achievementsEarned').textContent = earned;
+        }
 
-// In your processPDF function, add this after successful PDF processing:
-// trackAction('pdf');
+        function updateStudyInsights() {
+        // Complete the updateStudyInsights function
+        const insights = document.getElementById('studyInsights');
+        const insightsList = [];
+        
+        if (userProgress.messagesCount === 0) {
+            insightsList.push({
+                icon: 'fas fa-chart-line',
+                text: 'Start your learning journey by asking your first question!'
+            });
+        } else {
+            if (userProgress.streakDays >= 3) {
+                insightsList.push({
+                    icon: 'fas fa-fire',
+                    text: `Amazing! You're on a ${userProgress.streakDays}-day learning streak!`
+                });
+            }
+            
+            if (userProgress.messagesCount >= 10) {
+                insightsList.push({
+                    icon: 'fas fa-star',
+                    text: 'You\'re becoming more engaged with learning!'
+                });
+            }
+            
+            if (userProgress.pdfsProcessed >= 1) {
+                insightsList.push({
+                    icon: 'fas fa-file-pdf',
+                    text: 'Great use of PDF analysis tools!'
+                });
+            }
+            
+            if (userProgress.flashcardsCreated >= 5) {
+                insightsList.push({
+                    icon: 'fas fa-brain',
+                    text: 'Flashcards are boosting your memory skills!'
+                });
+            }
+            
+            if (userProgress.studyTimeTotal >= 1800) {
+                insightsList.push({
+                    icon: 'fas fa-clock',
+                    text: 'Excellent focus time! You\'re building great study habits.'
+                });
+            }
+        }
+        
+        // Add default insight if no specific insights
+        if (insightsList.length === 0) {
+            insightsList.push({
+                icon: 'fas fa-lightbulb',
+                text: 'Keep learning and discovering new things!'
+            });
+        }
+        
+        insights.innerHTML = insightsList.map(insight => `
+            <div class="insight-item">
+                <div class="insight-icon">
+                    <i class="${insight.icon}"></i>
+                </div>
+                <div class="insight-text">${insight.text}</div>
+            </div>
+        `).join('');
+    }
 
-// In your parseFlashcardsFromResponse function, add this after flashcards are created:
-// trackAction('flashcard', newFlashcards.length);
+    function trackAction(actionType, value = 1) {
+        switch(actionType) {
+            case 'message':
+                userProgress.messagesCount++;
+                userProgress.skills.criticalThinking = Math.min(100, userProgress.skills.criticalThinking + 0.5);
+                break;
+            case 'pdf':
+                userProgress.pdfsProcessed++;
+                userProgress.skills.researchSkills = Math.min(100, userProgress.skills.researchSkills + 2);
+                break;
+            case 'flashcard':
+                userProgress.flashcardsCreated += value;
+                userProgress.skills.studyHabits = Math.min(100, userProgress.skills.studyHabits + 1);
+                break;
+            case 'timer':
+                userProgress.studyTimeTotal += value;
+                userProgress.skills.studyHabits = Math.min(100, userProgress.skills.studyHabits + 0.5);
+                break;
+            case 'quiz_mode':
+                userProgress.skills.problemSolving = Math.min(100, userProgress.skills.problemSolving + 1);
+                break;
+        }
+        
+        updateStudyStreak();
+        checkAchievements();
+        updateProgressDisplay();
+        saveUserProgress();
+    }
 
-// In your startTimer function when timer completes (25 minutes = 1500 seconds):
-// trackAction('timer', 1500);
+    function initializeProgressTracking() {
+        loadUserProgress();
+        
+        // Track session time every minute
+        setInterval(() => {
+            const sessionTime = Math.floor((Date.now() - userProgress.sessionStartTime) / 1000);
+            if (sessionTime > 0) {
+                userProgress.studyTimeTotal += 60; // Add 60 seconds
+                updateProgressDisplay();
+                saveUserProgress();
+            }
+        }, 60000);
+    }
 
-// When quiz mode is used:
-// if (currentMode === 'quiz') trackAction('quiz_mode');
-</script>
+    // Initialize page
+    document.addEventListener('DOMContentLoaded', () => {
+        setupModeButtons();
+        setupChatInput();
+        updateTimerDisplay();
+        setupFileUpload();
+        loadUploadedFiles();
+        setupFlashcards();
+        initializeProgressTracking();
+
+        // Test connection after a short delay
+        setTimeout(testConnection, 2000);
+    });
+
+    // Setup functions
+    function setupModeButtons() {
+        const modeButtons = document.querySelectorAll('.mode-btn');
+        const modeDescription = document.getElementById('modeDescription');
+        
+        modeButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                modeButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentMode = btn.dataset.mode;
+                modeDescription.textContent = modeDescriptions[currentMode];
+                
+                if (currentMode === 'quiz') {
+                    trackAction('quiz_mode');
+                }
+            });
+        });
+        
+        document.getElementById('responseLength').addEventListener('change', (e) => {
+            responseLength = e.target.value;
+        });
+    }
+
+    function setupChatInput() {
+        const chatInput = document.getElementById('chatInput');
+        const sendBtn = document.getElementById('sendBtn');
+
+        chatInput.addEventListener('input', () => {
+            chatInput.style.height = 'auto';
+            chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
+        });
+
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        sendBtn.addEventListener('click', sendMessage);
+    }
+
+    function setupFileUpload() {
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            handleFileUpload({ target: { files: e.dataTransfer.files } });
+        });
+    }
+
+    function setupFlashcards() {
+        updateFlashcardCounter();
+    }
+
+    // Chat functions
+    async function sendMessage() {
+        const input = document.getElementById('chatInput');
+        const message = input.value.trim();
+        
+        if (!message) return;
+
+        addMessage(message, 'user');
+        input.value = '';
+        input.style.height = 'auto';
+
+        const sendBtn = document.getElementById('sendBtn');
+        sendBtn.disabled = true;
+        sendBtn.innerHTML = '<div class="spinner"></div>';
+
+        try {
+            const response = await generateAIResponse(message, currentMode, responseLength);
+            addMessage(response, 'bot');
+            chatHistory.push({ user: message, bot: response, mode: currentMode });
+            trackAction('message');
+        } catch (error) {
+            addMessage('Sorry, I encountered an error. Please try again.', 'bot');
+        } finally {
+            sendBtn.disabled = false;
+            sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
+        }
+    }
+
+    function addMessage(content, type) {
+        const messagesContainer = document.getElementById('chatMessages');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${type}`;
+
+        const avatar = document.createElement('div');
+        avatar.className = 'message-avatar';
+        avatar.innerHTML = type === 'user' ? 
+            '<i class="fas fa-user"></i>' : 
+            '<i class="fas fa-robot"></i>';
+
+        const messageContent = document.createElement('div');
+        messageContent.className = 'message-content';
+        messageContent.textContent = content;
+
+        messageDiv.appendChild(avatar);
+        messageDiv.appendChild(messageContent);
+        messagesContainer.appendChild(messageDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    async function generateAIResponse(message, mode, length) {
+        // Simulate AI response based on mode
+        const responses = {
+            normal: generateNormalResponse(message),
+            analogy: generateAnalogyResponse(message),
+            quiz: generateQuizResponse(message),
+            teach: generateTeachResponse(message),
+            simple: generateSimpleResponse(message)
+        };
+
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                resolve(responses[mode] || responses.normal);
+            }, 1000 + Math.random() * 1000);
+        });
+    }
+
+    function generateNormalResponse(message) {
+        const responses = [
+            `That's an interesting question about "${message}". Let me break it down for you in a clear way.`,
+            `I can help you understand this topic. Here's what you need to know about "${message}".`,
+            `Great question! Let me provide a comprehensive explanation about "${message}".`
+        ];
+        return responses[Math.floor(Math.random() * responses.length)];
+    }
+
+    function generateAnalogyResponse(message) {
+        return `Think of "${message}" like this: imagine it's similar to a puzzle where each piece represents a different concept. Just as you need all puzzle pieces to see the complete picture, understanding this topic requires connecting multiple ideas together.`;
+    }
+
+    function generateQuizResponse(message) {
+        return `Let me test your understanding of "${message}" with a question: What do you think is the most important aspect of this topic, and why? Take a moment to think about it before I provide the answer.`;
+    }
+
+    function generateTeachResponse(message) {
+        return `Let's learn about "${message}" step by step:\n\n1. First, let's understand the basics\n2. Then we'll look at key concepts\n3. Finally, we'll practice with examples\n\nThis approach will help you master the topic thoroughly.`;
+    }
+
+    function generateSimpleResponse(message) {
+        return `Here's a simple explanation of "${message}": Think of it as the basic building block of this topic. It's like learning your ABCs before reading - once you understand this, everything else becomes easier!`;
+    }
+
+    async function testConnection() {
+        try {
+            addMessage("Connection test successful! I'm ready to help with your studies.", 'bot');
+        } catch (error) {
+            addMessage("I'm running in demo mode. All features are simulated for testing purposes.", 'bot');
+        }
+    }
+
+    // File handling functions
+    function handleFileUpload(event) {
+        const files = Array.from(event.target.files);
+        files.forEach(file => {
+            if (file.type === 'application/pdf') {
+                uploadFile(file);
+            } else {
+                addMessage('Please upload only PDF files.', 'bot');
+            }
+        });
+    }
+
+    function uploadFile(file) {
+        const fileItem = {
+            name: file.name,
+            size: (file.size / 1024 / 1024).toFixed(2), // MB
+            id: Date.now() + Math.random(),
+            file: file
+        };
+
+        uploadedFiles.push(fileItem);
+        displayUploadedFile(fileItem);
+        document.getElementById('pdfActions').classList.add('show');
+        currentPDF = fileItem;
+    }
+
+    function displayUploadedFile(fileItem) {
+        const container = document.getElementById('uploadedFiles');
+        const fileDiv = document.createElement('div');
+        fileDiv.className = 'file-item';
+        fileDiv.innerHTML = `
+            <div class="file-info">
+                <div class="file-name">${fileItem.name}</div>
+                <div style="color: var(--text-muted); font-size: 0.8rem;">${fileItem.size} MB</div>
+            </div>
+            <div class="file-actions">
+                <button class="icon-btn primary" onclick="selectFile('${fileItem.id}')" title="Select">
+                    <i class="fas fa-check"></i>
+                </button>
+                <button class="icon-btn danger" onclick="removeFile('${fileItem.id}')" title="Remove">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `;
+        container.appendChild(fileDiv);
+    }
+
+    function selectFile(fileId) {
+        const file = uploadedFiles.find(f => f.id == fileId);
+        if (file) {
+            currentPDF = file;
+            addMessage(`Selected "${file.name}" for processing.`, 'bot');
+        }
+    }
+
+    function removeFile(fileId) {
+        uploadedFiles = uploadedFiles.filter(f => f.id != fileId);
+        const container = document.getElementById('uploadedFiles');
+        const fileElements = container.querySelectorAll('.file-item');
+        fileElements.forEach(element => {
+            if (element.querySelector('.icon-btn.danger').getAttribute('onclick').includes(fileId)) {
+                element.remove();
+            }
+        });
+    }
+
+    function loadUploadedFiles() {
+        // In a real app, this would load from storage
+        uploadedFiles = [];
+    }
+
+    async function processPDF(action) {
+        if (!currentPDF) {
+            addMessage('Please upload and select a PDF file first.', 'bot');
+            return;
+        }
+
+        const actionMessages = {
+            summarize: `Processing "${currentPDF.name}" for summarization...`,
+            flashcards: `Creating flashcards from "${currentPDF.name}"...`,
+            quiz: `Generating quiz questions from "${currentPDF.name}"...`,
+            outline: `Creating study outline from "${currentPDF.name}"...`
+        };
+
+        addMessage(actionMessages[action], 'bot');
+        
+        // Simulate processing delay
+        setTimeout(() => {
+            const results = {
+                summarize: `Summary of "${currentPDF.name}": This document covers key concepts in the subject area. Main points include fundamental principles, practical applications, and important considerations for students.`,
+                flashcards: `Created 5 flashcards from "${currentPDF.name}". Check the flashcards section to study them!`,
+                quiz: `Generated quiz questions from "${currentPDF.name}": 1. What is the main concept? 2. How does this apply practically? 3. What are the key benefits?`,
+                outline: `Study outline for "${currentPDF.name}": I. Introduction, II. Key Concepts, III. Applications, IV. Summary and Review Points.`
+            };
+            
+            addMessage(results[action], 'bot');
+            trackAction('pdf');
+            
+            if (action === 'flashcards') {
+                generateFlashcardsFromPDF();
+            }
+        }, 2000);
+    }
+
+    // Timer functions
+    function startTimer() {
+        if (isRunning) return;
+        
+        isRunning = true;
+        const startBtn = document.getElementById('startBtn');
+        startBtn.innerHTML = '<i class="fas fa-pause"></i> Running';
+        
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            updateTimerDisplay();
+            
+            if (timeLeft <= 0) {
+                timerComplete();
+            }
+        }, 1000);
+    }
+
+    function pauseTimer() {
+        if (!isRunning) return;
+        
+        isRunning = false;
+        clearInterval(timerInterval);
+        const startBtn = document.getElementById('startBtn');
+        startBtn.innerHTML = '<i class="fas fa-play"></i> Start';
+    }
+
+    function resetTimer() {
+        isRunning = false;
+        clearInterval(timerInterval);
+        timeLeft = 25 * 60;
+        updateTimerDisplay();
+        const startBtn = document.getElementById('startBtn');
+        startBtn.innerHTML = '<i class="fas fa-play"></i> Start';
+    }
+
+    function timerComplete() {
+        isRunning = false;
+        clearInterval(timerInterval);
+        timeLeft = 25 * 60;
+        updateTimerDisplay();
+        
+        const startBtn = document.getElementById('startBtn');
+        startBtn.innerHTML = '<i class="fas fa-play"></i> Start';
+        
+        addMessage('Great job! You completed a 25-minute focus session. Take a 5-minute break!', 'bot');
+        trackAction('timer', 1500); // 25 minutes in seconds
+        
+        // Show completion notification
+        showAchievementNotification('Focus session completed! 🎉');
+    }
+
+    function updateTimerDisplay() {
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        const display = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        document.getElementById('timerDisplay').textContent = display;
+    }
+
+    // Flashcard functions
+    function generateFlashcards() {
+        if (chatHistory.length === 0) {
+            addMessage('Start a conversation first, then I can create flashcards from our discussion!', 'bot');
+            return;
+        }
+
+        addMessage('Creating flashcards from our conversation...', 'bot');
+        
+        setTimeout(() => {
+            const newFlashcards = parseFlashcardsFromResponse(chatHistory);
+            flashcards = [...flashcards, ...newFlashcards];
+            updateFlashcardDisplay();
+            updateFlashcardCounter();
+            addMessage(`Created ${newFlashcards.length} new flashcards! Check them out in the flashcards section.`, 'bot');
+            trackAction('flashcard', newFlashcards.length);
+        }, 1500);
+    }
+
+    function generateFlashcardsFromPDF() {
+        const sampleFlashcards = [
+            { question: 'What is the main concept discussed in the document?', answer: 'The primary focus area and its key principles.' },
+            { question: 'How does this concept apply in practice?', answer: 'Through real-world applications and case studies.' },
+            { question: 'What are the key benefits mentioned?', answer: 'Improved understanding and practical application skills.' },
+            { question: 'What should students remember most?', answer: 'The fundamental principles and their interconnections.' },
+            { question: 'How can this knowledge be applied?', answer: 'In academic work, research, and professional practice.' }
+        ];
+        
+        flashcards = [...flashcards, ...sampleFlashcards];
+        updateFlashcardDisplay();
+        updateFlashcardCounter();
+        trackAction('flashcard', sampleFlashcards.length);
+    }
+
+    function parseFlashcardsFromResponse(history) {
+        const cards = [];
+        
+        // Generate flashcards based on chat history
+        for (let i = 0; i < Math.min(3, history.length); i++) {
+            const entry = history[i];
+            cards.push({
+                question: `What did we discuss about: "${entry.user.substring(0, 50)}..."?`,
+                answer: entry.bot.substring(0, 200) + (entry.bot.length > 200 ? '...' : '')
+            });
+        }
+        
+        return cards;
+    }
+
+    function createCustomFlashcard() {
+        const question = prompt('Enter the question:');
+        if (!question) return;
+        
+        const answer = prompt('Enter the answer:');
+        if (!answer) return;
+        
+        flashcards.push({ question, answer });
+        updateFlashcardDisplay();
+        updateFlashcardCounter();
+        addMessage('Custom flashcard created successfully!', 'bot');
+        trackAction('flashcard', 1);
+    }
+
+    function createMultipleCustomFlashcards() {
+        const input = prompt('Enter flashcards in Q:A format, one per line:\nExample:\nQuestion 1: Answer 1\nQuestion 2: Answer 2');
+        if (!input) return;
+        
+        const lines = input.split('\n').filter(line => line.trim() && line.includes(':'));
+        const newCards = lines.map(line => {
+            const [question, ...answerParts] = line.split(':');
+            return {
+                question: question.trim(),
+                answer: answerParts.join(':').trim()
+            };
+        });
+        
+        flashcards = [...flashcards, ...newCards];
+        updateFlashcardDisplay();
+        updateFlashcardCounter();
+        addMessage(`Created ${newCards.length} flashcards successfully!`, 'bot');
+        trackAction('flashcard', newCards.length);
+    }
+
+    function updateFlashcardDisplay() {
+        const container = document.getElementById('flashcardContainer');
+        const welcomeCard = document.getElementById('welcomeCard');
+        
+        if (flashcards.length === 0) {
+            if (welcomeCard) welcomeCard.style.display = 'flex';
+            updateNavigationButtons();
+            return;
+        }
+        
+        if (welcomeCard) welcomeCard.style.display = 'none';
+        
+        // Clear existing flashcards
+        const existingCards = container.querySelectorAll('.flashcard:not(#welcomeCard)');
+        existingCards.forEach(card => card.remove());
+        
+        if (currentCardIndex >= flashcards.length) {
+            currentCardIndex = 0;
+        }
+        
+        if (flashcards.length > 0) {
+            const card = flashcards[currentCardIndex];
+            createFlashcardElement(card, currentCardIndex);
+        }
+        
+        updateNavigationButtons();
+    }
+
+    function createFlashcardElement(card, index) {
+        const container = document.getElementById('flashcardContainer');
+        const cardElement = document.createElement('div');
+        cardElement.className = 'flashcard';
+        cardElement.innerHTML = `
+            <div class="flashcard-content">${card.question}</div>
+            <div class="flashcard-indicator">Question</div>
+        `;
+        
+        cardElement.addEventListener('click', () => flipCard(cardElement, card));
+        container.appendChild(cardElement);
+        
+        isCardFlipped = false;
+    }
+
+    function flipCard(cardElement, card) {
+        const content = cardElement.querySelector('.flashcard-content');
+        const indicator = cardElement.querySelector('.flashcard-indicator');
+        
+        if (!isCardFlipped) {
+            cardElement.classList.add('flipped');
+            content.textContent = card.answer;
+            indicator.textContent = 'Answer';
+            isCardFlipped = true;
+        } else {
+            cardElement.classList.remove('flipped');
+            content.textContent = card.question;
+            indicator.textContent = 'Question';
+            isCardFlipped = false;
+        }
+    }
+
+    function previousCard() {
+        if (currentCardIndex > 0) {
+            currentCardIndex--;
+            updateFlashcardDisplay();
+        }
+    }
+
+    function nextCard() {
+        if (currentCardIndex < flashcards.length - 1) {
+            currentCardIndex++;
+            updateFlashcardDisplay();
+        }
+    }
+
+    function shuffleCards() {
+        for (let i = flashcards.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [flashcards[i], flashcards[j]] = [flashcards[j], flashcards[i]];
+        }
+        currentCardIndex = 0;
+        updateFlashcardDisplay();
+        addMessage('Flashcards shuffled! Ready for a new study session.', 'bot');
+    }
+
+    function updateNavigationButtons() {
+        const prevBtn = document.getElementById('prevCard');
+        const nextBtn = document.getElementById('nextCard');
+        const shuffleBtn = document.getElementById('shuffleBtn');
+        
+        if (flashcards.length === 0) {
+            prevBtn.disabled = true;
+            nextBtn.disabled = true;
+            shuffleBtn.disabled = true;
+        } else {
+            prevBtn.disabled = currentCardIndex === 0;
+            nextBtn.disabled = currentCardIndex === flashcards.length - 1;
+            shuffleBtn.disabled = false;
+        }
+    }
+
+    function updateFlashcardCounter() {
+        const counter = document.getElementById('flashcardCounter');
+        counter.textContent = `${flashcards.length} cards available`;
+    }
+
+    // Utility functions
+    function logout() {
+        if (confirm('Are you sure you want to logout?')) {
+            // In a real app, this would handle logout
+            addMessage('Logout functionality would redirect to login page.', 'bot');
+        }
+    }
+
+    // Make functions available globally
+    window.sendMessage = sendMessage;
+    window.handleFileUpload = handleFileUpload;
+    window.processPDF = processPDF;
+    window.selectFile = selectFile;
+    window.removeFile = removeFile;
+    window.startTimer = startTimer;
+    window.pauseTimer = pauseTimer;
+    window.resetTimer = resetTimer;
+    window.generateFlashcards = generateFlashcards;
+    window.createCustomFlashcard = createCustomFlashcard;
+    window.createMultipleCustomFlashcards = createMultipleCustomFlashcards;
+    window.previousCard = previousCard;
+    window.nextCard = nextCard;
+    window.shuffleCards = shuffleCards;
+    window.logout = logout;
