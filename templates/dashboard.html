@@ -1,4 +1,190 @@
-<!DOCTYPE html>
+// Initialize page
+        document.addEventListener('DOMContentLoaded', () => {
+            setupModeButtons();
+            setupChatInput();
+            updateTimerDisplay();
+            setupFileUpload();
+            loadUploadedFiles();
+            setupFlashcards();
+            initializeProgressTracking();
+
+            // Test connection after a short delay
+            setTimeout(testConnection, 2000);
+        });
+
+        // Progress tracking functions
+        function loadUserProgress() {
+            try {
+                const saved = localStorage.getItem('phenbot_progress');
+                if (saved) {
+                    const savedProgress = JSON.parse(saved);
+                    userProgress = { ...userProgress, ...savedProgress };
+                    userProgress.sessionStartTime = Date.now();
+                    updateStudyStreak();
+                }
+            } catch (error) {
+                console.error('Error loading progress:', error);
+            }
+            updateProgressDisplay();
+        }
+
+        function saveUserProgress() {
+            try {
+                localStorage.setItem('phenbot_progress', JSON.stringify(userProgress));
+            } catch (error) {
+                console.error('Error saving progress:', error);
+            }
+        }
+
+        function updateStudyStreak() {
+            const today = new Date().toDateString();
+            const lastStudy = userProgress.lastStudyDate;
+            
+            if (lastStudy) {
+                const daysDiff = Math.floor((new Date() - new Date(lastStudy)) / (1000 * 60 * 60 * 24));
+                
+                if (daysDiff === 1) {
+                    userProgress.streakDays++;
+                } else if (daysDiff > 1) {
+                    userProgress.streakDays = 1;
+                }
+            } else {
+                userProgress.streakDays = 1;
+            }
+            
+            userProgress.lastStudyDate = today;
+            checkAchievements();
+        }
+
+        function updateProgressDisplay() {
+            document.getElementById('messagesCount').textContent = userProgress.messagesCount;
+            document.getElementById('totalStudyTime').textContent = Math.floor(userProgress.studyTimeTotal / 60) + 'h';
+            document.getElementById('pdfsProcessed').textContent = userProgress.pdfsProcessed;
+            document.getElementById('flashcardsCreated').textContent = userProgress.flashcardsCreated;
+            document.getElementById('streakDays').textContent = userProgress.streakDays;
+            
+            updateSkillProgress('criticalThinking', userProgress.skills.criticalThinking);
+            updateSkillProgress('problemSolving', userProgress.skills.problemSolving);
+            updateSkillProgress('researchSkills', userProgress.skills.researchSkills);
+            updateSkillProgress('studyHabits', userProgress.skills.studyHabits);
+            
+            updateAchievementsDisplay();
+            updateStudyInsights();
+        }
+
+        function updateSkillProgress(skillName, value) {
+            const progressBar = document.getElementById(skillName + 'Progress');
+            const levelSpan = document.getElementById(skillName + 'Level');
+            
+            if (progressBar) {
+                progressBar.style.width = Math.min(value, 100) + '%';
+            }
+            
+            if (levelSpan) {
+                let level = 'Beginner';
+                if (value >= 80) level = 'Expert';
+                else if (value >= 60) level = 'Advanced';
+                else if (value >= 30) level = 'Intermediate';
+                
+                levelSpan.textContent = level;
+            }
+        }
+
+        function checkAchievements() {
+            const achievements = userProgress.achievements;
+            
+            if (userProgress.messagesCount >= 1 && !achievements.firstMessage) {
+                unlockAchievement('firstMessage', 'First Message Sent!');
+            }
+            
+            if (userProgress.pdfsProcessed >= 3 && !achievements.pdfMaster) {
+                unlockAchievement('pdfMaster', 'PDF Master Unlocked!');
+            }
+            
+            if (userProgress.flashcardsCreated >= 15 && !achievements.flashcardHero) {
+                unlockAchievement('flashcardHero', 'Flashcard Hero!');
+            }
+            
+            if (userProgress.studyTimeTotal >= 1800 && !achievements.timeManager) {
+                unlockAchievement('timeManager', 'Time Manager!');
+            }
+            
+            if (userProgress.streakDays >= 7 && !achievements.streakWarrior) {
+                unlockAchievement('streakWarrior', '7-Day Streak Warrior!');
+            }
+            
+            if (userProgress.messagesCount >= 25 && !achievements.knowledgeSeeker) {
+                unlockAchievement('knowledgeSeeker', 'Knowledge Seeker!');
+            }
+            
+            if (userProgress.messagesCount >= 10 && userProgress.flashcardsCreated >= 5 && !achievements.studyBuddy) {
+                unlockAchievement('studyBuddy', 'Study Buddy!');
+            }
+            
+            const hour = new Date().getHours();
+            if ((hour >= 22 || hour <= 5) && userProgress.messagesCount >= 5 && !achievements.nightOwl) {
+                unlockAchievement('nightOwl', 'Night Owl!');
+            }
+            
+            saveUserProgress();
+        }
+
+        function unlockAchievement(achievementId, message) {
+            userProgress.achievements[achievementId] = true;
+            
+            const badge = document.getElementById(achievementId);
+            if (badge) {
+                badge.classList.remove('locked');
+                badge.classList.add('earned');
+                
+                showAchievementNotification(message);
+            }
+            
+            updateAchievementsDisplay();
+        }
+
+        function showAchievementNotification(message) {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: linear-gradient(135deg, var(--achievement-gold), #d97706);
+                color: white;
+                padding: 1rem 1.5rem;
+                border-radius: 12px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                z-index: 10000;
+                font-weight: 600;
+                animation: slideInRight 0.5s ease;
+            `;
+            
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes slideInRight {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+            `;
+            document.head.appendChild(style);
+            
+            notification.innerHTML = `<i class="fas fa-trophy" style="margin-right: 0.5rem;"></i>${message}`;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+                style.remove();
+            }, 3000);
+        }
+
+        function updateAchievementsDisplay() {
+            const earned = Object.values(userProgress.achievements).filter(Boolean).length;
+            document.getElementById('achievementsEarned').textContent = earned;
+        }
+
+        function updateStudyInsights() {
+            const insights =<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -23,6 +209,14 @@
             --text-secondary: #e2e8f0;
             --text-muted: #94a3b8;
             --text-disabled: #64748b;
+            --progress-bg: rgba(71, 85, 105, 0.3);
+            --progress-fill: linear-gradient(90deg, var(--primary-green), var(--primary-cyan));
+            --skill-primary: #4f46e5;
+            --skill-secondary: #7c3aed;
+            --skill-tertiary: #10b981;
+            --achievement-gold: #f59e0b;
+            --achievement-silver: #94a3b8;
+            --achievement-bronze: #d97706;
         }
 
         * {
@@ -105,7 +299,7 @@
             margin: 0 auto;
             padding: 2rem;
             display: grid;
-            grid-template-columns: 1.5fr 1fr;
+            grid-template-columns: 1.2fr 1fr 0.8fr;
             gap: 2rem;
             min-height: calc(100vh - 100px);
         }
@@ -364,7 +558,7 @@
             transform: none;
         }
 
-        .sidebar {
+        .sidebar, .progress-sidebar {
             display: flex;
             flex-direction: column;
             gap: 2rem;
@@ -668,169 +862,380 @@
             text-align: center;
         }
 
-        /* Flashcard Styles */
-       /* REPLACE the existing flashcard styles with these: */
-.flashcard {
-    background: linear-gradient(145deg, #2d3748, #1a202c);
-    border: 1px solid rgba(79, 70, 229, 0.3);
-    border-radius: 16px;
-    padding: 2rem;
-    margin-bottom: 1.5rem;
-    cursor: pointer;
-    transition: all 0.4s ease;
-    position: relative;
-    min-height: 200px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    box-shadow: 
-        0 8px 25px rgba(0, 0, 0, 0.3),
-        0 3px 8px rgba(0, 0, 0, 0.2);
-    transform-style: preserve-3d;
-    perspective: 1000px;
-}
+        .flashcard {
+            background: linear-gradient(145deg, #2d3748, #1a202c);
+            border: 1px solid rgba(79, 70, 229, 0.3);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            cursor: pointer;
+            transition: all 0.4s ease;
+            position: relative;
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            box-shadow: 
+                0 8px 25px rgba(0, 0, 0, 0.3),
+                0 3px 8px rgba(0, 0, 0, 0.2);
+            transform-style: preserve-3d;
+            perspective: 1000px;
+        }
 
-.flashcard:hover {
-    transform: translateY(-5px) rotateY(2deg);
-    box-shadow: 
-        0 15px 40px rgba(0, 0, 0, 0.4),
-        0 6px 15px rgba(0, 0, 0, 0.3);
-    border-color: var(--primary-blue);
-}
+        .flashcard:hover {
+            transform: translateY(-5px) rotateY(2deg);
+            box-shadow: 
+                0 15px 40px rgba(0, 0, 0, 0.4),
+                0 6px 15px rgba(0, 0, 0, 0.3);
+            border-color: var(--primary-blue);
+        }
 
-.flashcard.flipped {
-    background: linear-gradient(145deg, #1e3a8a, #1e40af);
-    border-color: var(--primary-cyan);
-    /* Keep the animation but don't apply permanent transform */
-    animation: flipCard 0.6s ease-in-out;
-}
+        .flashcard.flipped {
+            background: linear-gradient(145deg, #1e3a8a, #1e40af);
+            border-color: var(--primary-cyan);
+            animation: flipCard 0.6s ease-in-out;
+        }
 
-/* New animation that doesn't leave text flipped */
-@keyframes flipCard {
-    0% { 
-        transform: rotateY(0deg); 
-    }
-    50% { 
-        transform: rotateY(90deg) scale(0.95);
-        opacity: 0.5;
-    }
-    100% { 
-        transform: rotateY(0deg);
-        opacity: 1;
-    }
-}
+        @keyframes flipCard {
+            0% { 
+                transform: rotateY(0deg); 
+            }
+            50% { 
+                transform: rotateY(90deg) scale(0.95);
+                opacity: 0.5;
+            }
+            100% { 
+                transform: rotateY(0deg);
+                opacity: 1;
+            }
+        }
 
-.flashcard-content {
-    font-size: 1.1rem;
-    line-height: 1.6;
-    word-wrap: break-word;
-    color: var(--text-secondary);
-    font-weight: 500;
-    max-width: 100%;
-}
+        .flashcard-content {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            word-wrap: break-word;
+            color: var(--text-secondary);
+            font-weight: 500;
+            max-width: 100%;
+        }
 
-.flashcard.flipped .flashcard-content {
-    color: #bfdbfe;
-    font-weight: 400;
-}
+        .flashcard.flipped .flashcard-content {
+            color: #bfdbfe;
+            font-weight: 400;
+        }
 
-.flashcard-indicator {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-    font-size: 0.7rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    background: rgba(15, 23, 42, 0.8);
-    padding: 0.25rem 0.5rem;
-    border-radius: 20px;
-    border: 1px solid rgba(79, 70, 229, 0.3);
-}
+        .flashcard-indicator {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            background: rgba(15, 23, 42, 0.8);
+            padding: 0.25rem 0.5rem;
+            border-radius: 20px;
+            border: 1px solid rgba(79, 70, 229, 0.3);
+        }
 
-.flashcard.flipped .flashcard-indicator {
-    background: rgba(30, 58, 138, 0.8);
-    color: #93c5fd;
-    border-color: var(--primary-cyan);
-}
-.flashcard-nav {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-    justify-content: center;
-}
-.flashcard-controls {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-}
+        .flashcard.flipped .flashcard-indicator {
+            background: rgba(30, 58, 138, 0.8);
+            color: #93c5fd;
+            border-color: var(--primary-cyan);
+        }
 
-.flashcard-nav {
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
-}
+        .flashcard-nav {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            justify-content: center;
+        }
 
-.nav-btn {
-    background: rgba(71, 85, 105, 0.7);
-    color: var(--text-secondary);
-    border: 1px solid var(--card-border);
-    padding: 0.75rem 1.25rem;
-    border-radius: 10px;
-    cursor: pointer;
-    font-size: 0.875rem;
-    font-weight: 500;
-    transition: all 0.3s ease;
-}
+        .flashcard-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
 
-        /* REPLACE the nav-btn styles with these: */
-.nav-btn {
-    background: rgba(71, 85, 105, 0.7);
-    color: var(--text-secondary);
-    border: 1px solid var(--card-border);
-    padding: 0.75rem 1.25rem;
-    border-radius: 10px;
-    cursor: pointer;
-    font-size: 0.875rem;
-    font-weight: 500;
-    transition: all 0.3s ease;
-}
+        .nav-btn {
+            background: rgba(71, 85, 105, 0.7);
+            color: var(--text-secondary);
+            border: 1px solid var(--card-border);
+            padding: 0.75rem 1.25rem;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
 
-.nav-btn:hover {
-    background: rgba(71, 85, 105, 0.9);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-}
-.nav-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-}
+        .nav-btn:hover {
+            background: rgba(71, 85, 105, 0.9);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
 
-.generate-flashcards-btn {
-    background: linear-gradient(145deg, var(--primary-purple), #8b5cf6);
-    color: white;
-    border: none;
-    padding: 1rem 1.5rem;
-    border-radius: 12px;
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 0.95rem;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
-}
+        .nav-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
 
-.generate-flashcards-btn:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 20px rgba(124, 58, 237, 0.4);
-}
+        .generate-flashcards-btn {
+            background: linear-gradient(145deg, var(--primary-purple), #8b5cf6);
+            color: white;
+            border: none;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+        }
+
+        .generate-flashcards-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(124, 58, 237, 0.4);
+        }
+
         .flashcard-counter {
             color: var(--text-muted);
             font-size: 0.85rem;
+        }
+
+        /* Progress Tracker Styles */
+        .progress-section {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-item {
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 1rem;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .stat-item:hover {
+            background: rgba(15, 23, 42, 1);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .stat-number {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--primary-blue);
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        .skill-progress {
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .skill-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .skill-name {
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .skill-level {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            background: rgba(79, 70, 229, 0.2);
+            padding: 0.2rem 0.5rem;
+            border-radius: 10px;
+            border: 1px solid rgba(79, 70, 229, 0.3);
+        }
+
+        .progress-bar {
+            background: var(--progress-bg);
+            border-radius: 10px;
+            height: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            background: var(--progress-fill);
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.8s ease;
+            position: relative;
+        }
+
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .achievements-section {
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+
+        .achievements-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .achievement-badge {
+            aspect-ratio: 1;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .achievement-badge.earned {
+            background: linear-gradient(135deg, var(--achievement-gold), #d97706);
+            color: white;
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
+        }
+
+        .achievement-badge.locked {
+            background: rgba(71, 85, 105, 0.3);
+            color: var(--text-disabled);
+            border: 2px dashed var(--card-border);
+        }
+
+        .achievement-badge:hover {
+            transform: scale(1.1);
+        }
+
+        .achievement-tooltip {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.95);
+            color: var(--text-secondary);
+            padding: 0.5rem;
+            border-radius: 8px;
+            font-size: 0.7rem;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            border: 1px solid var(--card-border);
+            z-index: 1000;
+        }
+
+        .achievement-badge:hover .achievement-tooltip {
+            opacity: 1;
+        }
+
+        .learning-streak {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(217, 119, 6, 0.2));
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: 20px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .streak-fire {
+            font-size: 1.2rem;
+            color: var(--achievement-gold);
+        }
+
+        .streak-text {
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .study-insights {
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .insight-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid rgba(71, 85, 105, 0.3);
+        }
+
+        .insight-item:last-child {
+            border-bottom: none;
+        }
+
+        .insight-icon {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            background: linear-gradient(135deg, var(--primary-blue), var(--primary-purple));
+            color: white;
+        }
+
+        .insight-text {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.4;
         }
 
         @media (max-width: 1024px) {
@@ -839,15 +1244,19 @@
                 padding: 1rem;
             }
 
-            .sidebar {
+            .sidebar, .progress-sidebar {
                 display: grid;
                 grid-template-columns: 1fr 1fr 1fr;
                 gap: 1rem;
             }
+            
+            .progress-sidebar {
+                margin-top: 2rem;
+            }
         }
 
         @media (max-width: 768px) {
-            .sidebar {
+            .sidebar, .progress-sidebar {
                 grid-template-columns: 1fr;
             }
 
@@ -872,6 +1281,18 @@
 
             .chat-container {
                 height: 60vh;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .achievements-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+            
+            .progress-section {
+                gap: 1rem;
             }
         }
     </style>
@@ -1016,24 +1437,24 @@
                 </div>
 
                 <div class="flashcard-controls">
-    <button class="generate-flashcards-btn" onclick="generateFlashcards()">
-        <i class="fas fa-magic"></i>
-        Generate Flashcards
-    </button>
-    
-    <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-        <button class="nav-btn" onclick="createCustomFlashcard()" style="flex: 1; font-size: 0.75rem;">
-            <i class="fas fa-plus"></i> Add One
-        </button>
-        <button class="nav-btn" onclick="createMultipleCustomFlashcards()" style="flex: 1; font-size: 0.75rem;">
-            <i class="fas fa-plus-circle"></i> Add Multiple
-        </button>
-    </div>
-    
-    <div class="flashcard-counter" id="flashcardCounter">
-        0 cards available
-    </div>
-</div>
+                    <button class="generate-flashcards-btn" onclick="generateFlashcards()">
+                        <i class="fas fa-magic"></i>
+                        Generate Flashcards
+                    </button>
+                    
+                    <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                        <button class="nav-btn" onclick="createCustomFlashcard()" style="flex: 1; font-size: 0.75rem;">
+                            <i class="fas fa-plus"></i> Add One
+                        </button>
+                        <button class="nav-btn" onclick="createMultipleCustomFlashcards()" style="flex: 1; font-size: 0.75rem;">
+                            <i class="fas fa-plus-circle"></i> Add Multiple
+                        </button>
+                    </div>
+                    
+                    <div class="flashcard-counter" id="flashcardCounter">
+                        0 cards available
+                    </div>
+                </div>
 
                 <div class="flashcard-nav">
                     <button class="nav-btn" id="prevCard" onclick="previousCard()" disabled>
@@ -1086,6 +1507,171 @@
                 </div>
             </div>
         </div>
+
+        <div class="progress-sidebar">
+            <div class="card progress-tracker">
+                <div class="card-header">
+                    <div class="card-icon" style="background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan));">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div>
+                        <h3 class="card-title">Learning Analytics</h3>
+                        <div class="status-indicator">
+                            <span class="status-dot" style="background: var(--primary-green);"></span>
+                            <span>Tracking progress</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="learning-streak">
+                    <span class="streak-fire">🔥</span>
+                    <span class="streak-text"><span id="streakDays">0</span> day streak</span>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <span class="stat-number" id="totalStudyTime">0h</span>
+                        <span class="stat-label">Study Time</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number" id="messagesCount">0</span>
+                        <span class="stat-label">Messages</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number" id="pdfsProcessed">0</span>
+                        <span class="stat-label">PDFs</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number" id="flashcardsCreated">0</span>
+                        <span class="stat-label">Flashcards</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card skills-tracker">
+                <div class="card-header">
+                    <div class="card-icon" style="background: linear-gradient(135deg, var(--primary-purple), #8b5cf6);">
+                        <i class="fas fa-brain"></i>
+                    </div>
+                    <div>
+                        <h3 class="card-title">Skills Development</h3>
+                        <div class="status-indicator">
+                            <span class="status-dot" style="background: var(--primary-purple);"></span>
+                            <span>Growing stronger</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="progress-section">
+                    <div class="skill-progress">
+                        <div class="skill-header">
+                            <span class="skill-name">Critical Thinking</span>
+                            <span class="skill-level" id="criticalThinkingLevel">Beginner</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="criticalThinkingProgress" style="width: 15%;"></div>
+                        </div>
+                    </div>
+
+                    <div class="skill-progress">
+                        <div class="skill-header">
+                            <span class="skill-name">Problem Solving</span>
+                            <span class="skill-level" id="problemSolvingLevel">Beginner</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="problemSolvingProgress" style="width: 10%;"></div>
+                        </div>
+                    </div>
+
+                    <div class="skill-progress">
+                        <div class="skill-header">
+                            <span class="skill-name">Research Skills</span>
+                            <span class="skill-level" id="researchSkillsLevel">Beginner</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="researchSkillsProgress" style="width: 20%;"></div>
+                        </div>
+                    </div>
+
+                    <div class="skill-progress">
+                        <div class="skill-header">
+                            <span class="skill-name">Study Habits</span>
+                            <span class="skill-level" id="studyHabitsLevel">Beginner</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="studyHabitsProgress" style="width: 25%;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card achievements-tracker">
+                <div class="card-header">
+                    <div class="card-icon" style="background: linear-gradient(135deg, var(--achievement-gold), #d97706);">
+                        <i class="fas fa-trophy"></i>
+                    </div>
+                    <div>
+                        <h3 class="card-title">Achievements</h3>
+                        <div class="status-indicator">
+                            <span class="status-dot" style="background: var(--achievement-gold);"></span>
+                            <span><span id="achievementsEarned">0</span>/8 earned</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="achievements-section">
+                    <div class="achievements-grid">
+                        <div class="achievement-badge locked" id="firstMessage">
+                            <i class="fas fa-comment"></i>
+                            <div class="achievement-tooltip">First Message</div>
+                        </div>
+                        <div class="achievement-badge locked" id="pdfMaster">
+                            <i class="fas fa-file-pdf"></i>
+                            <div class="achievement-tooltip">PDF Master</div>
+                        </div>
+                        <div class="achievement-badge locked" id="flashcardHero">
+                            <i class="fas fa-layer-group"></i>
+                            <div class="achievement-tooltip">Flashcard Hero</div>
+                        </div>
+                        <div class="achievement-badge locked" id="timeManager">
+                            <i class="fas fa-clock"></i>
+                            <div class="achievement-tooltip">Time Manager</div>
+                        </div>
+                        <div class="achievement-badge locked" id="streakWarrior">
+                            <i class="fas fa-fire"></i>
+                            <div class="achievement-tooltip">7-day Streak</div>
+                        </div>
+                        <div class="achievement-badge locked" id="knowledgeSeeker">
+                            <i class="fas fa-search"></i>
+                            <div class="achievement-tooltip">Knowledge Seeker</div>
+                        </div>
+                        <div class="achievement-badge locked" id="studyBuddy">
+                            <i class="fas fa-user-friends"></i>
+                            <div class="achievement-tooltip">Study Buddy</div>
+                        </div>
+                        <div class="achievement-badge locked" id="nightOwl">
+                            <i class="fas fa-moon"></i>
+                            <div class="achievement-tooltip">Night Owl</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="study-insights">
+                    <h4 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 1rem;">
+                        <i class="fas fa-lightbulb" style="color: var(--achievement-gold); margin-right: 0.5rem;"></i>
+                        Study Insights
+                    </h4>
+                    <div id="studyInsights">
+                        <div class="insight-item">
+                            <div class="insight-icon">
+                                <i class="fas fa-chart-line"></i>
+                            </div>
+                            <div class="insight-text">Start your learning journey by asking your first question!</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -1100,6 +1686,34 @@
         let currentCardIndex = 0;
         let isCardFlipped = false;
 
+        // Progress tracking variables
+        let userProgress = {
+            messagesCount: 0,
+            studyTimeTotal: 0,
+            pdfsProcessed: 0,
+            flashcardsCreated: 0,
+            streakDays: 0,
+            lastStudyDate: null,
+            skills: {
+                criticalThinking: 0,
+                problemSolving: 0,
+                researchSkills: 0,
+                studyHabits: 0
+            },
+            achievements: {
+                firstMessage: false,
+                pdfMaster: false,
+                flashcardHero: false,
+                timeManager: false,
+                streakWarrior: false,
+                knowledgeSeeker: false,
+                studyBuddy: false,
+                nightOwl: false
+            },
+            sessionStartTime: Date.now(),
+            totalSessions: 0
+        };
+
         // Mode descriptions
         const modeDescriptions = {
             normal: "Regular conversational responses with clear explanations",
@@ -1108,835 +1722,804 @@
             teach: "Step-by-step teaching mode with examples and practice",
             simple: "Simplified explanations suitable for beginners"
         };
+        <!-- ADD THESE CSS VARIABLES TO YOUR :root SECTION (after line 20) -->
+<style>
+:root {
+    /* Add these to your existing CSS variables */
+    --progress-bg: rgba(71, 85, 105, 0.3);
+    --progress-fill: linear-gradient(90deg, var(--primary-green), var(--primary-cyan));
+    --skill-primary: #4f46e5;
+    --skill-secondary: #7c3aed;
+    --skill-tertiary: #10b981;
+    --achievement-gold: #f59e0b;
+    --achievement-silver: #94a3b8;
+    --achievement-bronze: #d97706;
+}
 
-        // Initialize page
-        document.addEventListener('DOMContentLoaded', () => {
-            setupModeButtons();
-            setupChatInput();
-            updateTimerDisplay();
-            setupFileUpload();
-            loadUploadedFiles();
-            setupFlashcards();
+/* ADD THESE NEW CSS CLASSES (after existing card styles around line 600) */
+.progress-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
 
-            // Test connection after a short delay
-            setTimeout(testConnection, 2000);
-        });
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
 
-        // Enhanced error handling for network issues
-        async function testConnection() {
-            try {
-                const response = await fetch('/health');
-                const data = await response.json();
-                console.log('System status:', data);
+.stat-item {
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 1rem;
+    text-align: center;
+    transition: all 0.3s ease;
+}
 
-                if (!data.groq_available) {
-                    addSystemMessage(`⚠️ AI service not available: ${data.error}. Basic functionality will work.`);
-                }
-            } catch (error) {
-                console.error('Connection test failed:', error);
-                addSystemMessage('⚠️ Connection issues detected. Please check your internet connection.');
-            }
-        }
+.stat-item:hover {
+    background: rgba(15, 23, 42, 1);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
 
-        // Mode button setup
-        function setupModeButtons() {
-            const modeButtons = document.querySelectorAll('.mode-btn');
-            modeButtons.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    modeButtons.forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    currentMode = btn.dataset.mode;
-                    document.getElementById('modeDescription').textContent = modeDescriptions[currentMode];
+.stat-number {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--primary-blue);
+    display: block;
+    margin-bottom: 0.25rem;
+}
 
-                    // Add mode change message to chat
-                    addSystemMessage(`Switched to ${currentMode.toUpperCase()} mode. ${modeDescriptions[currentMode]}`);
-                });
-            });
+.stat-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+}
 
-            // Response length selector
-            document.getElementById('responseLength').addEventListener('change', (e) => {
-                responseLength = e.target.value;
-            });
-        }
+.skill-progress {
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+}
 
-        // Chat input setup
-        function setupChatInput() {
-            const chatInput = document.getElementById('chatInput');
+.skill-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
 
-            chatInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    sendMessage();
-                }
-            });
+.skill-name {
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
 
-            // Auto-resize textarea
-            chatInput.addEventListener('input', () => {
-                chatInput.style.height = 'auto';
-                chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
-            });
-        }
+.skill-level {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    background: rgba(79, 70, 229, 0.2);
+    padding: 0.2rem 0.5rem;
+    border-radius: 10px;
+    border: 1px solid rgba(79, 70, 229, 0.3);
+}
 
-        // Enhanced send message function with mode support
-       // REPLACE the existing sendMessage function with this:
-async function sendMessage() {
-    const input = document.getElementById('chatInput');
-    const message = input.value.trim();
+.progress-bar {
+    background: var(--progress-bg);
+    border-radius: 10px;
+    height: 8px;
+    overflow: hidden;
+    position: relative;
+}
 
-    if (!message) return;
+.progress-fill {
+    background: var(--progress-fill);
+    height: 100%;
+    border-radius: 10px;
+    transition: width 0.8s ease;
+    position: relative;
+}
 
-    const sendBtn = document.getElementById('sendBtn');
-    sendBtn.disabled = true;
-    sendBtn.innerHTML = '<div class="spinner"></div>';
+.progress-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    animation: shimmer 2s infinite;
+}
 
-    // Add user message
-    addMessage(message, 'user');
-    input.value = '';
-    input.style.height = 'auto';
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
 
-    // Add loading message
-    const loadingMessage = addMessage('Thinking...', 'bot', true);
+.achievements-section {
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 1.5rem;
+}
 
-    try {
-        const response = await fetch("/chat", {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                message: message,
-                mode: currentMode,
-                length: responseLength
-            })
-        });
+.achievements-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
 
-        if (!response.ok) {
-            throw new Error(`Server error: ${response.status}`);
-        }
+.achievement-badge {
+    aspect-ratio: 1;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    position: relative;
+}
 
-        const data = await response.json();
+.achievement-badge.earned {
+    background: linear-gradient(135deg, var(--achievement-gold), #d97706);
+    color: white;
+    box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
+}
 
-        // Remove loading message
-        loadingMessage.remove();
+.achievement-badge.locked {
+    background: rgba(71, 85, 105, 0.3);
+    color: var(--text-disabled);
+    border: 2px dashed var(--card-border);
+}
 
-        if (data.response) {
-            addMessage(data.response, 'bot');
-        } else {
-            addMessage(`Error: ${data.error || 'No response received'}`, 'bot');
-        }
-    } catch (error) {
-        loadingMessage.remove();
-        addMessage(`Connection error: ${error.message}. Please check if the server is running.`, 'bot');
-        console.error('Chat error:', error);
-    } finally {
-        sendBtn.disabled = false;
-        sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
+.achievement-badge:hover {
+    transform: scale(1.1);
+}
+
+.achievement-tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15, 23, 42, 0.95);
+    color: var(--text-secondary);
+    padding: 0.5rem;
+    border-radius: 8px;
+    font-size: 0.7rem;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    border: 1px solid var(--card-border);
+    z-index: 1000;
+}
+
+.achievement-badge:hover .achievement-tooltip {
+    opacity: 1;
+}
+
+.learning-streak {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(217, 119, 6, 0.2));
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: 20px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+}
+
+.streak-fire {
+    font-size: 1.2rem;
+    color: var(--achievement-gold);
+}
+
+.streak-text {
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.study-insights {
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-top: 1rem;
+}
+
+.insight-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid rgba(71, 85, 105, 0.3);
+}
+
+.insight-item:last-child {
+    border-bottom: none;
+}
+
+.insight-icon {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    background: linear-gradient(135deg, var(--primary-blue), var(--primary-purple));
+    color: white;
+}
+
+.insight-text {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+/* UPDATE MEDIA QUERIES */
+@media (max-width: 1024px) {
+    .main-container {
+        grid-template-columns: 1fr;
+        padding: 1rem;
+    }
+
+    .sidebar, .progress-sidebar {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 1rem;
+    }
+    
+    .progress-sidebar {
+        margin-top: 2rem;
     }
 }
 
-        // Add message to chat
-        function addMessage(content, sender, isLoading = false) {
-            const chatMessages = document.getElementById('chatMessages');
-
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${sender}${isLoading ? ' loading' : ''}`;
-
-            const avatar = document.createElement('div');
-            avatar.className = 'message-avatar';
-            avatar.innerHTML = sender === 'user' ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>';
-
-            const messageContent = document.createElement('div');
-            messageContent.className = 'message-content';
-            messageContent.textContent = content;
-
-            messageDiv.appendChild(avatar);
-            messageDiv.appendChild(messageContent);
-
-            chatMessages.appendChild(messageDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-
-            return messageDiv;
-        }
-
-        // Add system message
-        function addSystemMessage(content) {
-            const chatMessages = document.getElementById('chatMessages');
-
-            const systemDiv = document.createElement('div');
-            systemDiv.style.cssText = `
-                text-align: center;
-                color: var(--text-muted);
-                font-size: 0.8rem;
-                margin: 1rem 0;
-                padding: 0.5rem;
-                background: rgba(71, 85, 105, 0.2);
-                border-radius: 20px;
-                font-style: italic;
-            `;
-            systemDiv.textContent = content;
-
-            chatMessages.appendChild(systemDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-
-        // File upload functionality
-        function setupFileUpload() {
-            const uploadArea = document.getElementById('uploadArea');
-            let dragCounter = 0;
-
-            // Make upload area clickable
-            uploadArea.addEventListener('click', () => {
-                document.getElementById('fileInput').click();
-            });
-
-            uploadArea.addEventListener('dragenter', (e) => {
-                e.preventDefault();
-                dragCounter++;
-                uploadArea.classList.add('dragover');
-            });
-
-            uploadArea.addEventListener('dragleave', (e) => {
-                e.preventDefault();
-                dragCounter--;
-                if (dragCounter === 0) {
-                    uploadArea.classList.remove('dragover');
-                }
-            });
-
-            uploadArea.addEventListener('dragover', (e) => {
-                e.preventDefault();
-            });
-
-            uploadArea.addEventListener('drop', (e) => {
-                e.preventDefault();
-                dragCounter = 0;
-                uploadArea.classList.remove('dragover');
-
-                const files = Array.from(e.dataTransfer.files);
-                const pdfFiles = files.filter(file => file.type === 'application/pdf');
-
-                if (pdfFiles.length > 0) {
-                    handleMultipleFileUpload(pdfFiles);
-                }
-            });
-        }
-
-        // Handle multiple file upload
-        async function handleMultipleFileUpload(files) {
-            for (let i = 0; i < files.length; i++) {
-                await handleSingleFileUpload(files[i]);
-            }
-        }
-
-        // Handle single file upload
-        async function handleSingleFileUpload(file) {
-            if (!file || file.type !== 'application/pdf') {
-                alert('Please select a PDF file.');
-                return;
-            }
-
-            const formData = new FormData();
-            formData.append('file', file);
-
-            const uploadArea = document.getElementById('uploadArea');
-            const originalContent = uploadArea.innerHTML;
-            uploadArea.innerHTML = `
-                <div class="spinner" style="width: 30px; height: 30px; border-width: 3px;"></div>
-                <p style="margin-top: 1rem;">Uploading ${file.name}...</p>
-            `;
-
-            try {
-                const response = await fetch('/api/upload-pdf', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const data = await response.json();
-
-                if (data.message || response.ok) {
-                    currentPDF = {
-                        name: file.name,
-                        url: data.url,
-                        filename: data.filename || file.name
-                    };
-
-                    // Show PDF actions
-                    document.getElementById('pdfActions').classList.add('show');
-
-                    // Add success message to chat
-                    addSystemMessage(`PDF "${file.name}" uploaded successfully! You can now ask questions about it or use the PDF tools.`);
-
-                    // Reload uploaded files list
-                    loadUploadedFiles();
-
-                    uploadArea.innerHTML = originalContent;
-                } else {
-                    throw new Error(data.error || 'Upload failed');
-                }
-            } catch (error) {
-                alert(`Upload failed: ${error.message}`);
-                uploadArea.innerHTML = originalContent;
-            }
-        }
-
-        // Handle file upload from input
-        function handleFileUpload(event) {
-            const files = Array.from(event.target.files);
-            const pdfFiles = files.filter(file => file.type === 'application/pdf');
-
-            if (pdfFiles.length > 0) {
-                handleMultipleFileUpload(pdfFiles);
-            }
-
-            // Reset input
-            event.target.value = '';
-        }
-
-        // Load uploaded files list
-        async function loadUploadedFiles() {
-            try {
-                const response = await fetch('/api/pdfs');
-                const data = await response.json();
-
-                const uploadedFiles = document.getElementById('uploadedFiles');
-
-                if (data.files && data.files.length > 0) {
-                    uploadedFiles.innerHTML = `
-                        <div class="files-header">
-                            <i class="fas fa-folder"></i>
-                            Your PDFs (${data.files.length})
-                        </div>
-                    `;
-
-                    data.files.forEach(file => {
-                        const fileItem = document.createElement('div');
-                        fileItem.className = 'file-item';
-                        fileItem.innerHTML = `
-                            <div class="file-info">
-                                <a href="${file.url}" target="_blank" class="file-name">
-                                    <i class="fas fa-file-pdf" style="margin-right: 0.5rem; color: var(--primary-red);"></i>
-                                    ${file.name}
-                                </a>
-                                <div class="status-indicator" style="font-size: 0.75rem;">
-                                    <span>Uploaded ${new Date(file.uploaded_at).toLocaleDateString()}</span>
-                                </div>
-                            </div>
-                            <div class="file-actions">
-                                <button class="icon-btn primary" onclick="selectPDF('${file.name}', '${file.url}')" title="Select for processing">
-                                    <i class="fas fa-check"></i>
-                                </button>
-                                <button class="icon-btn danger" onclick="deletePDF(${file.id})" title="Delete file">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </div>
-                        `;
-                        uploadedFiles.appendChild(fileItem);
-                    });
-                } else {
-                    uploadedFiles.innerHTML = '';
-                }
-            } catch (error) {
-                console.error('Failed to load uploaded files:', error);
-            }
-        }
-
-        // Select PDF for processing
-        function selectPDF(filename, url) {
-            currentPDF = { name: filename, url: url, filename: filename };
-            document.getElementById('pdfActions').classList.add('show');
-            addSystemMessage(`Selected "${filename}" for processing.`);
-        }
-
-        // Delete PDF (placeholder - would need backend implementation)
-        function deletePDF(fileId) {
-            if (confirm('Are you sure you want to delete this PDF?')) {
-                // This would need a DELETE endpoint on the backend
-                console.log('Delete PDF:', fileId);
-                addSystemMessage('PDF deletion feature coming soon!');
-            }
-        }
-
-        // Process PDF with different actions (FIXED VERSION)
-        async function processPDF(action) {
-            if (!currentPDF) {
-                alert('Please upload and select a PDF first.');
-                return;
-            }
-
-            const actionBtn = event.target;
-            const originalContent = actionBtn.innerHTML;
-            actionBtn.innerHTML = '<div class="spinner"></div> Processing...';
-            actionBtn.disabled = true;
-
-            try {
-                const response = await fetch('/api/process-pdf', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        filename: currentPDF.filename || currentPDF.name,
-                        action: action,
-                        length: responseLength
-                    })
-                });
-
-                const data = await response.json();
-
-                if (response.ok && data.success) {
-                    // Add the result to chat
-                   // If generating flashcards, parse and add them to flashcard section only
-if (action === 'flashcards') {
-    parseFlashcardsFromResponse(data.result);
-    addMessage(`📚 Generated ${flashcards.length} flashcards from "${data.filename}" - check the Flashcards section!`, 'bot');
-} else {
-    // Add other results to chat
-    let actionName = {
-        'summarize': 'PDF Summary',
-        'quiz': 'Quiz Questions',
-        'outline': 'Content Outline'
-    }[action];
-
-    addMessage(`📄 ${actionName} for "${data.filename}":\n\n${data.result}`, 'bot');
-}
-                } else {
-                    throw new Error(data.error || 'Processing failed');
-                }
-            } catch (error) {
-                console.error('PDF processing error:', error);
-                addMessage(`Error processing PDF: ${error.message}`, 'bot');
-            } finally {
-                actionBtn.innerHTML = originalContent;
-                actionBtn.disabled = false;
-            }
-        }
-
-        // Flashcard functionality
-        function setupFlashcards() {
-            // Initialize flashcard system
-            updateFlashcardCounter();
-        }
-        // Add this debug function after setupFlashcards()
-function debugFlashcards() {
-    console.log('=== FLASHCARD DEBUG ===');
-    console.log('Total flashcards:', flashcards.length);
-    console.log('Current index:', currentCardIndex);
-    console.log('Is flipped:', isCardFlipped);
-    console.log('Prev button disabled:', document.getElementById('prevCard')?.disabled);
-    console.log('Next button disabled:', document.getElementById('nextCard')?.disabled);
-    if (flashcards.length > 0) {
-        console.log('Current card:', flashcards[currentCardIndex]);
+@media (max-width: 768px) {
+    .sidebar, .progress-sidebar {
+        grid-template-columns: 1fr;
     }
-    console.log('=== END DEBUG ===');
-}
 
-// Add a button to trigger debug (temporary)
-// You can call debugFlashcards() from browser console
-     function generateFlashcardsOptions() {
-    const options = [
-        'Generate from current PDF',
-        'Generate from all uploaded PDFs', 
-        'Generate from topic (manual)',
-        'Clear all flashcards and start fresh'
-    ];
-    
-    let choice = prompt(`Choose an option:\n${options.map((opt, i) => `${i+1}. ${opt}`).join('\n')}\n\nEnter number (1-4):`);
-    
-    if (choice === '4') {
-        if (confirm('This will delete all current flashcards. Continue?')) {
-            flashcards = [];
-            currentCardIndex = 0;
-            updateFlashcards();
-            updateFlashcardCounter();
-            addSystemMessage('All flashcards cleared!');
-        }
-        return;
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
     }
     
-    if (choice === '3') {
-        const topic = prompt('What topic would you like to create flashcards for?');
-        if (topic) {
-            generateFlashcardsFromTopic(topic);
-        }
-        return;
+    .achievements-grid {
+        grid-template-columns: repeat(4, 1fr);
     }
     
-    if (choice === '2') {
-        // This would need backend support to process all PDFs
-        alert('Processing all PDFs feature coming soon!');
-        return;
-    }
-    
-    // Default: Generate from current PDF
-    if (currentPDF) {
-        processPDF('flashcards');
-    } else {
-        alert('Please select a PDF first.');
+    .progress-section {
+        gap: 1rem;
     }
 }
+</style>
 
-// REPLACE the generateFlashcards function:
-function generateFlashcards() {
-    if (flashcards.length > 0) {
-        // Show options if flashcards already exist
-        generateFlashcardsOptions();
-    } else {
-        // Direct generation if no flashcards exist
-        if (!currentPDF) {
-            const topic = prompt('What topic would you like to create flashcards for?');
-            if (topic) {
-                generateFlashcardsFromTopic(topic);
-            }
-        } else {
-            processPDF('flashcards');
-        }
-    }
+<!-- UPDATE YOUR MAIN CONTAINER CSS -->
+<style>
+.main-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem;
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 0.8fr; /* Changed from 1.5fr 1fr to add third column */
+    gap: 2rem;
+    min-height: calc(100vh - 100px);
 }
-        async function generateFlashcardsFromTopic(topic) {
-            const generateBtn = document.querySelector('.generate-flashcards-btn');
-            const originalContent = generateBtn.innerHTML;
-            generateBtn.innerHTML = '<div class="spinner"></div> Generating...';
-            generateBtn.disabled = true;
+</style>
 
-            try {
-                const response = await fetch('/api/chat', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                   body: JSON.stringify({
-                   message: `Create 10 flashcards about "${topic}". Format each EXACTLY as "Q: [Question] | A: [Answer]" on separate lines. Example:\n\nQ: What is photosynthesis? | A: The process plants use to make food from sunlight\nQ: Where does photosynthesis occur? | A: In the chloroplasts of plant cells`,
-                   mode: 'teach',
-                   length: 'detailed'
-                })
-                });
-
-                const data = await response.json();
-
-               if (response.ok && data.response) {
-    parseFlashcardsFromResponse(data.response);
-    addMessage(`📚 Generated ${flashcards.length} flashcards for "${topic}" - check the Flashcards section!`, 'bot');
-}              else {
-                    throw new Error(data.error || 'Failed to generate flashcards');
-                }
-            } catch (error) {
-                console.error('Flashcard generation error:', error);
-                addMessage(`Error generating flashcards: ${error.message}`, 'bot');
-            } finally {
-                generateBtn.innerHTML = originalContent;
-                generateBtn.disabled = false;
-            }
-        }
-
-   // REPLACE the parseFlashcardsFromResponse function with this version:
-function parseFlashcardsFromResponse(response, appendMode = true) {
-    const lines = response.split('\n');
-    const newFlashcards = [];
-    let currentCard = null;
-
-    console.log('Parsing flashcard response:', response);
-
-    for (let line of lines) {
-        line = line.trim();
-        
-        if (line.match(/^(\d+\.|Q:|Question:)/i)) {
-            if (currentCard && currentCard.question && currentCard.answer) {
-                newFlashcards.push(currentCard);
-            }
-            currentCard = { 
-                question: line.replace(/^(\d+\.|Q:|Question:)\s*/i, ''), 
-                answer: '' 
-            };
-        } 
-        else if (line.match(/^(A:|Answer:)/i)) {
-            if (currentCard) {
-                currentCard.answer = line.replace(/^(A:|Answer:)\s*/i, '');
-            }
-        }
-        else if (line.includes('|') && line.match(/Q:/i) && line.match(/A:/i)) {
-            const parts = line.split('|');
-            if (parts.length >= 2) {
-                const question = parts[0].replace(/^(Q:|Question:)\s*/i, '').trim();
-                const answer = parts[1].replace(/^(A:|Answer:)\s*/i, '').trim();
-                if (question && answer) {
-                    newFlashcards.push({ question, answer });
-                }
-            }
-        }
-        else if (currentCard && line) {
-            if (!currentCard.answer) {
-                currentCard.question += ' ' + line;
-            } else {
-                currentCard.answer += ' ' + line;
-            }
-        }
-    }
-
-    if (currentCard && currentCard.question && currentCard.answer) {
-        newFlashcards.push(currentCard);
-    }
-
-    console.log('Parsed flashcards:', newFlashcards);
-
-    if (newFlashcards.length > 0) {
-        // APPEND to existing flashcards instead of replacing
-        if (appendMode && flashcards.length > 0) {
-            flashcards.push(...newFlashcards);
-            console.log(`Added ${newFlashcards.length} new flashcards. Total: ${flashcards.length}`);
-        } else {
-            flashcards = newFlashcards;
-            currentCardIndex = 0;
-            console.log(`Created ${newFlashcards.length} flashcards`);
-        }
-        
-        isCardFlipped = false;
-        
-        // Enable navigation buttons
-        const prevBtn = document.getElementById('prevCard');
-        const nextBtn = document.getElementById('nextCard');
-        const shuffleBtn = document.getElementById('shuffleBtn');
-        
-        if (prevBtn) prevBtn.disabled = false;
-        if (nextBtn) nextBtn.disabled = false; 
-        if (shuffleBtn) shuffleBtn.disabled = false;
-        
-        updateFlashcards();
-    } else {
-        console.log('No flashcards could be parsed from the response');
-    }
-}
-       // 1. FIND AND REPLACE this function (around line 800-830):
-function updateFlashcards() {
-    const container = document.getElementById('flashcardContainer');
-    const welcomeCard = document.getElementById('welcomeCard');
-
-    if (flashcards.length === 0) {
-        if (welcomeCard) welcomeCard.style.display = 'flex';
-        return;
-    }
-
-    if (welcomeCard) welcomeCard.style.display = 'none';
-
-    const currentCard = flashcards[currentCardIndex];
-    
-    container.innerHTML = `
-        <div class="flashcard ${isCardFlipped ? 'flipped' : ''}" id="currentFlashcard">
-            <div class="flashcard-content">
-                ${isCardFlipped ? currentCard.answer : currentCard.question}
+<!-- ADD THIS HTML AFTER YOUR EXISTING SIDEBAR (before closing main-container div) -->
+<div class="progress-sidebar">
+    <div class="card progress-tracker">
+        <div class="card-header">
+            <div class="card-icon" style="background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan));">
+                <i class="fas fa-chart-line"></i>
             </div>
-            <div class="flashcard-indicator">
-                ${isCardFlipped ? 'Answer' : 'Question'} - ${currentCardIndex + 1}/${flashcards.length}
+            <div>
+                <h3 class="card-title">Learning Analytics</h3>
+                <div class="status-indicator">
+                    <span class="status-dot" style="background: var(--primary-green);"></span>
+                    <span>Tracking progress</span>
+                </div>
             </div>
         </div>
+
+        <div class="learning-streak">
+            <span class="streak-fire">🔥</span>
+            <span class="streak-text"><span id="streakDays">0</span> day streak</span>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-item">
+                <span class="stat-number" id="totalStudyTime">0h</span>
+                <span class="stat-label">Study Time</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-number" id="messagesCount">0</span>
+                <span class="stat-label">Messages</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-number" id="pdfsProcessed">0</span>
+                <span class="stat-label">PDFs</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-number" id="flashcardsCreated">0</span>
+                <span class="stat-label">Flashcards</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="card skills-tracker">
+        <div class="card-header">
+            <div class="card-icon" style="background: linear-gradient(135deg, var(--primary-purple), #8b5cf6);">
+                <i class="fas fa-brain"></i>
+            </div>
+            <div>
+                <h3 class="card-title">Skills Development</h3>
+                <div class="status-indicator">
+                    <span class="status-dot" style="background: var(--primary-purple);"></span>
+                    <span>Growing stronger</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="progress-section">
+            <div class="skill-progress">
+                <div class="skill-header">
+                    <span class="skill-name">Critical Thinking</span>
+                    <span class="skill-level" id="criticalThinkingLevel">Beginner</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="criticalThinkingProgress" style="width: 15%;"></div>
+                </div>
+            </div>
+
+            <div class="skill-progress">
+                <div class="skill-header">
+                    <span class="skill-name">Problem Solving</span>
+                    <span class="skill-level" id="problemSolvingLevel">Beginner</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="problemSolvingProgress" style="width: 10%;"></div>
+                </div>
+            </div>
+
+            <div class="skill-progress">
+                <div class="skill-header">
+                    <span class="skill-name">Research Skills</span>
+                    <span class="skill-level" id="researchSkillsLevel">Beginner</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="researchSkillsProgress" style="width: 20%;"></div>
+                </div>
+            </div>
+
+            <div class="skill-progress">
+                <div class="skill-header">
+                    <span class="skill-name">Study Habits</span>
+                    <span class="skill-level" id="studyHabitsLevel">Beginner</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="studyHabitsProgress" style="width: 25%;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card achievements-tracker">
+        <div class="card-header">
+            <div class="card-icon" style="background: linear-gradient(135deg, var(--achievement-gold), #d97706);">
+                <i class="fas fa-trophy"></i>
+            </div>
+            <div>
+                <h3 class="card-title">Achievements</h3>
+                <div class="status-indicator">
+                    <span class="status-dot" style="background: var(--achievement-gold);"></span>
+                    <span><span id="achievementsEarned">0</span>/8 earned</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="achievements-section">
+            <div class="achievements-grid">
+                <div class="achievement-badge locked" id="firstMessage">
+                    <i class="fas fa-comment"></i>
+                    <div class="achievement-tooltip">First Message</div>
+                </div>
+                <div class="achievement-badge locked" id="pdfMaster">
+                    <i class="fas fa-file-pdf"></i>
+                    <div class="achievement-tooltip">PDF Master</div>
+                </div>
+                <div class="achievement-badge locked" id="flashcardHero">
+                    <i class="fas fa-layer-group"></i>
+                    <div class="achievement-tooltip">Flashcard Hero</div>
+                </div>
+                <div class="achievement-badge locked" id="timeManager">
+                    <i class="fas fa-clock"></i>
+                    <div class="achievement-tooltip">Time Manager</div>
+                </div>
+                <div class="achievement-badge locked" id="streakWarrior">
+                    <i class="fas fa-fire"></i>
+                    <div class="achievement-tooltip">7-day Streak</div>
+                </div>
+                <div class="achievement-badge locked" id="knowledgeSeeker">
+                    <i class="fas fa-search"></i>
+                    <div class="achievement-tooltip">Knowledge Seeker</div>
+                </div>
+                <div class="achievement-badge locked" id="studyBuddy">
+                    <i class="fas fa-user-friends"></i>
+                    <div class="achievement-tooltip">Study Buddy</div>
+                </div>
+                <div class="achievement-badge locked" id="nightOwl">
+                    <i class="fas fa-moon"></i>
+                    <div class="achievement-tooltip">Night Owl</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="study-insights">
+            <h4 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 1rem;">
+                <i class="fas fa-lightbulb" style="color: var(--achievement-gold); margin-right: 0.5rem;"></i>
+                Study Insights
+            </h4>
+            <div id="studyInsights">
+                <div class="insight-item">
+                    <div class="insight-icon">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div class="insight-text">Start your learning journey by asking your first question!</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ADD THESE JAVASCRIPT VARIABLES AFTER YOUR EXISTING VARIABLES (around line 900)
+let userProgress = {
+    messagesCount: 0,
+    studyTimeTotal: 0,
+    pdfsProcessed: 0,
+    flashcardsCreated: 0,
+    streakDays: 0,
+    lastStudyDate: null,
+    skills: {
+        criticalThinking: 0,
+        problemSolving: 0,
+        researchSkills: 0,
+        studyHabits: 0
+    },
+    achievements: {
+        firstMessage: false,
+        pdfMaster: false,
+        flashcardHero: false,
+        timeManager: false,
+        streakWarrior: false,
+        knowledgeSeeker: false,
+        studyBuddy: false,
+        nightOwl: false
+    },
+    sessionStartTime: Date.now(),
+    totalSessions: 0
+};
+
+// ADD THESE PROGRESS TRACKING FUNCTIONS
+function loadUserProgress() {
+    try {
+        const saved = localStorage.getItem('phenbot_progress');
+        if (saved) {
+            const savedProgress = JSON.parse(saved);
+            userProgress = { ...userProgress, ...savedProgress };
+            userProgress.sessionStartTime = Date.now();
+            updateStudyStreak();
+        }
+    } catch (error) {
+        console.error('Error loading progress:', error);
+    }
+    updateProgressDisplay();
+}
+
+function saveUserProgress() {
+    try {
+        localStorage.setItem('phenbot_progress', JSON.stringify(userProgress));
+    } catch (error) {
+        console.error('Error saving progress:', error);
+    }
+}
+
+function updateStudyStreak() {
+    const today = new Date().toDateString();
+    const lastStudy = userProgress.lastStudyDate;
+    
+    if (lastStudy) {
+        const daysDiff = Math.floor((new Date() - new Date(lastStudy)) / (1000 * 60 * 60 * 24));
+        
+        if (daysDiff === 1) {
+            userProgress.streakDays++;
+        } else if (daysDiff > 1) {
+            userProgress.streakDays = 1;
+        }
+    } else {
+        userProgress.streakDays = 1;
+    }
+    
+    userProgress.lastStudyDate = today;
+    checkAchievements();
+}
+
+function updateProgressDisplay() {
+    document.getElementById('messagesCount').textContent = userProgress.messagesCount;
+    document.getElementById('totalStudyTime').textContent = Math.floor(userProgress.studyTimeTotal / 60) + 'h';
+    document.getElementById('pdfsProcessed').textContent = userProgress.pdfsProcessed;
+    document.getElementById('flashcardsCreated').textContent = userProgress.flashcardsCreated;
+    document.getElementById('streakDays').textContent = userProgress.streakDays;
+    
+    updateSkillProgress('criticalThinking', userProgress.skills.criticalThinking);
+    updateSkillProgress('problemSolving', userProgress.skills.problemSolving);
+    updateSkillProgress('researchSkills', userProgress.skills.researchSkills);
+    updateSkillProgress('studyHabits', userProgress.skills.studyHabits);
+    
+    updateAchievementsDisplay();
+    updateStudyInsights();
+}
+
+function updateSkillProgress(skillName, value) {
+    const progressBar = document.getElementById(skillName + 'Progress');
+    const levelSpan = document.getElementById(skillName + 'Level');
+    
+    if (progressBar) {
+        progressBar.style.width = Math.min(value, 100) + '%';
+    }
+    
+    if (levelSpan) {
+        let level = 'Beginner';
+        if (value >= 80) level = 'Expert';
+        else if (value >= 60) level = 'Advanced';
+        else if (value >= 30) level = 'Intermediate';
+        
+        levelSpan.textContent = level;
+    }
+}
+
+function checkAchievements() {
+    const achievements = userProgress.achievements;
+    
+    if (userProgress.messagesCount >= 1 && !achievements.firstMessage) {
+        unlockAchievement('firstMessage', 'First Message Sent!');
+    }
+    
+    if (userProgress.pdfsProcessed >= 3 && !achievements.pdfMaster) {
+        unlockAchievement('pdfMaster', 'PDF Master Unlocked!');
+    }
+    
+    if (userProgress.flashcardsCreated >= 15 && !achievements.flashcardHero) {
+        unlockAchievement('flashcardHero', 'Flashcard Hero!');
+    }
+    
+    if (userProgress.studyTimeTotal >= 1800 && !achievements.timeManager) {
+        unlockAchievement('timeManager', 'Time Manager!');
+    }
+    
+    if (userProgress.streakDays >= 7 && !achievements.streakWarrior) {
+        unlockAchievement('streakWarrior', '7-Day Streak Warrior!');
+    }
+    
+    if (userProgress.messagesCount >= 25 && !achievements.knowledgeSeeker) {
+        unlockAchievement('knowledgeSeeker', 'Knowledge Seeker!');
+    }
+    
+    if (userProgress.messagesCount >= 10 && userProgress.flashcardsCreated >= 5 && !achievements.studyBuddy) {
+        unlockAchievement('studyBuddy', 'Study Buddy!');
+    }
+    
+    const hour = new Date().getHours();
+    if ((hour >= 22 || hour <= 5) && userProgress.messagesCount >= 5 && !achievements.nightOwl) {
+        unlockAchievement('nightOwl', 'Night Owl!');
+    }
+    
+    saveUserProgress();
+}
+
+function unlockAchievement(achievementId, message) {
+    userProgress.achievements[achievementId] = true;
+    
+    const badge = document.getElementById(achievementId);
+    if (badge) {
+        badge.classList.remove('locked');
+        badge.classList.add('earned');
+        
+        showAchievementNotification(message);
+    }
+    
+    updateAchievementsDisplay();
+}
+
+function showAchievementNotification(message) {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: linear-gradient(135deg, var(--achievement-gold), #d97706);
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        z-index: 10000;
+        font-weight: 600;
+        animation: slideInRight 0.5s ease;
     `;
-
-    // Re-add click event listener after creating the HTML
+    
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+    `;
+    document.head.appendChild(style);
+    
+    notification.innerHTML = `<i class="fas fa-trophy" style="margin-right: 0.5rem;"></i>${message}`;
+    
+    document.body.appendChild(notification);
+    
     setTimeout(() => {
-        const flashcardElement = document.getElementById('currentFlashcard');
-        if (flashcardElement) {
-            flashcardElement.style.cursor = 'pointer';
-            flashcardElement.addEventListener('click', flipCard);
-            console.log('Click listener added to flashcard');
-        }
-    }, 10);
-
-    updateFlashcardCounter();
-    updateFlashcardNavigation();
+        notification.remove();
+        style.remove();
+    }, 3000);
 }
 
-// 2. FIND AND REPLACE this function (around line 850):
-function flipCard() {
-    console.log('Flipcard clicked! Current state:', isCardFlipped);
-    isCardFlipped = !isCardFlipped;
-    updateFlashcards();
+function updateAchievementsDisplay() {
+    const earned = Object.values(userProgress.achievements).filter(Boolean).length;
+    document.getElementById('achievementsEarned').textContent = earned;
 }
-
-// 3. FIND AND REPLACE this function (around line 860):
-function nextCard() {
-    console.log('Next card clicked');
-    if (currentCardIndex < flashcards.length - 1) {
-        currentCardIndex++;
-        isCardFlipped = false;
-        updateFlashcards();
-    }
-}
-
-// 4. FIND AND REPLACE this function (around line 870):
-function previousCard() {
-    console.log('Previous card clicked');
-    if (currentCardIndex > 0) {
-        currentCardIndex--;
-        isCardFlipped = false;
-        updateFlashcards();
-    }
-}
-        function shuffleCards() {
-            if (flashcards.length > 0) {
-                flashcards = flashcards.sort(() => Math.random() - 0.5);
-                currentCardIndex = 0;
-                isCardFlipped = false;
-                updateFlashcards();
-                addSystemMessage('Flashcards shuffled!');
-            }
-        }
-
-       function enableFlashcardNavigation() {
-    const prevBtn = document.getElementById('prevCard');
-    const nextBtn = document.getElementById('nextCard');
-    const shuffleBtn = document.getElementById('shuffleBtn');
+// Replace your incomplete function with this:
+function updateStudyInsights() {
+    const insights = document.getElementById('studyInsights');
+    const insightsList = [];
     
-    if (prevBtn) prevBtn.disabled = false;
-    if (nextBtn) nextBtn.disabled = false; 
-    if (shuffleBtn) shuffleBtn.disabled = false;
-    
-    updateFlashcardNavigation();
-    console.log('Navigation enabled, total cards:', flashcards.length);
-}
-
-        function updateFlashcardNavigation() {
-    const prevBtn = document.getElementById('prevCard');
-    const nextBtn = document.getElementById('nextCard');
-    
-    if (prevBtn) prevBtn.disabled = (currentCardIndex === 0);
-    if (nextBtn) nextBtn.disabled = (currentCardIndex >= flashcards.length - 1);
-    
-    console.log('Navigation updated:', {
-        currentIndex: currentCardIndex,
-        totalCards: flashcards.length,
-        prevDisabled: prevBtn?.disabled,
-        nextDisabled: nextBtn?.disabled
-    });
-}
-
-        function updateFlashcardCounter() {
-            document.getElementById('flashcardCounter').textContent = 
-                `${flashcards.length} cards available`;
-        }
-
-        // Timer functionality
-        function updateTimerDisplay() {
-            const minutes = Math.floor(timeLeft / 60);
-            const seconds = timeLeft % 60;
-            document.getElementById('timerDisplay').textContent = 
-                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        }
-
-        function startTimer() {
-            if (!isRunning) {
-                isRunning = true;
-                const startBtn = document.getElementById('startBtn');
-                startBtn.innerHTML = '<i class="fas fa-pause"></i> Running...';
-                startBtn.classList.remove('start');
-
-                timerInterval = setInterval(() => {
-                    timeLeft--;
-                    updateTimerDisplay();
-
-                    if (timeLeft <= 0) {
-                        clearInterval(timerInterval);
-                        isRunning = false;
-                        startBtn.innerHTML = '<i class="fas fa-play"></i> Start';
-                        startBtn.classList.add('start');
-
-                        // Show notification
-                        if ('Notification' in window && Notification.permission === 'granted') {
-                            new Notification('PhenBOT Timer', {
-                                body: 'Pomodoro session completed! Time for a break.',
-                                icon: '/static/favicon.ico'
-                            });
-                        }
-
-                        alert('Pomodoro session completed! Take a break.');
-                        resetTimer();
-                    }
-                }, 1000);
-            } else {
-                pauseTimer();
-            }
-        }
-        function createCustomFlashcard() {
-    const question = prompt('Enter the question:');
-    if (!question || !question.trim()) return;
-    
-    const answer = prompt('Enter the answer:');
-    if (!answer || !answer.trim()) return;
-    
-    // Add to flashcards array
-    flashcards.push({
-        question: question.trim(),
-        answer: answer.trim()
-    });
-    
-    // Update display
-    updateFlashcards();
-    enableFlashcardNavigation();
-    updateFlashcardCounter();
-    
-    addSystemMessage(`Custom flashcard added! Total: ${flashcards.length} cards`);
-}
-
-function createMultipleCustomFlashcards() {
-    const count = parseInt(prompt('How many flashcards would you like to create?', '5'));
-    if (!count || count < 1 || count > 20) {
-        alert('Please enter a number between 1 and 20');
-        return;
-    }
-    
-    const newCards = [];
-    
-    for (let i = 0; i < count; i++) {
-        const question = prompt(`Question ${i + 1}/${count}:`);
-        if (!question || !question.trim()) break;
-        
-        const answer = prompt(`Answer ${i + 1}/${count}:`);
-        if (!answer || !answer.trim()) break;
-        
-        newCards.push({
-            question: question.trim(),
-            answer: answer.trim()
+    if (userProgress.messagesCount === 0) {
+        insightsList.push({
+            icon: 'fas fa-chart-line',
+            text: 'Start your learning journey by asking your first question!'
         });
+    } else {
+        if (userProgress.streakDays >= 3) {
+            insightsList.push({
+                icon: 'fas fa-fire',
+                text: `Amazing! You're on a ${userProgress.streakDays}-day learning streak!`
+            });
+        }
+        
+        if (userProgress.messagesCount >= 10) {
+            insightsList.push({
+                icon: 'fas fa-star',
+                text: 'You\'re becoming more engaged with learning!'
+            });
+        }
+        
+        if (userProgress.pdfsProcessed >= 1) {
+            insightsList.push({
+                icon: 'fas fa-file-pdf',
+                text: 'Great use of PDF analysis tools!'
+            });
+        }
+        
+        if (userProgress.flashcardsCreated >= 5) {
+            insightsList.push({
+                icon: 'fas fa-brain',
+                text: 'Flashcards are boosting your memory skills!'
+            });
+        }
+    }
+function trackAction(actionType, value = 1) {
+    switch(actionType) {
+        case 'message':
+            userProgress.messagesCount++;
+            userProgress.skills.criticalThinking += 0.5;
+            break;
+        case 'pdf':
+            userProgress.pdfsProcessed++;
+            userProgress.skills.researchSkills += 2;
+            break;
+        case 'flashcard':
+            userProgress.flashcardsCreated += value;
+            userProgress.skills.studyHabits += 1;
+            break;
+        case 'timer':
+            userProgress.studyTimeTotal += value;
+            userProgress.skills.studyHabits += 0.5;
+            break;
+        case 'quiz_mode':
+            userProgress.skills.problemSolving += 1;
+            break;
     }
     
-    if (newCards.length > 0) {
-        flashcards.push(...newCards);
-        updateFlashcards();
-        enableFlashcardNavigation();
-        updateFlashcardCounter();
-        addSystemMessage(`Added ${newCards.length} custom flashcards! Total: ${flashcards.length} cards`);
-    }
+    updateStudyStreak();
+    checkAchievements();
+    updateProgressDisplay();
+    saveUserProgress();
+}
+function initializeProgressTracking() {
+    loadUserProgress();
+    
+    // Track session time every minute
+    setInterval(() => {
+        userProgress.studyTimeTotal += 1; // Add 1 second every minute (simplified)
+        updateProgressDisplay();
+        saveUserProgress();
+    }, 60000);
 }
 
-        function pauseTimer() {
-            if (isRunning) {
-                clearInterval(timerInterval);
-                isRunning = false;
-                const startBtn = document.getElementById('startBtn');
-                startBtn.innerHTML = '<i class="fas fa-play"></i> Resume';
-                startBtn.classList.add('start');
-            }
-        }
+function trackAction(actionType, value = 1) {
+    switch(actionType) {
+        case 'message':
+            userProgress.messagesCount++;
+            userProgress.skills.criticalThinking += 0.5;
+            break;
+        case 'pdf':
+            userProgress.pdfsProcessed++;
+            userProgress.skills.researchSkills += 2;
+            break;
+        case 'flashcard':
+            userProgress.flashcardsCreated += value;
+            userProgress.skills.studyHabits += 1;
+            break;
+        case 'timer':
+            userProgress.studyTimeTotal += value;
+            userProgress.skills.studyHabits += 0.5;
+            break;
+        case 'quiz_mode':
+            userProgress.skills.problemSolving += 1;
+            break;
+    }
+    
+    updateStudyStreak();
+    checkAchievements();
+    updateProgressDisplay();
+    saveUserProgress();
+}
 
-        function resetTimer() {
-            clearInterval(timerInterval);
-            isRunning = false;
-            timeLeft = 25 * 60;
-            updateTimerDisplay();
-            const startBtn = document.getElementById('startBtn');
-            startBtn.innerHTML = '<i class="fas fa-play"></i> Start';
-            startBtn.classList.add('start');
+function initializeProgressTracking() {
+    loadUserProgress();
+    
+    // Track session time
+    setInterval(() => {
+        const sessionTime = Math.floor((Date.now() - userProgress.sessionStartTime) / 1000);
+        if (sessionTime > 0) {
+            userProgress.studyTimeTotal += 1;
+            updateProgressDisplay();
+            saveUserProgress();
         }
+    }, 60000); // Update every minute
+}
 
-        // Logout function
-        function logout() {
-            if (confirm('Are you sure you want to logout?')) {
-                window.location.href = '/logout';
-            }
-        }
+// UPDATE YOUR DOMContentLoaded EVENT LISTENER TO INCLUDE:
+// Add this line to your existing DOMContentLoaded function:
+// initializeProgressTracking();
 
-        // Request notification permission on load
-        if ('Notification' in window && Notification.permission === 'default') {
-            Notification.requestPermission();
-        }
-    </script>
-</body>
-</html>
+// UPDATE YOUR EXISTING FUNCTIONS TO TRACK PROGRESS:
+
+// In your sendMessage function, add this after successful message send:
+// trackAction('message');
+
+// In your processPDF function, add this after successful PDF processing:
+// trackAction('pdf');
+
+// In your parseFlashcardsFromResponse function, add this after flashcards are created:
+// trackAction('flashcard', newFlashcards.length);
+
+// In your startTimer function when timer completes (25 minutes = 1500 seconds):
+// trackAction('timer', 1500);
+
+// When quiz mode is used:
+// if (currentMode === 'quiz') trackAction('quiz_mode');
+</script>
