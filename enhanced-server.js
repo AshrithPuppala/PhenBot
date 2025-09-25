@@ -46,14 +46,40 @@ try {
   console.warn("⚠️ Failed to load sessions:", error.message);
 }
 
-// Save sessions
+// Save sessions with better error handling
 function saveSessions() {
   try {
+    // Ensure directory exists
+    const dir = path.dirname(SESSIONS_FILE);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    
+    // Create backup before writing
+    if (fs.existsSync(SESSIONS_FILE)) {
+      fs.copyFileSync(SESSIONS_FILE, SESSIONS_FILE + '.backup');
+    }
+    
     fs.writeFileSync(SESSIONS_FILE, JSON.stringify(activeSessions, null, 2));
+    console.log("✅ Sessions saved successfully");
   } catch (error) {
     console.error("❌ Failed to save sessions:", error.message);
+    
+    // Try to restore from backup
+    const backupFile = SESSIONS_FILE + '.backup';
+    if (fs.existsSync(backupFile)) {
+      try {
+        fs.copyFileSync(backupFile, SESSIONS_FILE);
+        console.log("✅ Sessions restored from backup");
+      } catch (restoreError) {
+        console.error("❌ Failed to restore sessions from backup:", restoreError.message);
+      }
+    }
   }
 }
+
+// Auto-save sessions every 5 minutes
+setInterval(saveSessions, 5 * 60 * 1000);
 
 // Hash password
 function hashPassword(password) {
@@ -67,32 +93,83 @@ function generateSessionToken() {
 
 // --- Enhanced User Data Management ---
 
-// Get user file path
+// Get user file path with better error handling
 function getUserFilePath(userId, filename) {
-  return path.join(USERS_DIR, userId, filename);
+  const userDir = path.join(USERS_DIR, userId);
+  if (!fs.existsSync(userDir)) {
+    createUserDirectories(userId);
+  }
+  return path.join(userDir, filename);
 }
 
-// Load user data from specific file
+// Load user data with backup system
 function loadUserData(userId, filename) {
   const filePath = getUserFilePath(userId, filename);
   try {
     if (fs.existsSync(filePath)) {
-      return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      const data = fs.readFileSync(filePath, 'utf8');
+      return JSON.parse(data);
     }
+    
+    // Try backup file
+    const backupPath = filePath + '.backup';
+    if (fs.existsSync(backupPath)) {
+      console.log(`⚠️ Loading backup for ${filename} for ${userId}`);
+      const data = fs.readFileSync(backupPath, 'utf8');
+      return JSON.parse(data);
+    }
+    
   } catch (error) {
     console.warn(`⚠️ Failed to load ${filename} for ${userId}:`, error.message);
+    
+    // Try backup file if main file is corrupted
+    const backupPath = filePath + '.backup';
+    if (fs.existsSync(backupPath)) {
+      try {
+        const data = fs.readFileSync(backupPath, 'utf8');
+        console.log(`✅ Restored ${filename} from backup for ${userId}`);
+        return JSON.parse(data);
+      } catch (backupError) {
+        console.error(`❌ Backup file also corrupted for ${filename}:`, backupError.message);
+      }
+    }
   }
   return null;
 }
 
-// Save user data to specific file
+// Save user data with backup system
 function saveUserData(userId, filename, data) {
   const filePath = getUserFilePath(userId, filename);
   try {
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    // Ensure directory exists
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    
+    // Create backup before writing
+    if (fs.existsSync(filePath)) {
+      fs.copyFileSync(filePath, filePath + '.backup');
+    }
+    
+    const jsonData = JSON.stringify(data, null, 2);
+    fs.writeFileSync(filePath, jsonData);
+    
+    console.log(`✅ Saved ${filename} for ${userId}`);
     return true;
   } catch (error) {
     console.error(`❌ Failed to save ${filename} for ${userId}:`, error.message);
+    
+    // Try to restore from backup
+    const backupPath = filePath + '.backup';
+    if (fs.existsSync(backupPath)) {
+      try {
+        fs.copyFileSync(backupPath, filePath);
+        console.log(`✅ Restored ${filename} from backup for ${userId}`);
+      } catch (restoreError) {
+        console.error(`❌ Failed to restore ${filename} from backup:`, restoreError.message);
+      }
+    }
     return false;
   }
 }
@@ -104,31 +181,18 @@ function getUserProfile(userId) {
 
 // Update user profile
 function updateUserProfile(userId, updates) {
-  const profile = getUserProfile(userId);
-  if (profile) {
-    Object.assign(profile, updates);
-    return saveUserData(userId, 'profile.json', profile);
-  }
-  return false;
+  const profile = getUserProfile(userId) || createDefaultProfile(userId);
+  Object.assign(profile, updates);
+  return saveUserData(userId, 'profile.json', profile);
 }
 
-// User registration
-function registerUser(email, password, username) {
-  const userId = crypto.createHash('md5').update(email).digest('hex');
-  const userDir = createUserDirectories(userId);
-  
-  if (fs.existsSync(path.join(userDir, 'profile.json'))) {
-    const existingProfile = getUserProfile(userId);
-    if (existingProfile && existingProfile.email) {
-      return { success: false, error: 'User already exists' };
-    }
-  }
-  
-  const userData = {
+// Create default profile if none exists
+function createDefaultProfile(userId) {
+  return {
     userId,
-    email,
-    username,
-    password: hashPassword(password),
+    email: '',
+    username: '',
+    password: '',
     createdAt: new Date().toISOString(),
     lastLogin: null,
     preferences: {
@@ -137,13 +201,15 @@ function registerUser(email, password, username) {
       bloomsLevel: 'analyze',
       studyStreak: 0,
       focusLevel: 'medium',
-      theme: 'dark'
+      theme: 'dark',
+      customSubjects: []
     },
     analytics: {
       questionsAsked: 0,
       conceptsLearned: [],
       weakAreas: [],
       studyTime: 0,
+      subjectProgress: {},
       bloomsLevels: {
         remember: 0,
         understand: 0,
@@ -154,50 +220,92 @@ function registerUser(email, password, username) {
       }
     }
   };
+}
+
+// User registration with better error handling
+function registerUser(email, password, username) {
+  const userId = crypto.createHash('md5').update(email).digest('hex');
   
   try {
-    saveUserData(userId, 'profile.json', userData);
-    console.log(`✅ User registered: ${email} (${userId})`);
-    return { success: true, userId, username };
+    // Create user directories first
+    createUserDirectories(userId);
+    
+    // Check if user already exists
+    const existingProfile = getUserProfile(userId);
+    if (existingProfile && existingProfile.email) {
+      return { success: false, error: 'User already exists' };
+    }
+    
+    const userData = createDefaultProfile(userId);
+    userData.email = email;
+    userData.username = username;
+    userData.password = hashPassword(password);
+    
+    const success = saveUserData(userId, 'profile.json', userData);
+    if (success) {
+      console.log(`✅ User registered: ${email} (${userId})`);
+      return { success: true, userId, username };
+    } else {
+      return { success: false, error: 'Failed to save user data' };
+    }
   } catch (error) {
-    return { success: false, error: 'Failed to create user' };
+    console.error(`❌ Registration error for ${email}:`, error);
+    return { success: false, error: 'Registration failed' };
   }
 }
 
-// User login
+// User login with session persistence
 function loginUser(email, password) {
   const userId = crypto.createHash('md5').update(email).digest('hex');
-  const userData = getUserProfile(userId);
+  let userData = getUserProfile(userId);
   
+  // If user data is corrupted or missing, try to recover
   if (!userData) {
+    console.log(`⚠️ User data missing for ${email}, checking backups...`);
     return { success: false, error: 'User not found' };
   }
   
-  if (userData.password !== hashPassword(password)) {
+  if (!userData.password || userData.password !== hashPassword(password)) {
     return { success: false, error: 'Invalid password' };
   }
   
-  // Update last login and streak
-  const lastLogin = userData.lastLogin ? new Date(userData.lastLogin) : null;
-  const today = new Date();
-  const daysDiff = lastLogin ? Math.floor((today - lastLogin) / (1000 * 60 * 60 * 24)) : 1;
-  
-  if (daysDiff === 1) {
-    userData.preferences.studyStreak += 1;
-  } else if (daysDiff > 1) {
-    userData.preferences.studyStreak = 1;
+  // Update last login and streak with better date handling
+  try {
+    const lastLogin = userData.lastLogin ? new Date(userData.lastLogin) : null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Normalize to start of day
+    
+    if (lastLogin) {
+      const lastLoginDay = new Date(lastLogin);
+      lastLoginDay.setHours(0, 0, 0, 0);
+      const daysDiff = Math.floor((today - lastLoginDay) / (1000 * 60 * 60 * 24));
+      
+      if (daysDiff === 1) {
+        userData.preferences.studyStreak += 1;
+      } else if (daysDiff > 1) {
+        userData.preferences.studyStreak = 1;
+      }
+      // If daysDiff === 0, same day login, maintain streak
+    } else {
+      userData.preferences.studyStreak = 1;
+    }
+    
+    userData.lastLogin = new Date().toISOString();
+    updateUserProfile(userId, userData);
+  } catch (error) {
+    console.error(`⚠️ Error updating login data for ${userId}:`, error);
   }
-  
-  userData.lastLogin = today.toISOString();
-  updateUserProfile(userId, userData);
   
   const sessionToken = generateSessionToken();
   activeSessions[sessionToken] = {
     userId,
     email: userData.email,
     username: userData.username,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    lastActivity: new Date().toISOString()
   };
+  
+  // Save sessions immediately
   saveSessions();
   
   console.log(`✅ User logged in: ${email}`);
@@ -211,35 +319,104 @@ function loginUser(email, password) {
   };
 }
 
-// Validate session
+// Validate session with activity tracking
 function validateSession(sessionToken) {
-  return activeSessions[sessionToken] || null;
+  const session = activeSessions[sessionToken];
+  if (session) {
+    // Update last activity
+    session.lastActivity = new Date().toISOString();
+    return session;
+  }
+  return null;
 }
+
+// Clean up expired sessions (24 hours)
+function cleanupExpiredSessions() {
+  const now = new Date();
+  const expiredSessions = [];
+  
+  for (const [token, session] of Object.entries(activeSessions)) {
+    const lastActivity = new Date(session.lastActivity);
+    const hoursDiff = (now - lastActivity) / (1000 * 60 * 60);
+    
+    if (hoursDiff > 24) {
+      expiredSessions.push(token);
+    }
+  }
+  
+  expiredSessions.forEach(token => delete activeSessions[token]);
+  
+  if (expiredSessions.length > 0) {
+    console.log(`🧹 Cleaned up ${expiredSessions.length} expired sessions`);
+    saveSessions();
+  }
+}
+
+// Clean up sessions every hour
+setInterval(cleanupExpiredSessions, 60 * 60 * 1000);
 
 // --- PDF Management ---
 
-// Process uploaded PDF
+// Process multiple PDFs
+async function processMultiplePDFs(userId, files) {
+  const results = [];
+  
+  for (const file of files) {
+    try {
+      const result = await processPDF(userId, file);
+      results.push(result);
+    } catch (error) {
+      console.error(`Error processing PDF ${file.originalFilename}:`, error);
+      results.push({ 
+        success: false, 
+        error: `Failed to process ${file.originalFilename}`,
+        filename: file.originalFilename 
+      });
+    }
+  }
+  
+  return results;
+}
+
+// Enhanced PDF processing with better error handling
 async function processPDF(userId, fileData) {
   try {
     const pdfId = crypto.randomUUID();
     const filename = `${pdfId}.pdf`;
-    const pdfPath = path.join(USERS_DIR, userId, 'pdfs', filename);
+    const userPdfDir = path.join(USERS_DIR, userId, 'pdfs');
+    
+    // Ensure directory exists
+    if (!fs.existsSync(userPdfDir)) {
+      fs.mkdirSync(userPdfDir, { recursive: true });
+    }
+    
+    const pdfPath = path.join(userPdfDir, filename);
     
     // Save PDF file
     fs.writeFileSync(pdfPath, fileData.buffer);
     
-    // Extract text
+    // Extract text with timeout
     const pdfBuffer = fs.readFileSync(pdfPath);
-    const pdfData = await pdfParse(pdfBuffer);
+    const pdfData = await Promise.race([
+      pdfParse(pdfBuffer),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('PDF parsing timeout')), 30000)
+      )
+    ]);
     
     // Save extracted text
-    const textPath = path.join(USERS_DIR, userId, 'extracted-text', `${pdfId}.txt`);
+    const textDir = path.join(USERS_DIR, userId, 'extracted-text');
+    if (!fs.existsSync(textDir)) {
+      fs.mkdirSync(textDir, { recursive: true });
+    }
+    
+    const textPath = path.join(textDir, `${pdfId}.txt`);
     fs.writeFileSync(textPath, pdfData.text);
     
-    // Process text into chunks (for better context retrieval)
+    // Process text into chunks
     const chunks = createTextChunks(pdfData.text);
     
-    // Auto-detect subject (simple keyword matching)
+    // Auto-detect subject
     const subject = detectSubject(pdfData.text);
     
     // Create PDF metadata
@@ -252,19 +429,28 @@ async function processPDF(userId, fileData) {
       pages: pdfData.numpages,
       subject: subject,
       keywords: extractKeywords(pdfData.text),
-      chunks: chunks
+      chunks: chunks,
+      textLength: pdfData.text.length
     };
     
     // Load existing PDFs and add new one
     let userPDFs = loadUserData(userId, 'pdfs.json') || {};
     userPDFs[pdfId] = pdfMetadata;
-    saveUserData(userId, 'pdfs.json', userPDFs);
     
-    return { success: true, pdfId, metadata: pdfMetadata };
+    const success = saveUserData(userId, 'pdfs.json', userPDFs);
+    
+    if (success) {
+      return { success: true, pdfId, metadata: pdfMetadata };
+    } else {
+      throw new Error('Failed to save PDF metadata');
+    }
     
   } catch (error) {
     console.error('PDF processing error:', error);
-    return { success: false, error: 'Failed to process PDF' };
+    return { 
+      success: false, 
+      error: error.message.includes('timeout') ? 'PDF processing timeout' : 'Failed to process PDF'
+    };
   }
 }
 
@@ -299,17 +485,19 @@ function createTextChunks(text, chunkSize = 1000) {
   return chunks;
 }
 
-// Detect subject from text content
+// Enhanced subject detection
 function detectSubject(text) {
   const lowerText = text.toLowerCase();
   const subjects = {
-    mathematics: ['equation', 'theorem', 'proof', 'calculus', 'algebra', 'geometry', 'derivative', 'integral'],
-    physics: ['force', 'energy', 'momentum', 'velocity', 'acceleration', 'mass', 'gravity', 'quantum'],
-    chemistry: ['molecule', 'atom', 'reaction', 'compound', 'element', 'periodic', 'bond', 'ion'],
-    biology: ['cell', 'organism', 'gene', 'protein', 'evolution', 'species', 'dna', 'enzyme'],
-    programming: ['function', 'variable', 'algorithm', 'code', 'programming', 'software', 'data structure'],
-    history: ['war', 'empire', 'civilization', 'century', 'revolution', 'ancient', 'medieval'],
-    literature: ['poem', 'novel', 'author', 'character', 'plot', 'theme', 'narrative']
+    mathematics: ['equation', 'theorem', 'proof', 'calculus', 'algebra', 'geometry', 'derivative', 'integral', 'matrix', 'vector'],
+    physics: ['force', 'energy', 'momentum', 'velocity', 'acceleration', 'mass', 'gravity', 'quantum', 'thermodynamics', 'wave'],
+    chemistry: ['molecule', 'atom', 'reaction', 'compound', 'element', 'periodic', 'bond', 'ion', 'catalyst', 'solution'],
+    biology: ['cell', 'organism', 'gene', 'protein', 'evolution', 'species', 'dna', 'enzyme', 'tissue', 'ecosystem'],
+    programming: ['function', 'variable', 'algorithm', 'code', 'programming', 'software', 'data structure', 'class', 'method', 'loop'],
+    history: ['war', 'empire', 'civilization', 'century', 'revolution', 'ancient', 'medieval', 'dynasty', 'culture', 'society'],
+    literature: ['poem', 'novel', 'author', 'character', 'plot', 'theme', 'narrative', 'metaphor', 'symbolism', 'genre'],
+    economics: ['market', 'supply', 'demand', 'price', 'economics', 'trade', 'money', 'inflation', 'gdp', 'business'],
+    psychology: ['behavior', 'mind', 'cognitive', 'psychology', 'mental', 'brain', 'emotion', 'learning', 'memory', 'personality']
   };
   
   let maxScore = 0;
@@ -331,12 +519,17 @@ function detectSubject(text) {
 }
 
 // Extract keywords from text
-function extractKeywords(text, limit = 10) {
+function extractKeywords(text, limit = 15) {
   const words = text.toLowerCase().match(/\b\w{4,}\b/g) || [];
   const frequency = {};
   
+  // Filter out common words
+  const stopWords = new Set(['this', 'that', 'with', 'have', 'will', 'from', 'they', 'know', 'want', 'been', 'good', 'much', 'some', 'time', 'very', 'when', 'come', 'here', 'just', 'like', 'long', 'make', 'many', 'over', 'such', 'take', 'than', 'them', 'well', 'were']);
+  
   words.forEach(word => {
-    frequency[word] = (frequency[word] || 0) + 1;
+    if (!stopWords.has(word)) {
+      frequency[word] = (frequency[word] || 0) + 1;
+    }
   });
   
   return Object.entries(frequency)
@@ -352,22 +545,24 @@ function getPDFContext(userId, question, maxChunks = 3) {
   const relevantChunks = [];
   
   Object.values(userPDFs).forEach(pdf => {
-    pdf.chunks.forEach(chunk => {
-      // Simple relevance scoring based on keyword matching
-      const chunkLower = chunk.text.toLowerCase();
-      const commonWords = questionLower.split(/\s+/).filter(word => 
-        word.length > 3 && chunkLower.includes(word)
-      );
-      
-      if (commonWords.length > 0) {
-        relevantChunks.push({
-          text: chunk.text,
-          score: commonWords.length,
-          pdfName: pdf.originalName,
-          pdfId: pdf.id
-        });
-      }
-    });
+    if (pdf.chunks) {
+      pdf.chunks.forEach(chunk => {
+        // Simple relevance scoring based on keyword matching
+        const chunkLower = chunk.text.toLowerCase();
+        const commonWords = questionLower.split(/\s+/).filter(word => 
+          word.length > 3 && chunkLower.includes(word)
+        );
+        
+        if (commonWords.length > 0) {
+          relevantChunks.push({
+            text: chunk.text,
+            score: commonWords.length,
+            pdfName: pdf.originalName,
+            pdfId: pdf.id
+          });
+        }
+      });
+    }
   });
   
   // Sort by relevance score and return top chunks
@@ -376,103 +571,146 @@ function getPDFContext(userId, question, maxChunks = 3) {
     .slice(0, maxChunks);
 }
 
-// --- Flashcard Management ---
+// --- Bookmark Management ---
 
-// Create user-made flashcard
-function createUserFlashcard(userId, cardData) {
-  const flashcards = loadUserData(userId, 'flashcards.json') || { userMade: [], aiGenerated: [] };
-  
-  const newCard = {
-    id: crypto.randomUUID(),
-    question: cardData.question,
-    answer: cardData.answer,
-    subject: cardData.subject || 'general',
-    difficulty: cardData.difficulty || 5,
-    createdAt: new Date().toISOString(),
-    lastReviewed: null,
-    reviewCount: 0,
-    correctCount: 0,
-    tags: cardData.tags || []
-  };
-  
-  flashcards.userMade.push(newCard);
-  saveUserData(userId, 'flashcards.json', flashcards);
-  
-  return { success: true, card: newCard };
+// Add bookmark
+function addBookmark(userId, bookmarkData) {
+  try {
+    const bookmarks = loadUserData(userId, 'bookmarks.json') || [];
+    
+    const newBookmark = {
+      id: crypto.randomUUID(),
+      type: bookmarkData.type,
+      content: bookmarkData.content,
+      metadata: bookmarkData.metadata || {},
+      createdAt: new Date().toISOString(),
+      tags: bookmarkData.tags || [],
+      subject: bookmarkData.subject || 'general'
+    };
+    
+    bookmarks.push(newBookmark);
+    const success = saveUserData(userId, 'bookmarks.json', bookmarks);
+    
+    return success ? { success: true, bookmark: newBookmark } : { success: false, error: 'Failed to save bookmark' };
+  } catch (error) {
+    console.error('Error adding bookmark:', error);
+    return { success: false, error: 'Failed to add bookmark' };
+  }
 }
 
-// Generate AI flashcards from PDF content
-async function generateAIFlashcards(userId, pdfId, count = 5) {
-  const userPDFs = loadUserData(userId, 'pdfs.json') || {};
-  const pdf = userPDFs[pdfId];
-  
-  if (!pdf) {
-    return { success: false, error: 'PDF not found' };
-  }
-  
-  const flashcards = loadUserData(userId, 'flashcards.json') || { userMade: [], aiGenerated: [] };
-  const generatedCards = [];
-  
+// Get bookmarks
+function getBookmarks(userId, subject = null) {
   try {
-    // Use PDF chunks to generate flashcards
-    for (let i = 0; i < Math.min(count, pdf.chunks.length); i++) {
-      const chunk = pdf.chunks[i];
-      const prompt = `Based on this text, create a flashcard question and answer:
-
-Text: ${chunk.text.substring(0, 500)}
-
-Create a clear, educational question and concise answer. Format as:
-Q: [question]
-A: [answer]`;
-
-      const response = await queryGroq(prompt, { answerLength: 'short' });
-      
-      if (response) {
-        const lines = response.split('\n');
-        const questionLine = lines.find(line => line.startsWith('Q:'));
-        const answerLine = lines.find(line => line.startsWith('A:'));
-        
-        if (questionLine && answerLine) {
-          const card = {
-            id: crypto.randomUUID(),
-            question: questionLine.substring(2).trim(),
-            answer: answerLine.substring(2).trim(),
-            subject: pdf.subject,
-            difficulty: 5,
-            createdAt: new Date().toISOString(),
-            sourceDocument: pdfId,
-            lastReviewed: null,
-            reviewCount: 0,
-            correctCount: 0,
-            tags: ['ai-generated', pdf.subject]
-          };
-          
-          flashcards.aiGenerated.push(card);
-          generatedCards.push(card);
-        }
-      }
+    const bookmarks = loadUserData(userId, 'bookmarks.json') || [];
+    
+    if (subject) {
+      return bookmarks.filter(bookmark => bookmark.subject === subject);
     }
     
-    saveUserData(userId, 'flashcards.json', flashcards);
-    return { success: true, cards: generatedCards };
-    
+    return bookmarks;
   } catch (error) {
-    console.error('AI flashcard generation error:', error);
-    return { success: false, error: 'Failed to generate flashcards' };
+    console.error('Error loading bookmarks:', error);
+    return [];
   }
 }
 
-// --- Enhanced AI Functions ---
-
-// Calculate similarity
-function calculateSimilarity(str1, str2) {
-  const words1 = str1.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-  const words2 = str2.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-  if (!words1.length || !words2.length) return 0;
-  const intersection = words1.filter(word => words2.includes(word));
-  const union = [...new Set([...words1, ...words2])];
-  return intersection.length / union.length;
+// Remove bookmark
+function removeBookmark(userId, bookmarkId) {
+  try {
+    let bookmarks = loadUserData(userId, 'bookmarks.json') || [];
+    bookmarks = bookmarks.filter(bookmark => bookmark.id !== bookmarkId);
+    
+    const success = saveUserData(userId, 'bookmarks.json', bookmarks);
+    return success ? { success: true } : { success: false, error: 'Failed to remove bookmark' };
+  } catch (error) {
+    console.error('Error removing bookmark:', error);
+    return { success: false, error: 'Failed to remove bookmark' };
+  }
 }
+
+// --- Custom Subject Management ---
+
+// Add custom subject
+function addCustomSubject(userId, subjectData) {
+  try {
+    const profile = getUserProfile(userId) || createDefaultProfile(userId);
+    
+    if (!profile.preferences.customSubjects) {
+      profile.preferences.customSubjects = [];
+    }
+    
+    const newSubject = {
+      id: crypto.randomUUID(),
+      name: subjectData.name,
+      color: subjectData.color || '#8B5CF6',
+      createdAt: new Date().toISOString()
+    };
+    
+    profile.preferences.customSubjects.push(newSubject);
+    
+    // Initialize subject progress
+    if (!profile.analytics.subjectProgress) {
+      profile.analytics.subjectProgress = {};
+    }
+    profile.analytics.subjectProgress[subjectData.name] = {
+      questionsAsked: 0,
+      averageAccuracy: 0,
+      timeSpent: 0,
+      bloomsLevels: {
+        remember: 0, understand: 0, apply: 0,
+        analyze: 0, evaluate: 0, create: 0
+      }
+    };
+    
+    const success = updateUserProfile(userId, profile);
+    return success ? { success: true, subject: newSubject } : { success: false, error: 'Failed to save subject' };
+  } catch (error) {
+    console.error('Error adding custom subject:', error);
+    return { success: false, error: 'Failed to add subject' };
+  }
+}
+
+// --- Enhanced Analytics ---
+
+// Update subject-specific analytics
+function updateSubjectAnalytics(userId, subject, data) {
+  try {
+    const profile = getUserProfile(userId) || createDefaultProfile(userId);
+    
+    if (!profile.analytics.subjectProgress) {
+      profile.analytics.subjectProgress = {};
+    }
+    
+    if (!profile.analytics.subjectProgress[subject]) {
+      profile.analytics.subjectProgress[subject] = {
+        questionsAsked: 0,
+        averageAccuracy: 0,
+        timeSpent: 0,
+        bloomsLevels: {
+          remember: 0, understand: 0, apply: 0,
+          analyze: 0, evaluate: 0, create: 0
+        }
+      };
+    }
+    
+    const subjectData = profile.analytics.subjectProgress[subject];
+    subjectData.questionsAsked++;
+    
+    if (data.accuracy) {
+      subjectData.averageAccuracy = ((subjectData.averageAccuracy * (subjectData.questionsAsked - 1)) + data.accuracy) / subjectData.questionsAsked;
+    }
+    
+    if (data.bloomsLevel) {
+      subjectData.bloomsLevels[data.bloomsLevel]++;
+    }
+    
+    updateUserProfile(userId, profile);
+  } catch (error) {
+    console.error('Error updating subject analytics:', error);
+  }
+}
+
+// --- Continue with the rest of the server code as before, but with all the enhancements ---
 
 // Enhanced Groq API query with PDF context
 function queryGroq(question, userPreferences = {}, pdfContext = null, mode = 'normal') {
@@ -636,6 +874,101 @@ function saveChatHistory(userId, question, answer, metadata) {
   saveUserData(userId, 'chat-history.json', chatHistory);
 }
 
+// --- Flashcard Management ---
+
+// Create user-made flashcard
+function createUserFlashcard(userId, cardData) {
+  const flashcards = loadUserData(userId, 'flashcards.json') || { userMade: [], aiGenerated: [] };
+  
+  const newCard = {
+    id: crypto.randomUUID(),
+    question: cardData.question,
+    answer: cardData.answer,
+    subject: cardData.subject || 'general',
+    difficulty: cardData.difficulty || 5,
+    createdAt: new Date().toISOString(),
+    lastReviewed: null,
+    reviewCount: 0,
+    correctCount: 0,
+    tags: cardData.tags || []
+  };
+  
+  if (!flashcards.userMade) flashcards.userMade = [];
+  flashcards.userMade.push(newCard);
+  
+  const success = saveUserData(userId, 'flashcards.json', flashcards);
+  return success ? { success: true, card: newCard } : { success: false, error: 'Failed to save flashcard' };
+}
+
+// Generate AI flashcards from PDF content
+async function generateAIFlashcards(userId, pdfId, count = 5) {
+  const userPDFs = loadUserData(userId, 'pdfs.json') || {};
+  const pdf = userPDFs[pdfId];
+  
+  if (!pdf) {
+    return { success: false, error: 'PDF not found' };
+  }
+  
+  const flashcards = loadUserData(userId, 'flashcards.json') || { userMade: [], aiGenerated: [] };
+  if (!flashcards.aiGenerated) flashcards.aiGenerated = [];
+  
+  const generatedCards = [];
+  
+  try {
+    // Use PDF chunks to generate flashcards
+    const chunksToUse = pdf.chunks ? pdf.chunks.slice(0, count) : [];
+    
+    for (let i = 0; i < Math.min(count, chunksToUse.length); i++) {
+      const chunk = chunksToUse[i];
+      const prompt = `Based on this text, create a flashcard question and answer:
+
+Text: ${chunk.text.substring(0, 500)}
+
+Create a clear, educational question and concise answer. Format as:
+Q: [question]
+A: [answer]`;
+
+      const response = await queryGroq(prompt, { answerLength: 'short' });
+      
+      if (response) {
+        const lines = response.split('\n');
+        const questionLine = lines.find(line => line.startsWith('Q:'));
+        const answerLine = lines.find(line => line.startsWith('A:'));
+        
+        if (questionLine && answerLine) {
+          const card = {
+            id: crypto.randomUUID(),
+            question: questionLine.substring(2).trim(),
+            answer: answerLine.substring(2).trim(),
+            subject: pdf.subject,
+            difficulty: 5,
+            createdAt: new Date().toISOString(),
+            sourceDocument: pdfId,
+            lastReviewed: null,
+            reviewCount: 0,
+            correctCount: 0,
+            tags: ['ai-generated', pdf.subject]
+          };
+          
+          flashcards.aiGenerated.push(card);
+          generatedCards.push(card);
+        }
+      }
+    }
+    
+    const success = saveUserData(userId, 'flashcards.json', flashcards);
+    if (success) {
+      return { success: true, cards: generatedCards };
+    } else {
+      return { success: false, error: 'Failed to save generated flashcards' };
+    }
+    
+  } catch (error) {
+    console.error('AI flashcard generation error:', error);
+    return { success: false, error: 'Failed to generate flashcards' };
+  }
+}
+
 // --- Server setup ---
 function createServer(port) {
   const server = http.createServer(async (req, res) => {
@@ -645,7 +978,7 @@ function createServer(port) {
 
     // CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     if (method === 'OPTIONS') { res.writeHead(200); res.end(); return; }
 
@@ -707,12 +1040,14 @@ function createServer(port) {
     }
 
     // --- Protected endpoints ---
-    // Logout endpoint
+    const authHeader = req.headers.authorization;
+    const sessionToken = authHeader ? authHeader.replace('Bearer ', '') : null;
+    const session = sessionToken ? validateSession(sessionToken) : null;
+    
+    // Logout endpoint (doesn't require auth validation)
     if (method === 'POST' && pathName === '/logout') {
-      const auth = req.headers.authorization;
-      const token = auth ? auth.replace('Bearer ', '') : null;
-      if (token && activeSessions[token]) {
-        delete activeSessions[token];
+      if (sessionToken && activeSessions[sessionToken]) {
+        delete activeSessions[sessionToken];
         saveSessions();
       }
       res.writeHead(200, {'Content-Type':'application/json'});
@@ -720,9 +1055,6 @@ function createServer(port) {
       return;
     }
 
-    const authHeader = req.headers.authorization;
-    const sessionToken = authHeader ? authHeader.replace('Bearer ', '') : null;
-    const session = sessionToken ? validateSession(sessionToken) : null;
     if (!session && !pathName.startsWith('/public')) {
       res.writeHead(401, {'Content-Type': 'application/json'});
       return res.end(JSON.stringify({ error: 'Unauthorized' }));
@@ -787,70 +1119,7 @@ function createServer(port) {
             }
           }
 
-         // Add this entire block to your enhanced-server.js file
-
-    // --- PDF Upload endpoint ---
-    if (method === 'POST' && pathName === '/upload.pdf') {
-        const form = new formidable.IncomingForm();
-
-        // Ensure temp directory exists
-        const tempDir = path.join(__dirname, 'temp');
-        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
-        form.uploadDir = tempDir;
-        form.keepExtensions = true;
-
-        form.parse(req, async (err, fields, files) => {
-            if (err) {
-                console.error('Formidable parsing error:', err);
-                res.writeHead(400, { 'Content-Type': 'application/json' });
-                return res.end(JSON.stringify({ success: false, error: 'Upload failed during parsing' }));
-            }
-
-            const file = files.pdf?.[0] || files.pdf; // formidable v3+ wraps files in an array
-            const uploadUserId = fields.userId?.[0] || fields.userId;
-
-            if (!file || !uploadUserId) {
-                res.writeHead(400, { 'Content-Type': 'application/json' });
-                return res.end(JSON.stringify({ success: false, error: 'No PDF file or user ID found in request' }));
-            }
-
-            const filePath = file.filepath;
-            if (!filePath) {
-                res.writeHead(400, { 'Content-Type': 'application/json' });
-                return res.end(JSON.stringify({ success: false, error: 'File path missing after upload' }));
-            }
-
-            try {
-                // Ensure user directories exist before processing
-                createUserDirectories(uploadUserId);
-
-                const fileData = {
-                    buffer: fs.readFileSync(filePath),
-                    originalFilename: file.originalFilename,
-                    size: file.size
-                };
-
-                // Process PDF with existing logic
-                const result = await processPDF(uploadUserId, fileData);
-
-                // IMPORTANT: Remove temp file after processing
-                fs.unlinkSync(filePath);
-
-                res.writeHead(result.success ? 200 : 400, {'Content-Type': 'application/json'});
-                res.end(JSON.stringify(result));
-            } catch(e) {
-                console.error('Fatal error in PDF upload endpoint:', e);
-                // Ensure temp file is removed even on error
-                if (fs.existsSync(filePath)) {
-                    fs.unlinkSync(filePath);
-                }
-                res.writeHead(500, {'Content-Type': 'application/json'});
-                return res.end(JSON.stringify({success:false, error:'Server failed to process PDF'}));
-            }
-        });
-        return;
-    }
- // Update user analytics
+          // Update user analytics
           if (userData) {
             userData.analytics.questionsAsked += 1;
             if (subject && !userData.analytics.conceptsLearned.includes(subject)) {
@@ -860,6 +1129,15 @@ function createServer(port) {
               userData.analytics.bloomsLevels[bloomsLevel] = 
                 (userData.analytics.bloomsLevels[bloomsLevel] || 0) + 1;
             }
+            
+            // Update subject-specific analytics
+            if (subject) {
+              updateSubjectAnalytics(userId, subject, {
+                accuracy: confidence,
+                bloomsLevel: bloomsLevel
+              });
+            }
+            
             updateUserProfile(userId, userData);
           }
 
@@ -896,63 +1174,113 @@ function createServer(port) {
       });
       return;
     }
-// IN enhanced-server.js
 
-// --- PDF Upload endpoint ---
-if (method === 'POST' && pathName === '/upload.pdf') {
-  const form = new formidable.IncomingForm();
-form.parse(req, async (err, fields, files) => {
-    if (err) {
-        console.error('Formidable parsing error:', err);
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ success: false, error: 'Upload failed during parsing' }));
+    // --- Multiple PDF Upload endpoint ---
+    if (method === 'POST' && pathName === '/upload-pdfs') {
+      const form = new formidable.IncomingForm();
+      form.multiples = true;
+      
+      form.parse(req, async (err, fields, files) => {
+        if (err) {
+          console.error('Formidable parsing error:', err);
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ success: false, error: 'Upload failed during parsing' }));
+        }
+
+        const uploadUserId = Array.isArray(fields.userId) ? fields.userId[0] : fields.userId;
+        const pdfFiles = files.pdfs;
+
+        if (!uploadUserId) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ success: false, error: 'User ID required' }));
+        }
+
+        if (!pdfFiles) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ success: false, error: 'No PDF files uploaded' }));
+        }
+
+        try {
+          createUserDirectories(uploadUserId);
+
+          // Handle both single and multiple files
+          const fileArray = Array.isArray(pdfFiles) ? pdfFiles : [pdfFiles];
+          const fileDataArray = [];
+
+          for (const file of fileArray) {
+            const filePath = file.filepath || file.path;
+            if (filePath && fs.existsSync(filePath)) {
+              fileDataArray.push({
+                buffer: fs.readFileSync(filePath),
+                originalFilename: file.originalFilename || file.name,
+                size: file.size
+              });
+              
+              // Cleanup temp file
+              fs.unlinkSync(filePath);
+            }
+          }
+
+          const results = await processMultiplePDFs(uploadUserId, fileDataArray);
+          
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, results }));
+        } catch (error) {
+          console.error('Error processing uploaded PDFs:', error);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'PDF processing failed' }));
+        }
+      });
+      return;
     }
 
-    // Handle cases where file or fields can be arrays or single items
-    const file = Array.isArray(files.pdf) ? files.pdf[0] : files.pdf;
-    const uploadUserId = Array.isArray(fields.userId) ? fields.userId[0] : fields.userId;
+    // --- Single PDF Upload endpoint (for backward compatibility) ---
+    if (method === 'POST' && pathName === '/upload.pdf') {
+      const form = new formidable.IncomingForm();
+      
+      form.parse(req, async (err, fields, files) => {
+        if (err) {
+          console.error('Formidable parsing error:', err);
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ success: false, error: 'Upload failed during parsing' }));
+        }
 
-    if (!file || !uploadUserId) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ success: false, error: 'No PDF file or user ID uploaded' }));
-    }
+        const file = Array.isArray(files.pdf) ? files.pdf[0] : files.pdf;
+        const uploadUserId = Array.isArray(fields.userId) ? fields.userId[0] : fields.userId;
 
-    const filePath = file.filepath || file.path;
-    if (!filePath) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ success: false, error: 'File path missing' }));
-    }
+        if (!file || !uploadUserId) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ success: false, error: 'No PDF file or user ID uploaded' }));
+        }
 
-    try {
-        // Ensure user directories exist
-        const pdfDir = path.join(USERS_DIR, uploadUserId);
-        const userPdfDir = path.join(pdfDir, 'pdfs');
-        const userExtractedDir = path.join(pdfDir, 'extracted-text');
-        if (!fs.existsSync(userPdfDir)) fs.mkdirSync(userPdfDir, { recursive: true });
-        if (!fs.existsSync(userExtractedDir)) fs.mkdirSync(userExtractedDir, { recursive: true });
+        const filePath = file.filepath || file.path;
+        if (!filePath) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ success: false, error: 'File path missing' }));
+        }
 
-        const fileData = {
+        try {
+          createUserDirectories(uploadUserId);
+
+          const fileData = {
             buffer: fs.readFileSync(filePath),
             originalFilename: file.originalFilename || file.name,
             size: file.size
-        };
+          };
 
-        const result = await processPDF(uploadUserId, fileData);
+          const result = await processPDF(uploadUserId, fileData);
+          fs.unlinkSync(filePath); // Cleanup temp file
 
-        // Cleanup temp uploaded file
-        fs.unlinkSync(filePath);
-
-        res.writeHead(result.success ? 200 : 400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(result));
-    } catch (error) {
-        console.error('Error processing uploaded PDF:', error);
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: 'PDF processing failed' }));
+          res.writeHead(result.success ? 200 : 400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(result));
+        } catch (error) {
+          console.error('Error processing uploaded PDF:', error);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'PDF processing failed' }));
+        }
+      });
+      return;
     }
-});
-  return;
-}
-
 
     // --- Get user PDFs ---
     if (method === 'GET' && pathName === '/user-pdfs') {
@@ -963,7 +1291,8 @@ form.parse(req, async (err, fields, files) => {
         uploadedAt: pdf.uploadedAt,
         subject: pdf.subject,
         pages: pdf.pages,
-        keywords: pdf.keywords
+        keywords: pdf.keywords,
+        size: pdf.size
       }));
       
       res.setHeader('Content-Type', 'application/json');
@@ -1015,6 +1344,61 @@ form.parse(req, async (err, fields, files) => {
       return;
     }
 
+    // --- Bookmark endpoints ---
+    if (method === 'POST' && pathName === '/bookmarks') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const bookmarkData = JSON.parse(body);
+          const result = addBookmark(userId, bookmarkData);
+          res.setHeader('Content-Type', 'application/json');
+          res.writeHead(result.success ? 200 : 400);
+          res.end(JSON.stringify(result));
+        } catch (error) {
+          res.writeHead(400, {'Content-Type': 'application/json'});
+          res.end(JSON.stringify({ success: false, error: 'Invalid request' }));
+        }
+      });
+      return;
+    }
+
+    if (method === 'GET' && pathName === '/bookmarks') {
+      const subject = parsedUrl.query.subject;
+      const bookmarks = getBookmarks(userId, subject);
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ success: true, bookmarks }));
+      return;
+    }
+
+    if (method === 'DELETE' && pathName.startsWith('/bookmarks/')) {
+      const bookmarkId = pathName.split('/')[2];
+      const result = removeBookmark(userId, bookmarkId);
+      res.setHeader('Content-Type', 'application/json');
+      res.writeHead(result.success ? 200 : 400);
+      res.end(JSON.stringify(result));
+      return;
+    }
+
+    // --- Custom subject endpoints ---
+    if (method === 'POST' && pathName === '/custom-subjects') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const subjectData = JSON.parse(body);
+          const result = addCustomSubject(userId, subjectData);
+          res.setHeader('Content-Type', 'application/json');
+          res.writeHead(result.success ? 200 : 400);
+          res.end(JSON.stringify(result));
+        } catch (error) {
+          res.writeHead(400, {'Content-Type': 'application/json'});
+          res.end(JSON.stringify({ success: false, error: 'Invalid request' }));
+        }
+      });
+      return;
+    }
+
     // --- User preferences ---
     if (method === 'POST' && pathName === '/preferences') {
       let body = '';
@@ -1024,9 +1408,10 @@ form.parse(req, async (err, fields, files) => {
           const preferences = JSON.parse(body);
           if (userData) {
             userData.preferences = { ...userData.preferences, ...preferences };
-            updateUserProfile(userId, userData);
+            const success = updateUserProfile(userId, userData);
             res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ success: true }));
+            res.writeHead(success ? 200 : 500);
+            res.end(JSON.stringify({ success }));
           } else {
             res.writeHead(404, {'Content-Type': 'application/json'});
             res.end(JSON.stringify({ error: 'User not found' }));
@@ -1043,7 +1428,7 @@ form.parse(req, async (err, fields, files) => {
     if (method === 'GET' && pathName === '/analytics') {
       res.setHeader('Content-Type', 'application/json');
       if (userData) {
-        res.end(JSON.stringify(userData.analytics));
+        res.end(JSON.stringify({ success: true, analytics: userData.analytics }));
       } else {
         res.writeHead(404);
         res.end(JSON.stringify({ error: 'User not found' }));
@@ -1055,7 +1440,7 @@ form.parse(req, async (err, fields, files) => {
     if (method === 'GET' && pathName === '/chat-history') {
       const chatHistory = loadUserData(userId, 'chat-history.json') || [];
       res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ success: true, history: chatHistory.slice(-20) })); // Last 20 conversations
+      res.end(JSON.stringify({ success: true, history: chatHistory.slice(-20) }));
       return;
     }
 
@@ -1077,25 +1462,25 @@ form.parse(req, async (err, fields, files) => {
     console.log(`🚀 Enhanced PhenBOT running on http://localhost:${port}`);
     console.log(`👥 Users directory: ${USERS_DIR}`);
     console.log(`📁 Database initialized with user-specific storage`);
+    console.log(`💾 Auto-save enabled for data persistence`);
   });
 }
 
-// Cleanup on exit
+// Enhanced cleanup on exit
 process.on('SIGINT', () => {
+  console.log('\n💾 Saving all data before exit...');
   saveSessions();
-  console.log('\n💾 Sessions saved. Goodbye!');
+  console.log('✅ Data saved. Goodbye!');
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  console.log('\n💾 Saving all data before termination...');
+  saveSessions();
+  console.log('✅ Data saved. Shutting down gracefully.');
   process.exit(0);
 });
 
 // Start server
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
-
 createServer(PORT);
-
-
-
-
-
-
-
-
