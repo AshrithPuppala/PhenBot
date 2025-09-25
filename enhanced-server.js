@@ -47,13 +47,28 @@ try {
 }
 
 // Save sessions
+// Replace the saveSessions() function with:
 function saveSessions() {
   try {
     fs.writeFileSync(SESSIONS_FILE, JSON.stringify(activeSessions, null, 2));
+    console.log('✅ Sessions saved successfully');
   } catch (error) {
     console.error("❌ Failed to save sessions:", error.message);
   }
 }
+
+// Add automatic session cleanup every 24 hours:
+setInterval(() => {
+  const now = new Date();
+  Object.keys(activeSessions).forEach(token => {
+    const session = activeSessions[token];
+    const sessionAge = now - new Date(session.createdAt);
+    if (sessionAge > 24 * 60 * 60 * 1000) { // 24 hours
+      delete activeSessions[token];
+    }
+  });
+  saveSessions();
+}, 60 * 60 * 1000); // Check every hour
 
 // Hash password
 function hashPassword(password) {
@@ -86,13 +101,19 @@ function loadUserData(userId, filename) {
 }
 
 // Save user data to specific file
+// Replace saveUserData function:
 function saveUserData(userId, filename, data) {
   const filePath = getUserFilePath(userId, filename);
+  const tempPath = filePath + '.tmp';
   try {
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    fs.writeFileSync(tempPath, JSON.stringify(data, null, 2));
+    fs.renameSync(tempPath, filePath);
     return true;
   } catch (error) {
     console.error(`❌ Failed to save ${filename} for ${userId}:`, error.message);
+    if (fs.existsSync(tempPath)) {
+      fs.unlinkSync(tempPath);
+    }
     return false;
   }
 }
@@ -154,6 +175,14 @@ function registerUser(email, password, username) {
       }
     }
   };
+
+customSubjects: [],
+subjectProgress: {},
+dailyStats: {
+  questionsToday: 0,
+  minutesToday: 0,
+  lastActiveDate: new Date().toISOString().split('T')[0]
+}
   
   try {
     saveUserData(userId, 'profile.json', userData);
@@ -876,6 +905,42 @@ function createServer(port) {
       return;
     }
 
+    // --- Multiple PDF Upload endpoint ---
+if (method === 'POST' && pathName === '/upload-multiple-pdfs') {
+  const form = new formidable.IncomingForm();
+  form.multiples = true;
+  form.uploadDir = path.join(__dirname, 'temp');
+  
+  form.parse(req, async (err, fields, files) => {
+    if (err) {
+      res.writeHead(400, {'Content-Type': 'application/json'});
+      return res.end(JSON.stringify({ success: false, error: 'Upload failed' }));
+    }
+    
+    const pdfFiles = Array.isArray(files.pdfs) ? files.pdfs : [files.pdfs].filter(Boolean);
+    const results = [];
+    
+    for (const file of pdfFiles) {
+      try {
+        const fileData = {
+          buffer: fs.readFileSync(file.filepath),
+          originalFilename: file.originalFilename,
+          size: file.size
+        };
+        const result = await processPDF(userId, fileData);
+        results.push(result);
+        fs.unlinkSync(file.filepath);
+      } catch (error) {
+        results.push({ success: false, error: `Failed to process ${file.originalFilename}` });
+      }
+    }
+    
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ success: true, results }));
+  });
+  return;
+}
+
     // --- Get user PDFs ---
     if (method === 'GET' && pathName === '/user-pdfs') {
       const userPDFs = loadUserData(userId, 'pdfs.json') || {};
@@ -981,6 +1046,60 @@ function createServer(port) {
       return;
     }
 
+    // --- User subjects endpoints ---
+if (method === 'GET' && pathName === '/user-subjects') {
+  const profile = getUserProfile(userId);
+  const subjects = profile?.customSubjects || [];
+  res.setHeader('Content-Type', 'application/json');
+  res.end(JSON.stringify({ success: true, subjects }));
+  return;
+}
+
+    if (method === 'POST' && pathName === '/add-subject') {
+  let body = '';
+  req.on('data', chunk => body += chunk);
+  req.on('end', () => {
+    try {
+      const { subject } = JSON.parse(body);
+      const profile = getUserProfile(userId);
+      if (profile) {
+        profile.customSubjects = profile.customSubjects || [];
+        if (!profile.customSubjects.includes(subject)) {
+          profile.customSubjects.push(subject);
+          updateUserProfile(userId, profile);
+        }
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ success: true }));
+      }
+    } catch (error) {
+      res.writeHead(400, {'Content-Type': 'application/json'});
+      res.end(JSON.stringify({ success: false, error: 'Invalid request' }));
+    }
+  });
+  return;
+}
+
+    if (method === 'POST' && pathName === '/remove-subject') {
+  let body = '';
+  req.on('data', chunk => body += chunk);
+  req.on('end', () => {
+    try {
+      const { subject } = JSON.parse(body);
+      const profile = getUserProfile(userId);
+      if (profile && profile.customSubjects) {
+        profile.customSubjects = profile.customSubjects.filter(s => s !== subject);
+        updateUserProfile(userId, profile);
+      }
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ success: true }));
+    } catch (error) {
+      res.writeHead(400, {'Content-Type': 'application/json'});
+      res.end(JSON.stringify({ success: false, error: 'Invalid request' }));
+    }
+  });
+  return;
+}
+
     // 404 handler
     res.writeHead(404, {'Content-Type': 'text/plain'});
     res.end("Not found");
@@ -1011,4 +1130,5 @@ process.on('SIGINT', () => {
 
 // Start server
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+
 createServer(PORT);
