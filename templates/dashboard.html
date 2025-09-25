@@ -1532,7 +1532,7 @@ function debugFlashcards() {
 
 // Add a button to trigger debug (temporary)
 // You can call debugFlashcards() from browser console
-        function generateFlashcardsOptions() {
+     function generateFlashcardsOptions() {
     const options = [
         'Generate from current PDF',
         'Generate from all uploaded PDFs', 
@@ -1575,8 +1575,8 @@ function debugFlashcards() {
     }
 }
 
-
-       function generateFlashcards() {
+// REPLACE the generateFlashcards function:
+function generateFlashcards() {
     if (flashcards.length > 0) {
         // Show options if flashcards already exist
         generateFlashcardsOptions();
@@ -1592,7 +1592,6 @@ function debugFlashcards() {
         }
     }
 }
-
         async function generateFlashcardsFromTopic(topic) {
             const generateBtn = document.querySelector('.generate-flashcards-btn');
             const originalContent = generateBtn.innerHTML;
@@ -1629,8 +1628,7 @@ function debugFlashcards() {
             }
         }
 
-     // 5. FIND AND REPLACE this function (around line 750-820):
-/ REPLACE the parseFlashcardsFromResponse function with this version:
+   // REPLACE the parseFlashcardsFromResponse function with this version:
 function parseFlashcardsFromResponse(response, appendMode = true) {
     const lines = response.split('\n');
     const newFlashcards = [];
@@ -1707,7 +1705,6 @@ function parseFlashcardsFromResponse(response, appendMode = true) {
         console.log('No flashcards could be parsed from the response');
     }
 }
-
        // 1. FIND AND REPLACE this function (around line 800-830):
 function updateFlashcards() {
     const container = document.getElementById('flashcardContainer');
