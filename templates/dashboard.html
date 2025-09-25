@@ -1538,9 +1538,35 @@
             teach: "Step-by-step teaching mode with examples and practice",
             simple: "Simplified explanations suitable for beginners"
         };
+        function initializePhenBot() {
+    console.log('Initializing PhenBOT...');
+    
+    try {
+        setupModeButtons();
+        setupChatInput();
+        updateTimerDisplay();
+        setupFileUpload();
+        setupAllButtonListeners(); // Add this new function
+        loadUploadedFiles();
+        setupFlashcards();
+        initializeProgressTracking();
+        
+        console.log('PhenBOT initialization completed');
+        
+        // Test connection after a short delay
+        setTimeout(() => {
+            testConnection();
+            console.log('Connection test initiated');
+        }, 1000);
+        
+    } catch (error) {
+        console.error('Error during PhenBOT initialization:', error);
+    }
+}
+
 
         // Initialize page
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', initializePhenBot);
             setupModeButtons();
             setupChatInput();
             updateTimerDisplay();
@@ -1821,31 +1847,25 @@
         }, 60000);
     }
 
-    // Initialize page
-    document.addEventListener('DOMContentLoaded', () => {
-        setupModeButtons();
-        setupChatInput();
-        updateTimerDisplay();
-        setupFileUpload();
-        loadUploadedFiles();
-        setupFlashcards();
-        initializeProgressTracking();
-
-        // Test connection after a short delay
-        setTimeout(testConnection, 2000);
-    });
 
     // Setup functions
-    function setupModeButtons() {
+  function setupModeButtons() {
+    try {
         const modeButtons = document.querySelectorAll('.mode-btn');
         const modeDescription = document.getElementById('modeDescription');
         
+        if (!modeButtons.length || !modeDescription) {
+            console.error('Mode buttons or description element not found');
+            return;
+        }
+        
         modeButtons.forEach(btn => {
             btn.addEventListener('click', () => {
+                console.log('Mode button clicked:', btn.dataset.mode);
                 modeButtons.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 currentMode = btn.dataset.mode;
-                modeDescription.textContent = modeDescriptions[currentMode];
+                modeDescription.textContent = modeDescriptions[currentMode] || 'Mode description not found';
                 
                 if (currentMode === 'quiz') {
                     trackAction('quiz_mode');
@@ -1853,14 +1873,29 @@
             });
         });
         
-        document.getElementById('responseLength').addEventListener('change', (e) => {
-            responseLength = e.target.value;
-        });
+        const lengthSelector = document.getElementById('responseLength');
+        if (lengthSelector) {
+            lengthSelector.addEventListener('change', (e) => {
+                responseLength = e.target.value;
+                console.log('Response length changed to:', responseLength);
+            });
+        }
+    } catch (error) {
+        console.error('Error setting up mode buttons:', error);
     }
+}
 
-    function setupChatInput() {
+
+   // 4. Fix the chat input setup
+function setupChatInput() {
+    try {
         const chatInput = document.getElementById('chatInput');
         const sendBtn = document.getElementById('sendBtn');
+
+        if (!chatInput || !sendBtn) {
+            console.error('Chat input or send button not found');
+            return;
+        }
 
         chatInput.addEventListener('input', () => {
             chatInput.style.height = 'auto';
@@ -1874,14 +1909,34 @@
             }
         });
 
+        // Remove the existing onclick handler and use addEventListener
+        sendBtn.removeAttribute('onclick');
         sendBtn.addEventListener('click', sendMessage);
+        
+        console.log('Chat input setup completed');
+    } catch (error) {
+        console.error('Error setting up chat input:', error);
     }
+}
 
-    function setupFileUpload() {
+   function setupFileUpload() {
+    try {
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
 
-        uploadArea.addEventListener('click', () => fileInput.click());
+        if (!uploadArea || !fileInput) {
+            console.error('Upload area or file input not found');
+            return;
+        }
+
+        // Remove existing onclick handler
+        uploadArea.removeAttribute('onclick');
+        
+        uploadArea.addEventListener('click', (e) => {
+            e.preventDefault();
+            console.log('Upload area clicked');
+            fileInput.click();
+        });
 
         uploadArea.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -1897,39 +1952,63 @@
             uploadArea.classList.remove('dragover');
             handleFileUpload({ target: { files: e.dataTransfer.files } });
         });
-    }
 
+        // Fix file input onchange
+        fileInput.removeAttribute('onchange');
+        fileInput.addEventListener('change', handleFileUpload);
+        
+        console.log('File upload setup completed');
+    } catch (error) {
+        console.error('Error setting up file upload:', error);
+    }
+}
     function setupFlashcards() {
         updateFlashcardCounter();
     }
 
     // Chat functions
     async function sendMessage() {
-        const input = document.getElementById('chatInput');
-        const message = input.value.trim();
-        
-        if (!message) return;
+    console.log('sendMessage called');
+    
+    const input = document.getElementById('chatInput');
+    const message = input?.value?.trim();
+    
+    if (!message) {
+        console.log('No message to send');
+        return;
+    }
 
-        addMessage(message, 'user');
-        input.value = '';
-        input.style.height = 'auto';
+    console.log('Sending message:', message);
+    
+    addMessage(message, 'user');
+    input.value = '';
+    input.style.height = 'auto';
 
-        const sendBtn = document.getElementById('sendBtn');
+    const sendBtn = document.getElementById('sendBtn');
+    if (sendBtn) {
         sendBtn.disabled = true;
         sendBtn.innerHTML = '<div class="spinner"></div>';
+    }
 
-        try {
-            const response = await generateAIResponse(message, currentMode, responseLength);
+    generateAIResponse(message, currentMode, responseLength)
+        .then(response => {
+            console.log('AI response received:', response);
             addMessage(response, 'bot');
             chatHistory.push({ user: message, bot: response, mode: currentMode });
             trackAction('message');
-        } catch (error) {
+        })
+        .catch(error => {
+            console.error('Error generating AI response:', error);
             addMessage('Sorry, I encountered an error. Please try again.', 'bot');
-        } finally {
-            sendBtn.disabled = false;
-            sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
-        }
-    }
+        })
+        .finally(() => {
+            if (sendBtn) {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
+            }
+        });
+}
+
 
     function addMessage(content, type) {
         const messagesContainer = document.getElementById('chatMessages');
@@ -1968,6 +2047,94 @@
             }, 1000 + Math.random() * 1000);
         });
     }
+    function setupAllButtonListeners() {
+    try {
+        // Timer buttons
+        const startBtn = document.getElementById('startBtn');
+        const timerButtons = document.querySelectorAll('.timer-btn');
+        
+        if (startBtn) {
+            startBtn.removeAttribute('onclick');
+            startBtn.addEventListener('click', startTimer);
+        }
+        
+        timerButtons.forEach(btn => {
+            const text = btn.textContent.toLowerCase();
+            btn.removeAttribute('onclick');
+            if (text.includes('pause')) {
+                btn.addEventListener('click', pauseTimer);
+            } else if (text.includes('reset')) {
+                btn.addEventListener('click', resetTimer);
+            }
+        });
+
+        // Flashcard buttons
+        const generateFlashcardsBtn = document.querySelector('.generate-flashcards-btn');
+        const prevCardBtn = document.getElementById('prevCard');
+        const nextCardBtn = document.getElementById('nextCard');
+        const shuffleBtn = document.getElementById('shuffleBtn');
+
+        if (generateFlashcardsBtn) {
+            generateFlashcardsBtn.removeAttribute('onclick');
+            generateFlashcardsBtn.addEventListener('click', generateFlashcards);
+        }
+
+        if (prevCardBtn) {
+            prevCardBtn.removeAttribute('onclick');
+            prevCardBtn.addEventListener('click', previousCard);
+        }
+
+        if (nextCardBtn) {
+            nextCardBtn.removeAttribute('onclick');
+            nextCardBtn.addEventListener('click', nextCard);
+        }
+
+        if (shuffleBtn) {
+            shuffleBtn.removeAttribute('onclick');
+            shuffleBtn.addEventListener('click', shuffleCards);
+        }
+
+        // Custom flashcard buttons
+        const customButtons = document.querySelectorAll('.nav-btn');
+        customButtons.forEach(btn => {
+            const text = btn.textContent.toLowerCase();
+            btn.removeAttribute('onclick');
+            if (text.includes('add one')) {
+                btn.addEventListener('click', createCustomFlashcard);
+            } else if (text.includes('add multiple')) {
+                btn.addEventListener('click', createMultipleCustomFlashcards);
+            }
+        });
+
+        // PDF action buttons
+        const pdfActionBtns = document.querySelectorAll('.pdf-action-btn');
+        pdfActionBtns.forEach(btn => {
+            const text = btn.textContent.toLowerCase();
+            btn.removeAttribute('onclick');
+            
+            if (text.includes('summarize')) {
+                btn.addEventListener('click', () => processPDF('summarize'));
+            } else if (text.includes('flashcards')) {
+                btn.addEventListener('click', () => processPDF('flashcards'));
+            } else if (text.includes('quiz')) {
+                btn.addEventListener('click', () => processPDF('quiz'));
+            } else if (text.includes('outline')) {
+                btn.addEventListener('click', () => processPDF('outline'));
+            }
+        });
+
+        // Logout button
+        const logoutBtn = document.querySelector('.logout-btn');
+        if (logoutBtn) {
+            logoutBtn.removeAttribute('onclick');
+            logoutBtn.addEventListener('click', logout);
+        }
+
+        console.log('All button listeners setup completed');
+    } catch (error) {
+        console.error('Error setting up button listeners:', error);
+    }
+}
 
     function generateNormalResponse(message) {
         const responses = [
@@ -2199,73 +2366,19 @@
         trackAction('flashcard', sampleFlashcards.length);
     }
 
-  function parseFlashcardsFromResponse(response) {
-    const lines = response.split('\n');
-    const newFlashcards = [];
-    let currentCard = null;
-
-    // Debug: log the response to see what format we're getting
-    console.log('Parsing flashcard response:', response);
-
-    for (let line of lines) {
-        line = line.trim();
-        
-        // Handle different formats: "Q:" or "Question:" or numbered questions
-        if (line.match(/^(\d+\.|Q:|Question:)/i)) {
-            // Save previous card if it exists
-            if (currentCard && currentCard.question && currentCard.answer) {
-                newFlashcards.push(currentCard);
-            }
-            currentCard = { 
-                question: line.replace(/^(\d+\.|Q:|Question:)\s*/i, ''), 
-                answer: '' 
-            };
-        } 
-        // Handle answers: "A:" or "Answer:" or lines after "|"
-        else if (line.match(/^(A:|Answer:)/i)) {
-            if (currentCard) {
-                currentCard.answer = line.replace(/^(A:|Answer:)\s*/i, '');
-            }
-        }
-        // Handle "Q: question | A: answer" format
-        else if (line.includes('|') && line.match(/Q:/i) && line.match(/A:/i)) {
-            const parts = line.split('|');
-            if (parts.length >= 2) {
-                const question = parts[0].replace(/^(Q:|Question:)\s*/i, '').trim();
-                const answer = parts[1].replace(/^(A:|Answer:)\s*/i, '').trim();
-                if (question && answer) {
-                    newFlashcards.push({ question, answer });
-                }
-            }
-        }
-        // Continue building current question or answer
-        else if (currentCard && line) {
-            if (!currentCard.answer) {
-                currentCard.question += ' ' + line;
-            } else {
-                currentCard.answer += ' ' + line;
-            }
-        }
+ function parseFlashcardsFromResponse(history) {
+    const cards = [];
+    
+    // Generate flashcards based on chat history
+    for (let i = 0; i < Math.min(3, history.length); i++) {
+        const entry = history[i];
+        cards.push({
+            question: `What did we discuss about: "${entry.user.substring(0, 50)}..."?`,
+            answer: entry.bot.substring(0, 200) + (entry.bot.length > 200 ? '...' : '')
+        });
     }
-
-    // Don't forget the last card
-    if (currentCard && currentCard.question && currentCard.answer) {
-        newFlashcards.push(currentCard);
-    }
-
-    console.log('Parsed flashcards:', newFlashcards);
-
-    if (newFlashcards.length > 0) {
-        flashcards = newFlashcards;
-        currentCardIndex = 0;
-        isCardFlipped = false;
-        updateFlashcards();
-        enableFlashcardNavigation();
-        console.log(`Successfully created ${newFlashcards.length} flashcards`);
-    } else {
-        console.log('No flashcards could be parsed from the response');
-        addMessage('Could not parse flashcards from the response. The AI might have used an unexpected format.', 'bot');
-    }
+    
+    return cards;
 }
     function createCustomFlashcard() {
         const question = prompt('Enter the question:');
@@ -2415,18 +2528,18 @@
     }
 
     // Make functions available globally
-    window.sendMessage = sendMessage;
-    window.handleFileUpload = handleFileUpload;
-    window.processPDF = processPDF;
-    window.selectFile = selectFile;
-    window.removeFile = removeFile;
-    window.startTimer = startTimer;
-    window.pauseTimer = pauseTimer;
-    window.resetTimer = resetTimer;
-    window.generateFlashcards = generateFlashcards;
-    window.createCustomFlashcard = createCustomFlashcard;
-    window.createMultipleCustomFlashcards = createMultipleCustomFlashcards;
-    window.previousCard = previousCard;
-    window.nextCard = nextCard;
-    window.shuffleCards = shuffleCards;
-    window.logout = logout;
+   window.sendMessage = sendMessage;
+window.handleFileUpload = handleFileUpload;
+window.processPDF = processPDF;
+window.selectFile = selectFile;
+window.removeFile = removeFile;
+window.startTimer = startTimer;
+window.pauseTimer = pauseTimer;
+window.resetTimer = resetTimer;
+window.generateFlashcards = generateFlashcards;
+window.createCustomFlashcard = createCustomFlashcard;
+window.createMultipleCustomFlashcards = createMultipleCustomFlashcards;
+window.previousCard = previousCard;
+window.nextCard = nextCard;
+window.shuffleCards = shuffleCards;
+window.logout = logout;
