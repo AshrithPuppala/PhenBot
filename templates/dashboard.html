@@ -2199,21 +2199,74 @@
         trackAction('flashcard', sampleFlashcards.length);
     }
 
-    function parseFlashcardsFromResponse(history) {
-        const cards = [];
+  function parseFlashcardsFromResponse(response) {
+    const lines = response.split('\n');
+    const newFlashcards = [];
+    let currentCard = null;
+
+    // Debug: log the response to see what format we're getting
+    console.log('Parsing flashcard response:', response);
+
+    for (let line of lines) {
+        line = line.trim();
         
-        // Generate flashcards based on chat history
-        for (let i = 0; i < Math.min(3, history.length); i++) {
-            const entry = history[i];
-            cards.push({
-                question: `What did we discuss about: "${entry.user.substring(0, 50)}..."?`,
-                answer: entry.bot.substring(0, 200) + (entry.bot.length > 200 ? '...' : '')
-            });
+        // Handle different formats: "Q:" or "Question:" or numbered questions
+        if (line.match(/^(\d+\.|Q:|Question:)/i)) {
+            // Save previous card if it exists
+            if (currentCard && currentCard.question && currentCard.answer) {
+                newFlashcards.push(currentCard);
+            }
+            currentCard = { 
+                question: line.replace(/^(\d+\.|Q:|Question:)\s*/i, ''), 
+                answer: '' 
+            };
+        } 
+        // Handle answers: "A:" or "Answer:" or lines after "|"
+        else if (line.match(/^(A:|Answer:)/i)) {
+            if (currentCard) {
+                currentCard.answer = line.replace(/^(A:|Answer:)\s*/i, '');
+            }
         }
-        
-        return cards;
+        // Handle "Q: question | A: answer" format
+        else if (line.includes('|') && line.match(/Q:/i) && line.match(/A:/i)) {
+            const parts = line.split('|');
+            if (parts.length >= 2) {
+                const question = parts[0].replace(/^(Q:|Question:)\s*/i, '').trim();
+                const answer = parts[1].replace(/^(A:|Answer:)\s*/i, '').trim();
+                if (question && answer) {
+                    newFlashcards.push({ question, answer });
+                }
+            }
+        }
+        // Continue building current question or answer
+        else if (currentCard && line) {
+            if (!currentCard.answer) {
+                currentCard.question += ' ' + line;
+            } else {
+                currentCard.answer += ' ' + line;
+            }
+        }
     }
 
+    // Don't forget the last card
+    if (currentCard && currentCard.question && currentCard.answer) {
+        newFlashcards.push(currentCard);
+    }
+
+    console.log('Parsed flashcards:', newFlashcards);
+
+    if (newFlashcards.length > 0) {
+        flashcards = newFlashcards;
+        currentCardIndex = 0;
+        isCardFlipped = false;
+        updateFlashcards();
+        enableFlashcardNavigation();
+        console.log(`Successfully created ${newFlashcards.length} flashcards`);
+    } else {
+        console.log('No flashcards could be parsed from the response');
+        addMessage('Could not parse flashcards from the response. The AI might have used an unexpected format.', 'bot');
+    }
+}
     function createCustomFlashcard() {
         const question = prompt('Enter the question:');
         if (!question) return;
