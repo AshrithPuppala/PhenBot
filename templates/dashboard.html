@@ -1538,7 +1538,7 @@
             teach: "Step-by-step teaching mode with examples and practice",
             simple: "Simplified explanations suitable for beginners"
         };
-        function initializePhenBot() {
+      function initializePhenBot() {
     console.log('Initializing PhenBOT...');
     
     try {
@@ -1546,7 +1546,7 @@
         setupChatInput();
         updateTimerDisplay();
         setupFileUpload();
-        setupAllButtonListeners(); // Add this new function
+        setupAllButtonListeners();
         loadUploadedFiles();
         setupFlashcards();
         initializeProgressTracking();
@@ -1563,22 +1563,122 @@
         console.error('Error during PhenBOT initialization:', error);
     }
 }
+        function setupAllButtonListeners() {
+    try {
+        // Timer buttons
+        const startBtn = document.getElementById('startBtn');
+        const pauseBtn = document.querySelector('.timer-btn:nth-child(2)');
+        const resetBtn = document.querySelector('.timer-btn:nth-child(3)');
+        
+        if (startBtn) {
+            startBtn.removeAttribute('onclick');
+            startBtn.addEventListener('click', startTimer);
+        }
+        
+        if (pauseBtn) {
+            pauseBtn.removeAttribute('onclick');
+            pauseBtn.addEventListener('click', pauseTimer);
+        }
+        
+        if (resetBtn) {
+            resetBtn.removeAttribute('onclick');
+            resetBtn.addEventListener('click', resetTimer);
+        }
 
+        // Flashcard buttons
+        const generateFlashcardsBtn = document.querySelector('.generate-flashcards-btn');
+        const prevCardBtn = document.getElementById('prevCard');
+        const nextCardBtn = document.getElementById('nextCard');
+        const shuffleBtn = document.getElementById('shuffleBtn');
 
-        // Initialize page
-        document.addEventListener('DOMContentLoaded', initializePhenBot);
-            setupModeButtons();
-            setupChatInput();
-            updateTimerDisplay();
-            setupFileUpload();
-            loadUploadedFiles();
-            setupFlashcards();
-            initializeProgressTracking();
+        if (generateFlashcardsBtn) {
+            generateFlashcardsBtn.removeAttribute('onclick');
+            generateFlashcardsBtn.addEventListener('click', generateFlashcards);
+        }
 
-            // Test connection after a short delay
-            setTimeout(testConnection, 2000);
+        if (prevCardBtn) {
+            prevCardBtn.removeAttribute('onclick');
+            prevCardBtn.addEventListener('click', previousCard);
+        }
+
+        if (nextCardBtn) {
+            nextCardBtn.removeAttribute('onclick');
+            nextCardBtn.addEventListener('click', nextCard);
+        }
+
+        if (shuffleBtn) {
+            shuffleBtn.removeAttribute('onclick');
+            shuffleBtn.addEventListener('click', shuffleCards);
+        }
+
+        // PDF action buttons
+        document.querySelectorAll('.pdf-action-btn').forEach(btn => {
+            const text = btn.textContent.toLowerCase();
+            btn.removeAttribute('onclick');
+            
+            if (text.includes('summarize')) {
+                btn.addEventListener('click', () => processPDF('summarize'));
+            } else if (text.includes('flashcards')) {
+                btn.addEventListener('click', () => processPDF('flashcards'));
+            } else if (text.includes('quiz')) {
+                btn.addEventListener('click', () => processPDF('quiz'));
+            } else if (text.includes('outline')) {
+                btn.addEventListener('click', () => processPDF('outline'));
+            }
         });
 
+        // Custom flashcard buttons
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            const text = btn.textContent.toLowerCase();
+            if (text.includes('add one')) {
+                btn.removeAttribute('onclick');
+                btn.addEventListener('click', createCustomFlashcard);
+            } else if (text.includes('add multiple')) {
+                btn.removeAttribute('onclick');
+                btn.addEventListener('click', createMultipleCustomFlashcards);
+            }
+        });
+
+        // Logout button
+        const logoutBtn = document.querySelector('.logout-btn');
+        if (logoutBtn) {
+            logoutBtn.removeAttribute('onclick');
+            logoutBtn.addEventListener('click', logout);
+        }
+
+        console.log('All button listeners setup completed');
+    } catch (error) {
+        console.error('Error setting up button listeners:', error);
+    }
+}
+        function addMessage(content, type, isLoading = false) {
+    const messagesContainer = document.getElementById('chatMessages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${type}${isLoading ? ' loading' : ''}`;
+
+    const avatar = document.createElement('div');
+    avatar.className = 'message-avatar';
+    avatar.innerHTML = type === 'user' ? 
+        '<i class="fas fa-user"></i>' : 
+        '<i class="fas fa-robot"></i>';
+
+    const messageContent = document.createElement('div');
+    messageContent.className = 'message-content';
+    messageContent.textContent = content;
+
+    messageDiv.appendChild(avatar);
+    messageDiv.appendChild(messageContent);
+    messagesContainer.appendChild(messageDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    
+    // Track message for progress
+    if (type === 'user') {
+        trackAction('message');
+        chatHistory.push({ user: content, bot: '' });
+    }
+    
+    return messageDiv;
+}
         // Progress tracking functions
         function loadUserProgress() {
             // In Claude artifacts, we start with default values since localStorage isn't available
