@@ -1123,9 +1123,9 @@
                     <i class="fas fa-user-circle"></i>
                     <span>Student</span>
                 </div>
-                <button class="logout-btn">Logout</button>
-                    <i class="fas fa-sign-out-alt"></i>
-                    Logout
+                <button class="logout-btn">
+                <i class="fas fa-sign-out-alt"></i>
+                Logout
                 </button>
             </div>
         </div>
@@ -1205,27 +1205,27 @@
                     </div>
                 </div>
 
-                <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                <div class="upload-area" id="uploadArea"> 
                     <i class="fas fa-cloud-upload-alt" style="font-size: 2.5rem; color: var(--primary-blue); margin-bottom: 1rem;"></i>
                     <p style="margin-bottom: 0.5rem; font-weight: 500;">Drop PDF files here</p>
                     <p style="color: var(--text-disabled); font-size: 0.85rem;">or click to browse</p>
-                    <input type="file" id="fileInput" class="file-input" accept=".pdf" multiple onchange="handleFileUpload(event)">
+                    <input type="file" id="fileInput" class="file-input" accept=".pdf" multiple>
                 </div>
 
                 <div class="pdf-actions" id="pdfActions">
-                    <button class="pdf-action-btn" onclick="processPDF('summarize')">
+                    <button class="pdf-action-btn">
                         <i class="fas fa-file-text"></i>
                         Summarize PDF
                     </button>
-                    <button class="pdf-action-btn" onclick="processPDF('flashcards')">
+                    <button class="pdf-action-btn">
                         <i class="fas fa-layer-group"></i>
                         Create Flashcards
                     </button>
-                    <button class="pdf-action-btn" onclick="processPDF('quiz')">
+                    <button class="pdf-action-btn">
                         <i class="fas fa-question-circle"></i>
                         Generate Quiz
                     </button>
-                    <button class="pdf-action-btn" onclick="processPDF('outline')">
+                    <button class="pdf-action-btn">
                         <i class="fas fa-list"></i>
                         Create Outline
                     </button>
@@ -1251,16 +1251,16 @@
                 </div>
 
                 <div class="flashcard-controls">
-                    <button class="generate-flashcards-btn" onclick="generateFlashcards()">
+                    <button class="generate-flashcards-btn">
                         <i class="fas fa-magic"></i>
                         Generate Flashcards
                     </button>
                     
                     <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-                        <button class="nav-btn" onclick="createCustomFlashcard()" style="flex: 1; font-size: 0.75rem;">
+                        <button class="nav-btn" style="flex: 1; font-size: 0.75rem;">
                             <i class="fas fa-plus"></i> Add One
                         </button>
-                        <button class="nav-btn" onclick="createMultipleCustomFlashcards()" style="flex: 1; font-size: 0.75rem;">
+                        <button class="nav-btn"  style="flex: 1; font-size: 0.75rem;">
                             <i class="fas fa-plus-circle"></i> Add Multiple
                         </button>
                     </div>
@@ -1271,13 +1271,13 @@
                 </div>
 
                 <div class="flashcard-nav">
-                    <button class="nav-btn" id="prevCard" onclick="previousCard()" disabled>
+                    <button class="nav-btn" id="prevCard" disabled>
                         <i class="fas fa-chevron-left"></i> Previous
                     </button>
-                    <button class="nav-btn" id="nextCard" onclick="nextCard()" disabled>
+                    <button class="nav-btn" id="nextCard" disabled>
                         Next <i class="fas fa-chevron-right"></i>
                     </button>
-                    <button class="nav-btn" onclick="shuffleCards()" disabled id="shuffleBtn">
+                    <button class="nav-btn" disabled id="shuffleBtn">
                         <i class="fas fa-random"></i> Shuffle
                     </button>
                 </div>
@@ -1309,13 +1309,13 @@
                 <div class="timer-display" id="timerDisplay">25:00</div>
 
                 <div class="timer-controls">
-                    <button class="timer-btn start" id="startBtn" onclick="startTimer()">
+                    <button class="timer-btn start" id="startBtn">
                         <i class="fas fa-play"></i> Start
                     </button>
-                    <button class="timer-btn" onclick="pauseTimer()">
+                    <button class="timer-btn">
                         <i class="fas fa-pause"></i> Pause
                     </button>
-                    <button class="timer-btn" onclick="resetTimer()">
+                    <button class="timer-btn">
                         <i class="fas fa-redo"></i> Reset
                     </button>
                 </div>
@@ -1487,616 +1487,177 @@
             </div>
         </div>
     </div>
-
     <script>
-        // Global variables
-        let currentMode = 'normal';
-        let responseLength = 'normal';
-        let currentPDF = null;
-        let timerInterval;
-        let timeLeft = 25 * 60;
-        let isRunning = false;
-        let flashcards = [];
-        let currentCardIndex = 0;
-        let isCardFlipped = false;
-        let chatHistory = [];
-        let uploadedFiles = [];
+// Global variables
+let currentMode = 'normal';
+let responseLength = 'normal';
+let currentPDF = null;
+let timerInterval;
+let timeLeft = 25 * 60;
+let isRunning = false;
+let flashcards = [];
+let currentCardIndex = 0;
+let isCardFlipped = false;
+let chatHistory = [];
+let uploadedFiles = [];
 
-        // Progress tracking variables (using in-memory storage for Claude artifacts)
-        let userProgress = {
-            messagesCount: 0,
-            studyTimeTotal: 0,
-            pdfsProcessed: 0,
-            flashcardsCreated: 0,
-            streakDays: 0,
-            lastStudyDate: null,
-            skills: {
-                criticalThinking: 0,
-                problemSolving: 0,
-                researchSkills: 0,
-                studyHabits: 0
-            },
-            achievements: {
-                firstMessage: false,
-                pdfMaster: false,
-                flashcardHero: false,
-                timeManager: false,
-                streakWarrior: false,
-                knowledgeSeeker: false,
-                studyBuddy: false,
-                nightOwl: false
-            },
-            sessionStartTime: Date.now(),
-            totalSessions: 0
-        };
+// Progress tracking variables
+let userProgress = {
+    messagesCount: 0,
+    studyTimeTotal: 0,
+    pdfsProcessed: 0,
+    flashcardsCreated: 0,
+    streakDays: 0,
+    lastStudyDate: null,
+    skills: {
+        criticalThinking: 0,
+        problemSolving: 0,
+        researchSkills: 0,
+        studyHabits: 0
+    },
+    achievements: {
+        firstMessage: false,
+        pdfMaster: false,
+        flashcardHero: false,
+        timeManager: false,
+        streakWarrior: false,
+        knowledgeSeeker: false,
+        studyBuddy: false,
+        nightOwl: false
+    },
+    sessionStartTime: Date.now(),
+    totalSessions: 0
+};
 
-        // Mode descriptions
-        const modeDescriptions = {
-            normal: "Regular conversational responses with clear explanations",
-            analogy: "Explains concepts using relatable analogies and comparisons",
-            quiz: "Interactive quiz mode - asks questions to test your knowledge",
-            teach: "Step-by-step teaching mode with examples and practice",
-            simple: "Simplified explanations suitable for beginners"
-        };
-      
+const modeDescriptions = {
+    normal: "Regular conversational responses with clear explanations",
+    analogy: "Explains concepts using relatable analogies and comparisons",
+    quiz: "Interactive quiz mode - asks questions to test your knowledge",
+    teach: "Step-by-step teaching mode with examples and practice",
+    simple: "Simplified explanations suitable for beginners"
+};
+
+// === INITIALIZATION ===
 function initializePhenBot() {
-    console.log('Initializing PhenBOT...');
+    console.log('=== Initializing PhenBOT ===');
     
-    // Setup in correct order
     setupModeButtons();
     setupChatInput();
-    updateTimerDisplay();
     setupFileUpload();
-    loadUploadedFiles();
+    setupAllButtonListeners();
     setupFlashcards();
     initializeProgressTracking();
+    updateTimerDisplay();
+    loadUploadedFiles();
     
-    // Remove inline onclick handlers
-    setupAllButtonListeners();
-    
-    // Test connection after initialization
     setTimeout(testConnection, 1000);
-    
-    console.log('PhenBOT initialization completed');
+    console.log('=== PhenBOT Ready ===');
 }
 
-    // Attach button listeners as early as possible so UI remains interactive
-    try {
-        setupAllButtonListeners();
-        console.log('Button listeners attached early');
-    } catch (e) {
-        console.error('Error attaching button listeners early:', e);
-    }
-
-    // Call other setup functions individually so one failing function doesn't block others
-    try { setupModeButtons(); } catch (e) { console.error('setupModeButtons error:', e); }
-    try { setupChatInput(); } catch (e) { console.error('setupChatInput error:', e); }
-    try { updateTimerDisplay(); } catch (e) { console.error('updateTimerDisplay error:', e); }
-    try { setupFileUpload(); } catch (e) { console.error('setupFileUpload error:', e); }
-    try { loadUploadedFiles(); } catch (e) { console.error('loadUploadedFiles error:', e); }
-    try { setupFlashcards(); } catch (e) { console.error('setupFlashcards error:', e); }
-    try { initializeProgressTracking(); } catch (e) { console.error('initializeProgressTracking error:', e); }
-
-    // Test connection after a short delay (safe-guarded)
-    setTimeout(() => {
-        try { testConnection(); console.log('Connection test initiated'); } catch (e) { console.error('testConnection error:', e); }
-    }, 1000);
-
-    console.log('PhenBOT initialization completed (robust)');
-}
-function setupAllButtonListeners() {
-    console.log('Setting up button listeners...');
+// === SETUP FUNCTIONS ===
+function setupModeButtons() {
+    const modeButtons = document.querySelectorAll('.mode-btn');
+    const modeDescription = document.getElementById('modeDescription');
     
-    // Send button
-    const sendBtn = document.getElementById('sendBtn');
-    if (sendBtn) {
-        sendBtn.onclick = null; // Clear any existing handlers
-        sendBtn.addEventListener('click', sendMessage);
-        console.log('Send button listener attached');
-    } else {
-        console.error('Send button not found!');
-    }
-    
-    // Timer buttons
-    const startBtn = document.getElementById('startBtn');
-    if (startBtn) {
-        startBtn.onclick = null;
-        startBtn.addEventListener('click', startTimer);
-    }
-    
-    // Continue for all other buttons...
-}
-        // Flashcard buttons
-        const generateFlashcardsBtn = document.querySelector('.generate-flashcards-btn');
-        const prevCardBtn = document.getElementById('prevCard');
-        const nextCardBtn = document.getElementById('nextCard');
-        const shuffleBtn = document.getElementById('shuffleBtn');
-
-        if (generateFlashcardsBtn) {
-            generateFlashcardsBtn.removeAttribute('onclick');
-            generateFlashcardsBtn.addEventListener('click', generateFlashcards);
-        }
-
-        if (prevCardBtn) {
-            prevCardBtn.removeAttribute('onclick');
-            prevCardBtn.addEventListener('click', previousCard);
-        }
-
-        if (nextCardBtn) {
-            nextCardBtn.removeAttribute('onclick');
-            nextCardBtn.addEventListener('click', nextCard);
-        }
-
-        if (shuffleBtn) {
-            shuffleBtn.removeAttribute('onclick');
-            shuffleBtn.addEventListener('click', shuffleCards);
-        }
-
-        // PDF action buttons
-        document.querySelectorAll('.pdf-action-btn').forEach(btn => {
-            const text = btn.textContent.toLowerCase();
-            btn.removeAttribute('onclick');
-            
-            if (text.includes('summarize')) {
-                btn.addEventListener('click', () => processPDF('summarize'));
-            } else if (text.includes('flashcards')) {
-                btn.addEventListener('click', () => processPDF('flashcards'));
-            } else if (text.includes('quiz')) {
-                btn.addEventListener('click', () => processPDF('quiz'));
-            } else if (text.includes('outline')) {
-                btn.addEventListener('click', () => processPDF('outline'));
-            }
+    modeButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            modeButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentMode = btn.dataset.mode;
+            modeDescription.textContent = modeDescriptions[currentMode];
+            if (currentMode === 'quiz') trackAction('quiz_mode');
         });
-
-        // Custom flashcard buttons
-        document.querySelectorAll('.nav-btn').forEach(btn => {
-            const text = btn.textContent.toLowerCase();
-            if (text.includes('add one')) {
-                btn.removeAttribute('onclick');
-                btn.addEventListener('click', createCustomFlashcard);
-            } else if (text.includes('add multiple')) {
-                btn.removeAttribute('onclick');
-                btn.addEventListener('click', createMultipleCustomFlashcards);
-            }
-        });
-
-        // Logout button
-        const logoutBtn = document.querySelector('.logout-btn');
-        if (logoutBtn) {
-            logoutBtn.removeAttribute('onclick');
-            logoutBtn.addEventListener('click', logout);
-        }
-
-        console.log('All button listeners setup completed');
-    } catch (error) {
-        console.error('Error setting up button listeners:', error);
-    }
-}
-        function addMessage(content, type, isLoading = false) {
-    const messagesContainer = document.getElementById('chatMessages');
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${type}${isLoading ? ' loading' : ''}`;
-
-    const avatar = document.createElement('div');
-    avatar.className = 'message-avatar';
-    avatar.innerHTML = type === 'user' ? 
-        '<i class="fas fa-user"></i>' : 
-        '<i class="fas fa-robot"></i>';
-
-    const messageContent = document.createElement('div');
-    messageContent.className = 'message-content';
-    messageContent.textContent = content;
-
-    messageDiv.appendChild(avatar);
-    messageDiv.appendChild(messageContent);
-    messagesContainer.appendChild(messageDiv);
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    });
     
-    // Track message for progress
-    if (type === 'user') {
-        trackAction('message');
-        chatHistory.push({ user: content, bot: '' });
-    }
-    
-    return messageDiv;
-}
-        // Progress tracking functions
-        function loadUserProgress() {
-            // In Claude artifacts, we start with default values since localStorage isn't available
-            updateStudyStreak();
-            updateProgressDisplay();
-        }
-
-        function saveUserProgress() {
-            // In Claude artifacts, we can't save to localStorage, so this is a no-op
-            // In a real environment, you would save to localStorage or a backend
-            console.log('Progress updated:', userProgress);
-        }
-
-        function updateStudyStreak() {
-            const today = new Date().toDateString();
-            const lastStudy = userProgress.lastStudyDate;
-            
-            if (lastStudy) {
-                const daysDiff = Math.floor((new Date() - new Date(lastStudy)) / (1000 * 60 * 60 * 24));
-                
-                if (daysDiff === 1) {
-                    userProgress.streakDays++;
-                } else if (daysDiff > 1) {
-                    userProgress.streakDays = 1;
-                }
-            } else {
-                userProgress.streakDays = 1;
-            }
-            
-            userProgress.lastStudyDate = today;
-            checkAchievements();
-        }
-
-        function updateProgressDisplay() {
-            document.getElementById('messagesCount').textContent = userProgress.messagesCount;
-            document.getElementById('totalStudyTime').textContent = Math.floor(userProgress.studyTimeTotal / 60) + 'h';
-            document.getElementById('pdfsProcessed').textContent = userProgress.pdfsProcessed;
-            document.getElementById('flashcardsCreated').textContent = userProgress.flashcardsCreated;
-            document.getElementById('streakDays').textContent = userProgress.streakDays;
-            
-            updateSkillProgress('criticalThinking', userProgress.skills.criticalThinking);
-            updateSkillProgress('problemSolving', userProgress.skills.problemSolving);
-            updateSkillProgress('researchSkills', userProgress.skills.researchSkills);
-            updateSkillProgress('studyHabits', userProgress.skills.studyHabits);
-            
-            updateAchievementsDisplay();
-            updateStudyInsights();
-        }
-
-        function updateSkillProgress(skillName, value) {
-            const progressBar = document.getElementById(skillName + 'Progress');
-            const levelSpan = document.getElementById(skillName + 'Level');
-            
-            if (progressBar) {
-                progressBar.style.width = Math.min(value, 100) + '%';
-            }
-            
-            if (levelSpan) {
-                let level = 'Beginner';
-                if (value >= 80) level = 'Expert';
-                else if (value >= 60) level = 'Advanced';
-                else if (value >= 30) level = 'Intermediate';
-                
-                levelSpan.textContent = level;
-            }
-        }
-
-        function checkAchievements() {
-            const achievements = userProgress.achievements;
-            
-            if (userProgress.messagesCount >= 1 && !achievements.firstMessage) {
-                unlockAchievement('firstMessage', 'First Message Sent!');
-            }
-            
-            if (userProgress.pdfsProcessed >= 3 && !achievements.pdfMaster) {
-                unlockAchievement('pdfMaster', 'PDF Master Unlocked!');
-            }
-            
-            if (userProgress.flashcardsCreated >= 15 && !achievements.flashcardHero) {
-                unlockAchievement('flashcardHero', 'Flashcard Hero!');
-            }
-            
-            if (userProgress.studyTimeTotal >= 1800 && !achievements.timeManager) {
-                unlockAchievement('timeManager', 'Time Manager!');
-            }
-            
-            if (userProgress.streakDays >= 7 && !achievements.streakWarrior) {
-                unlockAchievement('streakWarrior', '7-Day Streak Warrior!');
-            }
-            
-            if (userProgress.messagesCount >= 25 && !achievements.knowledgeSeeker) {
-                unlockAchievement('knowledgeSeeker', 'Knowledge Seeker!');
-            }
-            
-            if (userProgress.messagesCount >= 10 && userProgress.flashcardsCreated >= 5 && !achievements.studyBuddy) {
-                unlockAchievement('studyBuddy', 'Study Buddy!');
-            }
-            
-            const hour = new Date().getHours();
-            if ((hour >= 22 || hour <= 5) && userProgress.messagesCount >= 5 && !achievements.nightOwl) {
-                unlockAchievement('nightOwl', 'Night Owl!');
-            }
-            
-            saveUserProgress();
-        }
-
-        function unlockAchievement(achievementId, message) {
-            userProgress.achievements[achievementId] = true;
-            
-            const badge = document.getElementById(achievementId);
-            if (badge) {
-                badge.classList.remove('locked');
-                badge.classList.add('earned');
-                
-                showAchievementNotification(message);
-            }
-            
-            updateAchievementsDisplay();
-        }
-
-        function showAchievementNotification(message) {
-            const notification = document.createElement('div');
-            notification.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                background: linear-gradient(135deg, var(--achievement-gold), #d97706);
-                color: white;
-                padding: 1rem 1.5rem;
-                border-radius: 12px;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-                z-index: 10000;
-                font-weight: 600;
-                animation: slideInRight 0.5s ease;
-            `;
-            
-            const style = document.createElement('style');
-            style.textContent = `
-                @keyframes slideInRight {
-                    from { transform: translateX(100%); opacity: 0; }
-                    to { transform: translateX(0); opacity: 1; }
-                }
-            `;
-            document.head.appendChild(style);
-            
-            notification.innerHTML = `<i class="fas fa-trophy" style="margin-right: 0.5rem;"></i>${message}`;
-            
-            document.body.appendChild(notification);
-            
-            setTimeout(() => {
-                notification.remove();
-                style.remove();
-            }, 3000);
-        }
-
-        function updateAchievementsDisplay() {
-            const earned = Object.values(userProgress.achievements).filter(Boolean).length;
-            document.getElementById('achievementsEarned').textContent = earned;
-        }
-
-        function updateStudyInsights() {
-        // Complete the updateStudyInsights function
-        const insights = document.getElementById('studyInsights');
-        const insightsList = [];
-        
-        if (userProgress.messagesCount === 0) {
-            insightsList.push({
-                icon: 'fas fa-chart-line',
-                text: 'Start your learning journey by asking your first question!'
-            });
-        } else {
-            if (userProgress.streakDays >= 3) {
-                insightsList.push({
-                    icon: 'fas fa-fire',
-                    text: `Amazing! You're on a ${userProgress.streakDays}-day learning streak!`
-                });
-            }
-            
-            if (userProgress.messagesCount >= 10) {
-                insightsList.push({
-                    icon: 'fas fa-star',
-                    text: 'You\'re becoming more engaged with learning!'
-                });
-            }
-            
-            if (userProgress.pdfsProcessed >= 1) {
-                insightsList.push({
-                    icon: 'fas fa-file-pdf',
-                    text: 'Great use of PDF analysis tools!'
-                });
-            }
-            
-            if (userProgress.flashcardsCreated >= 5) {
-                insightsList.push({
-                    icon: 'fas fa-brain',
-                    text: 'Flashcards are boosting your memory skills!'
-                });
-            }
-            
-            if (userProgress.studyTimeTotal >= 1800) {
-                insightsList.push({
-                    icon: 'fas fa-clock',
-                    text: 'Excellent focus time! You\'re building great study habits.'
-                });
-            }
-        }
-        
-        // Add default insight if no specific insights
-        if (insightsList.length === 0) {
-            insightsList.push({
-                icon: 'fas fa-lightbulb',
-                text: 'Keep learning and discovering new things!'
-            });
-        }
-        
-        insights.innerHTML = insightsList.map(insight => `
-            <div class="insight-item">
-                <div class="insight-icon">
-                    <i class="${insight.icon}"></i>
-                </div>
-                <div class="insight-text">${insight.text}</div>
-            </div>
-        `).join('');
-    }
-
-    function trackAction(actionType, value = 1) {
-        switch(actionType) {
-            case 'message':
-                userProgress.messagesCount++;
-                userProgress.skills.criticalThinking = Math.min(100, userProgress.skills.criticalThinking + 0.5);
-                break;
-            case 'pdf':
-                userProgress.pdfsProcessed++;
-                userProgress.skills.researchSkills = Math.min(100, userProgress.skills.researchSkills + 2);
-                break;
-            case 'flashcard':
-                userProgress.flashcardsCreated += value;
-                userProgress.skills.studyHabits = Math.min(100, userProgress.skills.studyHabits + 1);
-                break;
-            case 'timer':
-                userProgress.studyTimeTotal += value;
-                userProgress.skills.studyHabits = Math.min(100, userProgress.skills.studyHabits + 0.5);
-                break;
-            case 'quiz_mode':
-                userProgress.skills.problemSolving = Math.min(100, userProgress.skills.problemSolving + 1);
-                break;
-        }
-        
-        updateStudyStreak();
-        checkAchievements();
-        updateProgressDisplay();
-        saveUserProgress();
-    }
-
-    function initializeProgressTracking() {
-        loadUserProgress();
-        
-        // Track session time every minute
-        setInterval(() => {
-            const sessionTime = Math.floor((Date.now() - userProgress.sessionStartTime) / 1000);
-            if (sessionTime > 0) {
-                userProgress.studyTimeTotal += 60; // Add 60 seconds
-                updateProgressDisplay();
-                saveUserProgress();
-            }
-        }, 60000);
-    }
-
-
-    // Setup functions
-  function setupModeButtons() {
-    try {
-        const modeButtons = document.querySelectorAll('.mode-btn');
-        const modeDescription = document.getElementById('modeDescription');
-        
-        if (!modeButtons.length || !modeDescription) {
-            console.error('Mode buttons or description element not found');
-            return;
-        }
-        
-        modeButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
-                console.log('Mode button clicked:', btn.dataset.mode);
-                modeButtons.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                currentMode = btn.dataset.mode;
-                modeDescription.textContent = modeDescriptions[currentMode] || 'Mode description not found';
-                
-                if (currentMode === 'quiz') {
-                    trackAction('quiz_mode');
-                }
-            });
+    const lengthSelector = document.getElementById('responseLength');
+    if (lengthSelector) {
+        lengthSelector.addEventListener('change', (e) => {
+            responseLength = e.target.value;
         });
-        
-        const lengthSelector = document.getElementById('responseLength');
-        if (lengthSelector) {
-            lengthSelector.addEventListener('change', (e) => {
-                responseLength = e.target.value;
-                console.log('Response length changed to:', responseLength);
-            });
-        }
-    } catch (error) {
-        console.error('Error setting up mode buttons:', error);
     }
 }
 
-
-   // 4. Fix the chat input setup
 function setupChatInput() {
-    try {
-        const chatInput = document.getElementById('chatInput');
-        const sendBtn = document.getElementById('sendBtn');
-
-        if (!chatInput || !sendBtn) {
-            console.error('Chat input or send button not found');
-            return;
+    const chatInput = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('sendBtn');
+    
+    chatInput.addEventListener('input', () => {
+        chatInput.style.height = 'auto';
+        chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
+    });
+    
+    chatInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
         }
-
-        chatInput.addEventListener('input', () => {
-            chatInput.style.height = 'auto';
-            chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
-        });
-
-        chatInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
-            }
-        });
-
-        // Remove the existing onclick handler and use addEventListener
-        sendBtn.removeAttribute('onclick');
-        sendBtn.addEventListener('click', sendMessage);
-        
-        console.log('Chat input setup completed');
-    } catch (error) {
-        console.error('Error setting up chat input:', error);
-    }
+    });
+    
+    sendBtn.addEventListener('click', sendMessage);
 }
 
-   function setupFileUpload() {
-    try {
-        const uploadArea = document.getElementById('uploadArea');
-        const fileInput = document.getElementById('fileInput');
-
-        if (!uploadArea || !fileInput) {
-            console.error('Upload area or file input not found');
-            return;
-        }
-
-        // Remove existing onclick handler
-        uploadArea.removeAttribute('onclick');
-        
-        uploadArea.addEventListener('click', (e) => {
-            e.preventDefault();
-            console.log('Upload area clicked');
-            fileInput.click();
-        });
-
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadArea.classList.add('dragover');
-        });
-
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.classList.remove('dragover');
-        });
-
-        uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadArea.classList.remove('dragover');
-            handleFileUpload({ target: { files: e.dataTransfer.files } });
-        });
-
-        // Fix file input onchange
-        fileInput.removeAttribute('onchange');
-        fileInput.addEventListener('change', handleFileUpload);
-        
-        console.log('File upload setup completed');
-    } catch (error) {
-        console.error('Error setting up file upload:', error);
-    }
+function setupFileUpload() {
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    
+    uploadArea.addEventListener('click', () => fileInput.click());
+    
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    });
+    
+    uploadArea.addEventListener('dragleave', () => {
+        uploadArea.classList.remove('dragover');
+    });
+    
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+        handleFileUpload({ target: { files: e.dataTransfer.files } });
+    });
+    
+    fileInput.addEventListener('change', handleFileUpload);
 }
-    function setupFlashcards() {
-        updateFlashcardCounter();
-    }
 
-    // Chat functions
+function setupAllButtonListeners() {
+    // Timer buttons
+    document.getElementById('startBtn').addEventListener('click', startTimer);
+    document.querySelectorAll('.timer-btn')[1].addEventListener('click', pauseTimer);
+    document.querySelectorAll('.timer-btn')[2].addEventListener('click', resetTimer);
+    
+    // Flashcard buttons
+    document.querySelector('.generate-flashcards-btn').addEventListener('click', generateFlashcards);
+    document.getElementById('prevCard').addEventListener('click', previousCard);
+    document.getElementById('nextCard').addEventListener('click', nextCard);
+    document.getElementById('shuffleBtn').addEventListener('click', shuffleCards);
+    
+    // Custom flashcard buttons
+    const navBtns = document.querySelectorAll('.flashcard-controls .nav-btn');
+    navBtns[0].addEventListener('click', createCustomFlashcard);
+    navBtns[1].addEventListener('click', createMultipleCustomFlashcards);
+    
+    // PDF action buttons
+    const pdfBtns = document.querySelectorAll('.pdf-action-btn');
+    pdfBtns[0].addEventListener('click', () => processPDF('summarize'));
+    pdfBtns[1].addEventListener('click', () => processPDF('flashcards'));
+    pdfBtns[2].addEventListener('click', () => processPDF('quiz'));
+    pdfBtns[3].addEventListener('click', () => processPDF('outline'));
+    
+    // Logout button
+    document.querySelector('.logout-btn').addEventListener('click', logout);
+}
+
+function setupFlashcards() {
+    updateFlashcardCounter();
+}
+
+// === CHAT FUNCTIONS ===
 async function sendMessage() {
-    console.log("sendMessage called");
     const input = document.getElementById('chatInput');
     const message = input.value.trim();
     
-    if (!message) {
-        console.log("Empty message, aborting");
-        return;
-    }
+    if (!message) return;
     
     const sendBtn = document.getElementById('sendBtn');
     sendBtn.disabled = true;
@@ -2109,22 +1670,12 @@ async function sendMessage() {
     const loadingMessage = addMessage('Thinking...', 'bot', true);
     
     try {
-        console.log("Sending request to /chat endpoint...");
-        
         const response = await fetch("/chat", {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            credentials: 'include', // Important for session handling
-            body: JSON.stringify({
-                message: message,
-                mode: currentMode,
-                length: responseLength
-            })
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ message, mode: currentMode, length: responseLength })
         });
-        
-        console.log("Response status:", response.status);
         
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
@@ -2132,8 +1683,6 @@ async function sendMessage() {
         }
         
         const data = await response.json();
-        console.log("Response data:", data);
-        
         loadingMessage.remove();
         
         if (data.response) {
@@ -2141,9 +1690,7 @@ async function sendMessage() {
         } else {
             addMessage('Error: No response received', 'bot');
         }
-        
     } catch (error) {
-        console.error('Chat error:', error);
         loadingMessage.remove();
         addMessage(`Error: ${error.message}`, 'bot');
     } finally {
@@ -2151,86 +1698,64 @@ async function sendMessage() {
         sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
     }
 }
+
+function addMessage(content, type, isLoading = false) {
+    const messagesContainer = document.getElementById('chatMessages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${type}${isLoading ? ' loading' : ''}`;
     
-
-    async function generateAIResponse(message, mode, length) {
-        // Simulate AI response based on mode
-        const responses = {
-            normal: generateNormalResponse(message),
-            analogy: generateAnalogyResponse(message),
-            quiz: generateQuizResponse(message),
-            teach: generateTeachResponse(message),
-            simple: generateSimpleResponse(message)
-        };
-
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                resolve(responses[mode] || responses.normal);
-            }, 1000 + Math.random() * 1000);
-        });
+    const avatar = document.createElement('div');
+    avatar.className = 'message-avatar';
+    avatar.innerHTML = type === 'user' ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>';
+    
+    const messageContent = document.createElement('div');
+    messageContent.className = 'message-content';
+    messageContent.textContent = content;
+    
+    messageDiv.appendChild(avatar);
+    messageDiv.appendChild(messageContent);
+    messagesContainer.appendChild(messageDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    
+    if (type === 'user') {
+        trackAction('message');
+        chatHistory.push({ user: content, bot: '' });
     }
-   
+    
+    return messageDiv;
+}
 
-    function generateNormalResponse(message) {
-        const responses = [
-            `That's an interesting question about "${message}". Let me break it down for you in a clear way.`,
-            `I can help you understand this topic. Here's what you need to know about "${message}".`,
-            `Great question! Let me provide a comprehensive explanation about "${message}".`
-        ];
-        return responses[Math.floor(Math.random() * responses.length)];
-    }
+async function testConnection() {
+    addMessage("I'm ready to help with your studies!", 'bot');
+}
 
-    function generateAnalogyResponse(message) {
-        return `Think of "${message}" like this: imagine it's similar to a puzzle where each piece represents a different concept. Just as you need all puzzle pieces to see the complete picture, understanding this topic requires connecting multiple ideas together.`;
-    }
-
-    function generateQuizResponse(message) {
-        return `Let me test your understanding of "${message}" with a question: What do you think is the most important aspect of this topic, and why? Take a moment to think about it before I provide the answer.`;
-    }
-
-    function generateTeachResponse(message) {
-        return `Let's learn about "${message}" step by step:\n\n1. First, let's understand the basics\n2. Then we'll look at key concepts\n3. Finally, we'll practice with examples\n\nThis approach will help you master the topic thoroughly.`;
-    }
-
-    function generateSimpleResponse(message) {
-        return `Here's a simple explanation of "${message}": Think of it as the basic building block of this topic. It's like learning your ABCs before reading - once you understand this, everything else becomes easier!`;
-    }
-
-    async function testConnection() {
-        try {
-            addMessage("Connection test successful! I'm ready to help with your studies.", 'bot');
-        } catch (error) {
-            addMessage("I'm running in demo mode. All features are simulated for testing purposes.", 'bot');
+// === FILE HANDLING ===
+function handleFileUpload(event) {
+    const files = Array.from(event.target.files);
+    files.forEach(file => {
+        if (file.type === 'application/pdf') {
+            uploadFile(file);
+        } else {
+            addMessage('Please upload only PDF files.', 'bot');
         }
-    }
+    });
+}
 
-    // File handling functions
-    function handleFileUpload(event) {
-        const files = Array.from(event.target.files);
-        files.forEach(file => {
-            if (file.type === 'application/pdf') {
-                uploadFile(file);
-            } else {
-                addMessage('Please upload only PDF files.', 'bot');
-            }
-        });
-    }
+function uploadFile(file) {
+    const fileItem = {
+        name: file.name,
+        size: (file.size / 1024 / 1024).toFixed(2),
+        id: Date.now() + Math.random(),
+        file: file
+    };
+    
+    uploadedFiles.push(fileItem);
+    displayUploadedFile(fileItem);
+    document.getElementById('pdfActions').classList.add('show');
+    currentPDF = fileItem;
+}
 
-    function uploadFile(file) {
-        const fileItem = {
-            name: file.name,
-            size: (file.size / 1024 / 1024).toFixed(2), // MB
-            id: Date.now() + Math.random(),
-            file: file
-        };
-
-        uploadedFiles.push(fileItem);
-        displayUploadedFile(fileItem);
-        document.getElementById('pdfActions').classList.add('show');
-        currentPDF = fileItem;
-    }
-
-   function displayUploadedFile(fileItem) {
+function displayUploadedFile(fileItem) {
     const container = document.getElementById('uploadedFiles');
     const fileDiv = document.createElement('div');
     fileDiv.className = 'file-item';
@@ -2240,261 +1765,194 @@ async function sendMessage() {
             <div style="color: var(--text-muted); font-size: 0.8rem;">${fileItem.size} MB</div>
         </div>
         <div class="file-actions">
-            <button class="icon-btn primary" data-file-id="${fileItem.id}" data-action="select" title="Select">
-                <i class="fas fa-check"></i>
-            </button>
-            <button class="icon-btn danger" data-file-id="${fileItem.id}" data-action="remove" title="Remove">
-                <i class="fas fa-trash"></i>
-            </button>
+            <button class="icon-btn primary" title="Select"><i class="fas fa-check"></i></button>
+            <button class="icon-btn danger" title="Remove"><i class="fas fa-trash"></i></button>
         </div>
     `;
     
-    // Add event listeners to the buttons
-    const selectBtn = fileDiv.querySelector('[data-action="select"]');
-    const removeBtn = fileDiv.querySelector('[data-action="remove"]');
-    
-    selectBtn.addEventListener('click', () => selectFile(fileItem.id));
-    removeBtn.addEventListener('click', () => removeFile(fileItem.id));
+    fileDiv.querySelector('.primary').addEventListener('click', () => selectFile(fileItem.id));
+    fileDiv.querySelector('.danger').addEventListener('click', () => removeFile(fileItem.id, fileDiv));
     
     container.appendChild(fileDiv);
 }
-    function selectFile(fileId) {
-        const file = uploadedFiles.find(f => f.id == fileId);
-        if (file) {
-            currentPDF = file;
-            addMessage(`Selected "${file.name}" for processing.`, 'bot');
-        }
+
+function selectFile(fileId) {
+    const file = uploadedFiles.find(f => f.id == fileId);
+    if (file) {
+        currentPDF = file;
+        addMessage(`Selected "${file.name}" for processing.`, 'bot');
     }
+}
 
-    function removeFile(fileId) {
-        uploadedFiles = uploadedFiles.filter(f => f.id != fileId);
-        const container = document.getElementById('uploadedFiles');
-        const fileElements = container.querySelectorAll('.file-item');
-        fileElements.forEach(element => {
-            if (element.querySelector('.icon-btn.danger').getAttribute('onclick').includes(fileId)) {
-                element.remove();
-            }
-        });
+function removeFile(fileId, fileDiv) {
+    uploadedFiles = uploadedFiles.filter(f => f.id != fileId);
+    fileDiv.remove();
+}
+
+function loadUploadedFiles() {
+    uploadedFiles = [];
+}
+
+async function processPDF(action) {
+    if (!currentPDF) {
+        addMessage('Please upload and select a PDF file first.', 'bot');
+        return;
     }
-
-    function loadUploadedFiles() {
-        // In a real app, this would load from storage
-        uploadedFiles = [];
-    }
-
-    async function processPDF(action) {
-        if (!currentPDF) {
-            addMessage('Please upload and select a PDF file first.', 'bot');
-            return;
-        }
-
-        const actionMessages = {
-            summarize: `Processing "${currentPDF.name}" for summarization...`,
-            flashcards: `Creating flashcards from "${currentPDF.name}"...`,
-            quiz: `Generating quiz questions from "${currentPDF.name}"...`,
-            outline: `Creating study outline from "${currentPDF.name}"...`
+    
+    const messages = {
+        summarize: `Processing "${currentPDF.name}" for summarization...`,
+        flashcards: `Creating flashcards from "${currentPDF.name}"...`,
+        quiz: `Generating quiz questions from "${currentPDF.name}"...`,
+        outline: `Creating study outline from "${currentPDF.name}"...`
+    };
+    
+    addMessage(messages[action], 'bot');
+    
+    setTimeout(() => {
+        const results = {
+            summarize: `Summary of "${currentPDF.name}": This document covers key concepts with fundamental principles and practical applications.`,
+            flashcards: `Created 5 flashcards from "${currentPDF.name}". Check the flashcards section!`,
+            quiz: `Generated quiz from "${currentPDF.name}": 1. What is the main concept? 2. How does this apply? 3. What are the key benefits?`,
+            outline: `Outline for "${currentPDF.name}": I. Introduction, II. Key Concepts, III. Applications, IV. Summary.`
         };
-
-        addMessage(actionMessages[action], 'bot');
         
-        // Simulate processing delay
-        setTimeout(() => {
-            const results = {
-                summarize: `Summary of "${currentPDF.name}": This document covers key concepts in the subject area. Main points include fundamental principles, practical applications, and important considerations for students.`,
-                flashcards: `Created 5 flashcards from "${currentPDF.name}". Check the flashcards section to study them!`,
-                quiz: `Generated quiz questions from "${currentPDF.name}": 1. What is the main concept? 2. How does this apply practically? 3. What are the key benefits?`,
-                outline: `Study outline for "${currentPDF.name}": I. Introduction, II. Key Concepts, III. Applications, IV. Summary and Review Points.`
-            };
-            
-            addMessage(results[action], 'bot');
-            trackAction('pdf');
-            
-            if (action === 'flashcards') {
-                generateFlashcardsFromPDF();
-            }
-        }, 2000);
-    }
-
-    // Timer functions
-    function startTimer() {
-        if (isRunning) return;
+        addMessage(results[action], 'bot');
+        trackAction('pdf');
         
-        isRunning = true;
-        const startBtn = document.getElementById('startBtn');
-        startBtn.innerHTML = '<i class="fas fa-pause"></i> Running';
-        
-        timerInterval = setInterval(() => {
-            timeLeft--;
-            updateTimerDisplay();
-            
-            if (timeLeft <= 0) {
-                timerComplete();
-            }
-        }, 1000);
-    }
+        if (action === 'flashcards') generateFlashcardsFromPDF();
+    }, 2000);
+}
 
-    function pauseTimer() {
-        if (!isRunning) return;
-        
-        isRunning = false;
-        clearInterval(timerInterval);
-        const startBtn = document.getElementById('startBtn');
-        startBtn.innerHTML = '<i class="fas fa-play"></i> Start';
-    }
-
-    function resetTimer() {
-        isRunning = false;
-        clearInterval(timerInterval);
-        timeLeft = 25 * 60;
+// === TIMER FUNCTIONS ===
+function startTimer() {
+    if (isRunning) return;
+    isRunning = true;
+    document.getElementById('startBtn').innerHTML = '<i class="fas fa-pause"></i> Running';
+    
+    timerInterval = setInterval(() => {
+        timeLeft--;
         updateTimerDisplay();
-        const startBtn = document.getElementById('startBtn');
-        startBtn.innerHTML = '<i class="fas fa-play"></i> Start';
+        if (timeLeft <= 0) timerComplete();
+    }, 1000);
+}
+
+function pauseTimer() {
+    if (!isRunning) return;
+    isRunning = false;
+    clearInterval(timerInterval);
+    document.getElementById('startBtn').innerHTML = '<i class="fas fa-play"></i> Start';
+}
+
+function resetTimer() {
+    isRunning = false;
+    clearInterval(timerInterval);
+    timeLeft = 25 * 60;
+    updateTimerDisplay();
+    document.getElementById('startBtn').innerHTML = '<i class="fas fa-play"></i> Start';
+}
+
+function timerComplete() {
+    resetTimer();
+    addMessage('Great job! 25-minute focus session complete. Take a 5-minute break!', 'bot');
+    trackAction('timer', 1500);
+    showAchievementNotification('Focus session completed! 🎉');
+}
+
+function updateTimerDisplay() {
+    const minutes = Math.floor(timeLeft / 60);
+    const seconds = timeLeft % 60;
+    document.getElementById('timerDisplay').textContent = 
+        `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
+
+// === FLASHCARD FUNCTIONS ===
+function generateFlashcards() {
+    if (chatHistory.length === 0) {
+        addMessage('Start a conversation first, then I can create flashcards!', 'bot');
+        return;
     }
-
-    function timerComplete() {
-        isRunning = false;
-        clearInterval(timerInterval);
-        timeLeft = 25 * 60;
-        updateTimerDisplay();
-        
-        const startBtn = document.getElementById('startBtn');
-        startBtn.innerHTML = '<i class="fas fa-play"></i> Start';
-        
-        addMessage('Great job! You completed a 25-minute focus session. Take a 5-minute break!', 'bot');
-        trackAction('timer', 1500); // 25 minutes in seconds
-        
-        // Show completion notification
-        showAchievementNotification('Focus session completed! 🎉');
-    }
-
-    function updateTimerDisplay() {
-        const minutes = Math.floor(timeLeft / 60);
-        const seconds = timeLeft % 60;
-        const display = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        document.getElementById('timerDisplay').textContent = display;
-    }
-
-    // Flashcard functions
-    function generateFlashcards() {
-        if (chatHistory.length === 0) {
-            addMessage('Start a conversation first, then I can create flashcards from our discussion!', 'bot');
-            return;
-        }
-
-        addMessage('Creating flashcards from our conversation...', 'bot');
-        
-        setTimeout(() => {
-            const newFlashcards = parseFlashcardsFromResponse(chatHistory);
-            flashcards = [...flashcards, ...newFlashcards];
-            updateFlashcardDisplay();
-            updateFlashcardCounter();
-            addMessage(`Created ${newFlashcards.length} new flashcards! Check them out in the flashcards section.`, 'bot');
-            trackAction('flashcard', newFlashcards.length);
-        }, 1500);
-    }
-
-    function generateFlashcardsFromPDF() {
-        const sampleFlashcards = [
-            { question: 'What is the main concept discussed in the document?', answer: 'The primary focus area and its key principles.' },
-            { question: 'How does this concept apply in practice?', answer: 'Through real-world applications and case studies.' },
-            { question: 'What are the key benefits mentioned?', answer: 'Improved understanding and practical application skills.' },
-            { question: 'What should students remember most?', answer: 'The fundamental principles and their interconnections.' },
-            { question: 'How can this knowledge be applied?', answer: 'In academic work, research, and professional practice.' }
+    
+    addMessage('Creating flashcards from our conversation...', 'bot');
+    
+    setTimeout(() => {
+        const newCards = [
+            { question: 'Sample Question 1', answer: 'Sample Answer 1' },
+            { question: 'Sample Question 2', answer: 'Sample Answer 2' },
+            { question: 'Sample Question 3', answer: 'Sample Answer 3' }
         ];
         
-        flashcards = [...flashcards, ...sampleFlashcards];
+        flashcards.push(...newCards);
         updateFlashcardDisplay();
         updateFlashcardCounter();
-        trackAction('flashcard', sampleFlashcards.length);
-    }
+        addMessage(`Created ${newCards.length} flashcards!`, 'bot');
+        trackAction('flashcard', newCards.length);
+    }, 1500);
+}
 
- function parseFlashcardsFromResponse(response, appendMode = true) {
-    const lines = response.split('\n');
-    const newFlashcards = [];
+function generateFlashcardsFromPDF() {
+    const sampleCards = [
+        { question: 'What is the main concept?', answer: 'The primary focus and key principles.' },
+        { question: 'How does this apply?', answer: 'Through real-world applications.' },
+        { question: 'What are the benefits?', answer: 'Improved understanding and skills.' },
+        { question: 'What should students remember?', answer: 'The fundamental principles.' },
+        { question: 'How to apply this knowledge?', answer: 'In academic and professional work.' }
+    ];
     
-    // Simple parsing for demo
-    for (let i = 0; i < 3; i++) {
-        newFlashcards.push({
-            question: `Sample Question ${i + 1}`,
-            answer: `Sample Answer ${i + 1}`
-        });
-    }
-    
-    if (appendMode && flashcards.length > 0) {
-        flashcards.push(...newFlashcards);
-    } else {
-        flashcards = newFlashcards;
-        currentCardIndex = 0;
-    }
-    
-    isCardFlipped = false;
+    flashcards.push(...sampleCards);
     updateFlashcardDisplay();
     updateFlashcardCounter();
+    trackAction('flashcard', sampleCards.length);
 }
-    function createCustomFlashcard() {
-        const question = prompt('Enter the question:');
-        if (!question) return;
-        
-        const answer = prompt('Enter the answer:');
-        if (!answer) return;
-        
-        flashcards.push({ question, answer });
-        updateFlashcardDisplay();
-        updateFlashcardCounter();
-        addMessage('Custom flashcard created successfully!', 'bot');
-        trackAction('flashcard', 1);
-    }
 
-    function createMultipleCustomFlashcards() {
-        const input = prompt('Enter flashcards in Q:A format, one per line:\nExample:\nQuestion 1: Answer 1\nQuestion 2: Answer 2');
-        if (!input) return;
-        
-        const lines = input.split('\n').filter(line => line.trim() && line.includes(':'));
-        const newCards = lines.map(line => {
-            const [question, ...answerParts] = line.split(':');
-            return {
-                question: question.trim(),
-                answer: answerParts.join(':').trim()
-            };
-        });
-        
-        flashcards = [...flashcards, ...newCards];
-        updateFlashcardDisplay();
-        updateFlashcardCounter();
-        addMessage(`Created ${newCards.length} flashcards successfully!`, 'bot');
-        trackAction('flashcard', newCards.length);
-    }
+function createCustomFlashcard() {
+    const question = prompt('Enter the question:');
+    if (!question) return;
+    
+    const answer = prompt('Enter the answer:');
+    if (!answer) return;
+    
+    flashcards.push({ question, answer });
+    updateFlashcardDisplay();
+    updateFlashcardCounter();
+    addMessage('Custom flashcard created!', 'bot');
+    trackAction('flashcard', 1);
+}
 
-    function updateFlashcardDisplay() {
-        const container = document.getElementById('flashcardContainer');
-        const welcomeCard = document.getElementById('welcomeCard');
-        
-        if (flashcards.length === 0) {
-            if (welcomeCard) welcomeCard.style.display = 'flex';
-            updateNavigationButtons();
-            return;
-        }
-        
-        if (welcomeCard) welcomeCard.style.display = 'none';
-        
-        // Clear existing flashcards
-        const existingCards = container.querySelectorAll('.flashcard:not(#welcomeCard)');
-        existingCards.forEach(card => card.remove());
-        
-        if (currentCardIndex >= flashcards.length) {
-            currentCardIndex = 0;
-        }
-        
-        if (flashcards.length > 0) {
-            const card = flashcards[currentCardIndex];
-            createFlashcardElement(card, currentCardIndex);
-        }
-        
+function createMultipleCustomFlashcards() {
+    const input = prompt('Enter flashcards in Q:A format, one per line:\nExample:\nQuestion 1: Answer 1\nQuestion 2: Answer 2');
+    if (!input) return;
+    
+    const lines = input.split('\n').filter(line => line.trim() && line.includes(':'));
+    const newCards = lines.map(line => {
+        const [question, ...answerParts] = line.split(':');
+        return { question: question.trim(), answer: answerParts.join(':').trim() };
+    });
+    
+    flashcards.push(...newCards);
+    updateFlashcardDisplay();
+    updateFlashcardCounter();
+    addMessage(`Created ${newCards.length} flashcards!`, 'bot');
+    trackAction('flashcard', newCards.length);
+}
+
+function updateFlashcardDisplay() {
+    const container = document.getElementById('flashcardContainer');
+    const welcomeCard = document.getElementById('welcomeCard');
+    
+    if (flashcards.length === 0) {
+        if (welcomeCard) welcomeCard.style.display = 'flex';
         updateNavigationButtons();
+        return;
     }
-
-    function createFlashcardElement(card, index) {
-        const container = document.getElementById('flashcardContainer');
+    
+    if (welcomeCard) welcomeCard.style.display = 'none';
+    
+    container.querySelectorAll('.flashcard:not(#welcomeCard)').forEach(card => card.remove());
+    
+    if (currentCardIndex >= flashcards.length) currentCardIndex = 0;
+    
+    if (flashcards.length > 0) {
+        const card = flashcards[currentCardIndex];
         const cardElement = document.createElement('div');
         cardElement.className = 'flashcard';
         cardElement.innerHTML = `
@@ -2504,110 +1962,222 @@ async function sendMessage() {
         
         cardElement.addEventListener('click', () => flipCard(cardElement, card));
         container.appendChild(cardElement);
-        
         isCardFlipped = false;
     }
+    
+    updateNavigationButtons();
+}
 
-    function flipCard(cardElement, card) {
-        const content = cardElement.querySelector('.flashcard-content');
-        const indicator = cardElement.querySelector('.flashcard-indicator');
-        
-        if (!isCardFlipped) {
-            cardElement.classList.add('flipped');
-            content.textContent = card.answer;
-            indicator.textContent = 'Answer';
-            isCardFlipped = true;
-        } else {
-            cardElement.classList.remove('flipped');
-            content.textContent = card.question;
-            indicator.textContent = 'Question';
-            isCardFlipped = false;
-        }
+function flipCard(cardElement, card) {
+    const content = cardElement.querySelector('.flashcard-content');
+    const indicator = cardElement.querySelector('.flashcard-indicator');
+    
+    if (!isCardFlipped) {
+        cardElement.classList.add('flipped');
+        content.textContent = card.answer;
+        indicator.textContent = 'Answer';
+        isCardFlipped = true;
+    } else {
+        cardElement.classList.remove('flipped');
+        content.textContent = card.question;
+        indicator.textContent = 'Question';
+        isCardFlipped = false;
     }
+}
 
-    function previousCard() {
-        if (currentCardIndex > 0) {
-            currentCardIndex--;
-            updateFlashcardDisplay();
-        }
-    }
-
-    function nextCard() {
-        if (currentCardIndex < flashcards.length - 1) {
-            currentCardIndex++;
-            updateFlashcardDisplay();
-        }
-    }
-
-    function shuffleCards() {
-        for (let i = flashcards.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [flashcards[i], flashcards[j]] = [flashcards[j], flashcards[i]];
-        }
-        currentCardIndex = 0;
+function previousCard() {
+    if (currentCardIndex > 0) {
+        currentCardIndex--;
         updateFlashcardDisplay();
-        addMessage('Flashcards shuffled! Ready for a new study session.', 'bot');
     }
+}
 
-    function updateNavigationButtons() {
-        const prevBtn = document.getElementById('prevCard');
-        const nextBtn = document.getElementById('nextCard');
-        const shuffleBtn = document.getElementById('shuffleBtn');
-        
-        if (flashcards.length === 0) {
-            prevBtn.disabled = true;
-            nextBtn.disabled = true;
-            shuffleBtn.disabled = true;
-        } else {
-            prevBtn.disabled = currentCardIndex === 0;
-            nextBtn.disabled = currentCardIndex === flashcards.length - 1;
-            shuffleBtn.disabled = false;
-        }
+function nextCard() {
+    if (currentCardIndex < flashcards.length - 1) {
+        currentCardIndex++;
+        updateFlashcardDisplay();
     }
+}
 
-    function updateFlashcardCounter() {
-        const counter = document.getElementById('flashcardCounter');
-        counter.textContent = `${flashcards.length} cards available`;
+function shuffleCards() {
+    for (let i = flashcards.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [flashcards[i], flashcards[j]] = [flashcards[j], flashcards[i]];
     }
+    currentCardIndex = 0;
+    updateFlashcardDisplay();
+    addMessage('Flashcards shuffled!', 'bot');
+}
 
-    // Utility functions
-    function logout() {
-        if (confirm('Are you sure you want to logout?')) {
-            // In a real app, this would handle logout
-            addMessage('Logout functionality would redirect to login page.', 'bot');
-        }
+function updateNavigationButtons() {
+    document.getElementById('prevCard').disabled = flashcards.length === 0 || currentCardIndex === 0;
+    document.getElementById('nextCard').disabled = flashcards.length === 0 || currentCardIndex === flashcards.length - 1;
+    document.getElementById('shuffleBtn').disabled = flashcards.length === 0;
+}
+
+function updateFlashcardCounter() {
+    document.getElementById('flashcardCounter').textContent = `${flashcards.length} cards available`;
+}
+
+// === PROGRESS TRACKING ===
+function initializeProgressTracking() {
+    loadUserProgress();
+    setInterval(() => {
+        userProgress.studyTimeTotal += 60;
+        updateProgressDisplay();
+    }, 60000);
+}
+
+function loadUserProgress() {
+    updateStudyStreak();
+    updateProgressDisplay();
+}
+
+function updateStudyStreak() {
+    const today = new Date().toDateString();
+    const lastStudy = userProgress.lastStudyDate;
+    
+    if (lastStudy) {
+        const daysDiff = Math.floor((new Date() - new Date(lastStudy)) / (1000 * 60 * 60 * 24));
+        if (daysDiff === 1) userProgress.streakDays++;
+        else if (daysDiff > 1) userProgress.streakDays = 1;
+    } else {
+        userProgress.streakDays = 1;
     }
+    
+    userProgress.lastStudyDate = today;
+    checkAchievements();
+}
 
-    // Make functions available globally
-    window.sendMessage = sendMessage;
-    window.handleFileUpload = handleFileUpload;
-    window.processPDF = processPDF;
-    window.selectFile = selectFile;
-    window.removeFile = removeFile;
-    window.startTimer = startTimer;
-    window.pauseTimer = pauseTimer;
-    window.resetTimer = resetTimer;
-    window.generateFlashcards = generateFlashcards;
-    window.createCustomFlashcard = createCustomFlashcard;
-    window.createMultipleCustomFlashcards = createMultipleCustomFlashcards;
-    window.previousCard = previousCard;
-    window.nextCard = nextCard;
-    window.shuffleCards = shuffleCards;
-    window.logout = logout;
-    // Initialize page when DOM is ready
+function updateProgressDisplay() {
+    document.getElementById('messagesCount').textContent = userProgress.messagesCount;
+    document.getElementById('totalStudyTime').textContent = Math.floor(userProgress.studyTimeTotal / 60) + 'h';
+    document.getElementById('pdfsProcessed').textContent = userProgress.pdfsProcessed;
+    document.getElementById('flashcardsCreated').textContent = userProgress.flashcardsCreated;
+    document.getElementById('streakDays').textContent = userProgress.streakDays;
+    
+    updateSkillProgress('criticalThinking', userProgress.skills.criticalThinking);
+    updateSkillProgress('problemSolving', userProgress.skills.problemSolving);
+    updateSkillProgress('researchSkills', userProgress.skills.researchSkills);
+    updateSkillProgress('studyHabits', userProgress.skills.studyHabits);
+    
+    updateAchievementsDisplay();
+    updateStudyInsights();
+}
 
-// Global error handler to surface any runtime exceptions
-window.addEventListener('error', function(event) {
-    console.error('Global error caught:', event.error || event.message, 'at', event.filename + ':' + event.lineno + ':' + event.colno);
-});
-window.addEventListener('unhandledrejection', function(event) {
-    console.error('Unhandled promise rejection:', event.reason);
-});
-// Initialize when DOM is ready
-// Initialize when DOM is ready
+function updateSkillProgress(skillName, value) {
+    const progressBar = document.getElementById(skillName + 'Progress');
+    const levelSpan = document.getElementById(skillName + 'Level');
+    
+    if (progressBar) progressBar.style.width = Math.min(value, 100) + '%';
+    
+    if (levelSpan) {
+        let level = 'Beginner';
+        if (value >= 80) level = 'Expert';
+        else if (value >= 60) level = 'Advanced';
+        else if (value >= 30) level = 'Intermediate';
+        levelSpan.textContent = level;
+    }
+}
+
+function checkAchievements() {
+    const a = userProgress.achievements;
+    if (userProgress.messagesCount >= 1 && !a.firstMessage) unlockAchievement('firstMessage', 'First Message!');
+    if (userProgress.pdfsProcessed >= 3 && !a.pdfMaster) unlockAchievement('pdfMaster', 'PDF Master!');
+    if (userProgress.flashcardsCreated >= 15 && !a.flashcardHero) unlockAchievement('flashcardHero', 'Flashcard Hero!');
+    if (userProgress.studyTimeTotal >= 1800 && !a.timeManager) unlockAchievement('timeManager', 'Time Manager!');
+    if (userProgress.streakDays >= 7 && !a.streakWarrior) unlockAchievement('streakWarrior', '7-Day Streak!');
+    if (userProgress.messagesCount >= 25 && !a.knowledgeSeeker) unlockAchievement('knowledgeSeeker', 'Knowledge Seeker!');
+    if (userProgress.messagesCount >= 10 && userProgress.flashcardsCreated >= 5 && !a.studyBuddy) unlockAchievement('studyBuddy', 'Study Buddy!');
+    
+    const hour = new Date().getHours();
+    if ((hour >= 22 || hour <= 5) && userProgress.messagesCount >= 5 && !a.nightOwl) unlockAchievement('nightOwl', 'Night Owl!');
+}
+
+function unlockAchievement(id, message) {
+    userProgress.achievements[id] = true;
+    const badge = document.getElementById(id);
+    if (badge) {
+        badge.classList.remove('locked');
+        badge.classList.add('earned');
+        showAchievementNotification(message);
+    }
+    updateAchievementsDisplay();
+}
+
+function showAchievementNotification(message) {
+    const notification = document.createElement('div');
+    notification.style.cssText = `position:fixed;top:20px;right:20px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:1rem 1.5rem;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,0.3);z-index:10000;font-weight:600;animation:slideInRight 0.5s ease`;
+    notification.innerHTML = `<i class="fas fa-trophy" style="margin-right:0.5rem;"></i>${message}`;
+    document.body.appendChild(notification);
+    setTimeout(() => notification.remove(), 3000);
+}
+
+function updateAchievementsDisplay() {
+    const earned = Object.values(userProgress.achievements).filter(Boolean).length;
+    document.getElementById('achievementsEarned').textContent = earned;
+}
+
+function updateStudyInsights() {
+    const insights = document.getElementById('studyInsights');
+    const list = [];
+    
+    if (userProgress.messagesCount === 0) {
+        list.push({ icon: 'fas fa-chart-line', text: 'Start your learning journey!' });
+    } else {
+        if (userProgress.streakDays >= 3) list.push({ icon: 'fas fa-fire', text: `${userProgress.streakDays}-day streak!` });
+        if (userProgress.messagesCount >= 10) list.push({ icon: 'fas fa-star', text: 'Getting engaged!' });
+        if (userProgress.pdfsProcessed >= 1) list.push({ icon: 'fas fa-file-pdf', text: 'Great PDF usage!' });
+        if (userProgress.flashcardsCreated >= 5) list.push({ icon: 'fas fa-brain', text: 'Flashcards working!' });
+    }
+    
+    if (list.length === 0) list.push({ icon: 'fas fa-lightbulb', text: 'Keep learning!' });
+    
+    insights.innerHTML = list.map(i => `
+        <div class="insight-item">
+            <div class="insight-icon"><i class="${i.icon}"></i></div>
+            <div class="insight-text">${i.text}</div>
+        </div>
+    `).join('');
+}
+
+function trackAction(type, value = 1) {
+    switch(type) {
+        case 'message':
+            userProgress.messagesCount++;
+            userProgress.skills.criticalThinking = Math.min(100, userProgress.skills.criticalThinking + 0.5);
+            break;
+        case 'pdf':
+            userProgress.pdfsProcessed++;
+            userProgress.skills.researchSkills = Math.min(100, userProgress.skills.researchSkills + 2);
+            break;
+        case 'flashcard':
+            userProgress.flashcardsCreated += value;
+            userProgress.skills.studyHabits = Math.min(100, userProgress.skills.studyHabits + 1);
+            break;
+        case 'timer':
+            userProgress.studyTimeTotal += value;
+            userProgress.skills.studyHabits = Math.min(100, userProgress.skills.studyHabits + 0.5);
+            break;
+        case 'quiz_mode':
+            userProgress.skills.problemSolving = Math.min(100, userProgress.skills.problemSolving + 1);
+            break;
+    }
+    updateStudyStreak();
+    checkAchievements();
+    updateProgressDisplay();
+}
+
+function logout() {
+    if (confirm('Logout?')) {
+        window.location.href = '/logout';
+    }
+}
+
+// === INITIALIZE ===
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initializePhenBot);
 } else {
-    // DOM already loaded
     initializePhenBot();
 }
+</script>
