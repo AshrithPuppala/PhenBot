@@ -1741,7 +1741,7 @@ function handleFileUpload(event) {
     });
 }
 
-function uploadFile(file) {
+async function uploadFile(file) {
     const fileItem = {
         name: file.name,
         size: (file.size / 1024 / 1024).toFixed(2),
@@ -1749,10 +1749,37 @@ function uploadFile(file) {
         file: file
     };
     
-    uploadedFiles.push(fileItem);
-    displayUploadedFile(fileItem);
-    document.getElementById('pdfActions').classList.add('show');
-    currentPDF = fileItem;
+    // Show uploading message
+    addMessage(`Uploading "${file.name}"...`, 'bot');
+    
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const response = await fetch('/api/upload-pdf', {
+            method: 'POST',
+            credentials: 'include',
+            body: formData
+        });
+        
+        if (!response.ok) {
+            throw new Error('Upload failed');
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            uploadedFiles.push(fileItem);
+            displayUploadedFile(fileItem);
+            document.getElementById('pdfActions').classList.add('show');
+            currentPDF = fileItem;
+            addMessage(`"${file.name}" uploaded successfully!`, 'bot');
+        }
+        
+    } catch (error) {
+        addMessage(`Error uploading file: ${error.message}`, 'bot');
+        console.error('Upload error:', error);
+    }
 }
 
 function displayUploadedFile(fileItem) {
@@ -1792,7 +1819,43 @@ function removeFile(fileId, fileDiv) {
 function loadUploadedFiles() {
     uploadedFiles = [];
 }
-
+function parseFlashcardsFromAIResponse(aiResponse) {
+    const flashcardRegex = /Q:\s*(.+?)\s*[|\n]\s*A:\s*(.+?)(?=\n\n|Q:|$)/gs;
+    const matches = [...aiResponse.matchAll(flashcardRegex)];
+    
+    if (matches.length > 0) {
+        const newCards = matches.map(match => ({
+            question: match[1].trim(),
+            answer: match[2].trim()
+        }));
+        
+        flashcards.push(...newCards);
+        updateFlashcardDisplay();
+        updateFlashcardCounter();
+        addMessage(`Created ${newCards.length} flashcards from PDF!`, 'bot');
+        trackAction('flashcard', newCards.length);
+    } else {
+        // Fallback: try line-by-line parsing
+        const lines = aiResponse.split('\n').filter(line => line.trim());
+        let tempCards = [];
+        
+        for (let i = 0; i < lines.length - 1; i += 2) {
+            if (lines[i] && lines[i + 1]) {
+                tempCards.push({
+                    question: lines[i].replace(/^Q:\s*/i, '').trim(),
+                    answer: lines[i + 1].replace(/^A:\s*/i, '').trim()
+                });
+            }
+        }
+        
+        if (tempCards.length > 0) {
+            flashcards.push(...tempCards);
+            updateFlashcardDisplay();
+            updateFlashcardCounter();
+            trackAction('flashcard', tempCards.length);
+        }
+    }
+}
 async function processPDF(action) {
     if (!currentPDF) {
         addMessage('Please upload and select a PDF file first.', 'bot');
@@ -1808,19 +1871,42 @@ async function processPDF(action) {
     
     addMessage(messages[action], 'bot');
     
-    setTimeout(() => {
-        const results = {
-            summarize: `Summary of "${currentPDF.name}": This document covers key concepts with fundamental principles and practical applications.`,
-            flashcards: `Created 5 flashcards from "${currentPDF.name}". Check the flashcards section!`,
-            quiz: `Generated quiz from "${currentPDF.name}": 1. What is the main concept? 2. How does this apply? 3. What are the key benefits?`,
-            outline: `Outline for "${currentPDF.name}": I. Introduction, II. Key Concepts, III. Applications, IV. Summary.`
-        };
+    try {
+        // Call the actual backend API
+        const response = await fetch('/api/process-pdf', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+                filename: currentPDF.name,
+                action: action,
+                length: responseLength
+            })
+        });
         
-        addMessage(results[action], 'bot');
-        trackAction('pdf');
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || 'PDF processing failed');
+        }
         
-        if (action === 'flashcards') generateFlashcardsFromPDF();
-    }, 2000);
+        const data = await response.json();
+        
+        if (data.result) {
+            addMessage(data.result, 'bot');
+            trackAction('pdf');
+            
+            if (action === 'flashcards' && data.result) {
+                // Parse actual flashcards from the AI response
+                parseFlashcardsFromAIResponse(data.result);
+            }
+        } else {
+            addMessage('Error: No result received from PDF processing', 'bot');
+        }
+        
+    } catch (error) {
+        addMessage(`Error processing PDF: ${error.message}`, 'bot');
+        console.error('PDF processing error:', error);
+    }
 }
 
 // === TIMER FUNCTIONS ===
@@ -2022,10 +2108,12 @@ function updateFlashcardCounter() {
 // === PROGRESS TRACKING ===
 function initializeProgressTracking() {
     loadUserProgress();
+    
+    // Update every 10 seconds for testing (change back to 60000 for production)
     setInterval(() => {
-        userProgress.studyTimeTotal += 60;
+        userProgress.studyTimeTotal += 10; // Add 10 seconds for testing
         updateProgressDisplay();
-    }, 60000);
+    }, 10000); // 10 seconds instead of 60000
 }
 
 function loadUserProgress() {
