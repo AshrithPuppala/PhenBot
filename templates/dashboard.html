@@ -1182,7 +1182,7 @@
                 <div class="chat-input-area">
                     <div class="input-container">
                         <textarea class="chat-input" id="chatInput" placeholder="Ask me anything... Try different modes for varied learning experiences!" rows="1"></textarea>
-                        <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+                        <button class="send-btn" id="sendBtn">
                             <i class="fas fa-paper-plane"></i>
                         </button>
                     </div>
@@ -1540,7 +1540,25 @@
         };
       
 function initializePhenBot() {
-    console.log('Initializing PhenBOT (robust init)...');
+    console.log('Initializing PhenBOT...');
+    
+    // Setup in correct order
+    setupModeButtons();
+    setupChatInput();
+    updateTimerDisplay();
+    setupFileUpload();
+    loadUploadedFiles();
+    setupFlashcards();
+    initializeProgressTracking();
+    
+    // Remove inline onclick handlers
+    setupAllButtonListeners();
+    
+    // Test connection after initialization
+    setTimeout(testConnection, 1000);
+    
+    console.log('PhenBOT initialization completed');
+}
 
     // Attach button listeners as early as possible so UI remains interactive
     try {
@@ -1566,29 +1584,28 @@ function initializePhenBot() {
 
     console.log('PhenBOT initialization completed (robust)');
 }
-
-        function setupAllButtonListeners() {
-    try {
-        // Timer buttons
-        const startBtn = document.getElementById('startBtn');
-        const pauseBtn = document.querySelector('.timer-btn:nth-child(2)');
-        const resetBtn = document.querySelector('.timer-btn:nth-child(3)');
-        
-        if (startBtn) {
-            startBtn.removeAttribute('onclick');
-            startBtn.addEventListener('click', startTimer);
-        }
-        
-        if (pauseBtn) {
-            pauseBtn.removeAttribute('onclick');
-            pauseBtn.addEventListener('click', pauseTimer);
-        }
-        
-        if (resetBtn) {
-            resetBtn.removeAttribute('onclick');
-            resetBtn.addEventListener('click', resetTimer);
-        }
-
+function setupAllButtonListeners() {
+    console.log('Setting up button listeners...');
+    
+    // Send button
+    const sendBtn = document.getElementById('sendBtn');
+    if (sendBtn) {
+        sendBtn.onclick = null; // Clear any existing handlers
+        sendBtn.addEventListener('click', sendMessage);
+        console.log('Send button listener attached');
+    } else {
+        console.error('Send button not found!');
+    }
+    
+    // Timer buttons
+    const startBtn = document.getElementById('startBtn');
+    if (startBtn) {
+        startBtn.onclick = null;
+        startBtn.addEventListener('click', startTimer);
+    }
+    
+    // Continue for all other buttons...
+}
         // Flashcard buttons
         const generateFlashcardsBtn = document.querySelector('.generate-flashcards-btn');
         const prevCardBtn = document.getElementById('prevCard');
@@ -2071,31 +2088,35 @@ function setupChatInput() {
     }
 
     // Chat functions
- async function sendMessage() {
+async function sendMessage() {
     console.log("sendMessage called");
     const input = document.getElementById('chatInput');
     const message = input.value.trim();
     
-    if (!message) return;
+    if (!message) {
+        console.log("Empty message, aborting");
+        return;
+    }
     
     const sendBtn = document.getElementById('sendBtn');
     sendBtn.disabled = true;
     sendBtn.innerHTML = '<div class="spinner"></div>';
     
-    // Add user message
     addMessage(message, 'user');
     input.value = '';
     input.style.height = 'auto';
     
-    // Add loading message
     const loadingMessage = addMessage('Thinking...', 'bot', true);
     
     try {
+        console.log("Sending request to /chat endpoint...");
+        
         const response = await fetch("/chat", {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
+            credentials: 'include', // Important for session handling
             body: JSON.stringify({
                 message: message,
                 mode: currentMode,
@@ -2103,30 +2124,33 @@ function setupChatInput() {
             })
         });
         
+        console.log("Response status:", response.status);
+        
         if (!response.ok) {
-            throw new Error(`Server error: ${response.status}`);
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `Server error: ${response.status}`);
         }
         
         const data = await response.json();
+        console.log("Response data:", data);
         
-        // Remove loading message
         loadingMessage.remove();
         
         if (data.response) {
             addMessage(data.response, 'bot');
         } else {
-            addMessage(`Error: ${data.error || 'No response received'}`, 'bot');
+            addMessage('Error: No response received', 'bot');
         }
+        
     } catch (error) {
-        loadingMessage.remove();
-        addMessage(`Connection error: ${error.message}. Please check if the server is running.`, 'bot');
         console.error('Chat error:', error);
+        loadingMessage.remove();
+        addMessage(`Error: ${error.message}`, 'bot');
     } finally {
         sendBtn.disabled = false;
         sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
     }
 }
-
     
 
     async function generateAIResponse(message, mode, length) {
@@ -2580,14 +2604,10 @@ window.addEventListener('unhandledrejection', function(event) {
     console.error('Unhandled promise rejection:', event.reason);
 });
 // Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, initializing...');
-    setupModeButtons();
-    setupChatInput();
-    updateTimerDisplay();
-    setupFileUpload();
-    setupFlashcards();
-    initializeProgressTracking();
-    
-    setTimeout(testConnection, 1000);
-});
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializePhenBot);
+} else {
+    // DOM already loaded
+    initializePhenBot();
+}
