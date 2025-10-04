@@ -5,3 +5,4 @@ Flask==2.3.3
 groq==0.4.1
 httpx==0.27.2
 gunicorn==21.2.0
+pip install flask-cors
